@@ -1,0 +1,267 @@
+# SKILL ISSUE 🫠
+
+> 3 stupid daily tests. 3 tries each. Same challenge for everyone on Earth today.
+
+A viral, TikTok-friendly daily mini-game site: **🎯 Draw** a perfect circle, **🔪 Cut** a blob 50/50, **🚗 BRAKE!** before the wall.
+No login needed to play. Global daily leaderboard. Every try can be saved as a vertical video clip for TikTok.
+
+This file is the **project handbook**. Read it first when picking the project up on another PC.
+
+---
+
+## 1. Quick start
+
+```bash
+cd skill-issue
+npm install
+npm run dev        # http://localhost:5173
+npm test           # vitest (geometry, daily seed, scoring)
+npm run build      # type-check + production build → dist/
+npm run lint       # oxlint
+```
+
+Works **immediately without a database**: it runs in "demo mode" (see §6).
+To enable the real global leaderboard and accounts, follow §7.
+
+---
+
+## 2. How we got here (decisions & reasoning)
+
+| Step | Decision | Why |
+|---|---|---|
+| Original idea | "Symmetry Check": draw a circle + cut a polygon 50/50 | Precision games are proven (neal.fun circle, Cutle, Eyeballing Game) |
+| Problem | The mechanics already exist (Cutle, Bisecto, Hunch Daily, neal.fun) and "49.8%" is not fun to *watch* | TikTok needs a visible, dramatic fail |
+| Added | 🚗 **BRAKE!** (stop as close to the wall as possible) | Instantly readable, real tension, funny crashes. Similar BRAKEPOINT exists only on game portals with levels and no daily/social layer |
+| Format | **3 games on one site** (like NYT Games), **3 tries/day each**, best counts | Scarcity = frustration = come back tomorrow. More chances to be #1 at something |
+| Differentiators | Daily seed for everyone, global Top 10 per game + "Grand Master", taunting roasts/badges, **video clip export**, rewarded ad for +1 try | The idea isn't new; the *format* is what makes it viral (Wordle lesson) |
+| Name | **SKILL ISSUE** | Stupid, funny, TikTok slang |
+| Stack | React + Vite + TypeScript (switched from a single vanilla HTML file) | Easier to grow, test and maintain |
+| Look | Retro pixel style inspired by [krillion.io](https://krillion.io): VT323 font, navy `#050a14`, cyan `#4de3ff`, pink `#ff5d8f`, hard pixel shadows | "Stupid on purpose" but clean and readable on video |
+| Identity | Anonymous by default + optional Google / email link (Krillion model) | Zero friction, but progress can follow you to other devices |
+| Nicknames | Reserved (unique, case-insensitive) | Nobody can impersonate the #1 player |
+
+---
+
+## 3. The games
+
+All games render on a **9:16 canvas** (logical 360×640, drawn at 2× = 720×1280) so recorded clips are TikTok-ready.
+Daily content comes from a **UTC-date-seeded PRNG** (`xmur3` + `mulberry32`) → identical for every player worldwide.
+
+### 🎯 Draw: Perfect Circle (`src/games/drawGame.ts`)
+- Draw one stroke around the center dot. Auto-finishes after a full 360°.
+- Trail color shows accuracy live (cyan = perfect → yellow → red), live % on top.
+- **Score** (0–99.9): `100 × (1 − meanRadialDeviation × 4.5) − closureGap × 25` (`circleAccuracy` in `src/lib/geometry.ts`).
+- Fails (score 0, counts as a try): too close to the dot, < 300° drawn ("That's not a circle 💀"), microscopic circle.
+- Accidental taps (< 12 points) don't cost a try.
+
+### 🔪 Cut 50/50 (`src/games/cutGame.ts`)
+- Daily asymmetric 7–9 vertex blob (`dailyShape(date)`), random hue, **googly eyes** that look at your finger and get sliced.
+- Drag one straight line. Exact areas via **Sutherland–Hodgman** half-plane clipping + **Shoelace** formula (works for concave shapes).
+- Halves drift apart, percentages shown on each half, synthesized slice sound.
+- **Score**: `100 − |pct − 50| × 4` (49.8/50.2 → 99.2).
+- Missing the blob doesn't cost a try.
+- After your last try: the **#1 player's cut** appears as a dashed gold line ("👑 #1's cut").
+
+### 🚗 BRAKE! (`src/games/brakeGame.ts`)
+- Daily road (☀️ dry / 🌧️ wet / 🧊 black ice), speed 55–100 km/h and wall distance (`brakeParams(date)`).
+- Tap → 3-2-1-GO → car drives at constant speed → tap/Space to brake (constant deceleration).
+- Physics is **analytic** and uses the exact event timestamp, not frame time, so precision isn't limited by FPS.
+- Clean stop → camera **zooms into the gap** with a measuring arrow ("0.4 cm 😱"). Overshoot → 💥 crash, shake, debris, score 0.
+- **Score**: `100 × e^(−gapCm / 200)` (1 cm ≈ 99.5, 10 cm ≈ 95, 1 m ≈ 61).
+
+### Shared rules
+- **3 tries per game per day**, best counts. +1 try per game via rewarded ad.
+- Overall score = sum of best scores (0–300) → "Grand Master" leaderboard.
+- Emoji per try: 🟩 ≥ 95, 🟨 ≥ 80, 🟥 below, 💥 fail/crash.
+- Badges & roasts in `src/lib/scoring.ts` (e.g. "Laser-Guided Robot 🤖", "Blindfolded Potato 🥔", "Insurance Fraud 💥").
+- New day at **00:00 UTC** (countdown on screen). Day number `#N` counts from `LAUNCH_DATE` in `src/config.ts`.
+
+---
+
+## 4. Viral & money features
+
+| Feature | Where | How it works |
+|---|---|---|
+| **Share card + socials** | `lib/shareCard.ts`, `components/ShareModal.tsx` | "📤 share" draws a 1080×1920 PNG card (logo, test #, the actual game frame, result, roast, badge, emoji row, rank, "played by", "can you beat me? → link"). "Share my day" on home makes a 3-test summary card. Buttons: **TikTok / Instagram** (no web share links exist, so they open the phone's native share sheet with the image, or download + copy text on desktop), plus [react-share](https://github.com/nygardk/react-share) links for Facebook, X, WhatsApp, Telegram, Threads, Bluesky, Reddit; also save image / copy text. |
+| **Share result** | `shareText()` in `scoring.ts` | Copies a Wordle-style text: `SKILL ISSUE #1 🫠 / 🎯 Draw: 96.2% 🟨🟩 (#4 today) / … / 🏆 287.4/300 · #12 worldwide / link` |
+| **Save clip for TikTok** | `src/lib/clip.ts` | Each try is recorded from the canvas (`captureStream` + `MediaRecorder`, mp4 if supported else webm) **with the game sound**. The clip includes the result stamp, roast and `SKILL ISSUE #N` watermark. On phones it opens the native share sheet (→ TikTok/Instagram/WhatsApp); on desktop it downloads the file. 100% in-browser, no server. |
+| **Bottom ad banner** | `src/components/AdBanner.tsx` | Fixed 320×50 slot, space reserved in CSS → zero layout shift. Instructions for AdSense/Adsterra in the file. |
+| **Rewarded ad (+1 try)** | `src/components/RewardedAdModal.tsx` | **Disabled for now** (`REWARDED_ADS = false` in `config.ts`). Currently a 5-second placeholder. Replace with a real rewarded unit and call `onReward()` from its "reward granted" callback. |
+| **Confetti** | `GameScreen.tsx` | On scores ≥ 95 (off in low-power mode). |
+| **Streak rewards** | `CAR_SKINS` in `config.ts`, garage in ⚙️ | BRAKE! car skins unlock at 3/7/14/30-day best streak. |
+| **Settings & stats** | `SettingsModal.tsx` | Low-power, colorblind (🟧🟦⬛ emoji + orange/blue palette), share-link toggle, my stats, garage. |
+| **Privacy page** | `PrivacyPage.tsx` (`#privacy`) | Plain-language notice. Fill in contact email + ad/CMP provider before launch. |
+| **Auto names & auto-save** | `randomName()` in `store.ts`, `ResultPanel.tsx` | Every player gets a silly random name on first visit (e.g. `WobblyPotato42`). Every try is saved to the leaderboard automatically, with no "Submit" step. Result card shows "✅ saved to today's top 10 #5" and "playing as X ✏️ change name". Online, the name is claimed on the server automatically (re-rolled if taken). |
+| **"You" on the leaderboard** | `Leaderboard.tsx` | Your row is cyan with a pink marker and flashes when updated; "▶ you're #N today" under the table. |
+| **Top bar** | `App.tsx` | ☰ menu (left) · small **SKILL ISSUE** logo linking home on every sub-page, like Krillion (home keeps the big logo) · 🔊 / ⚙️ (right). No "← home" buttons. |
+| **☰ Menu** | `MenuModal.tsx` | Krillion-style tile menu; "soon" tiles tease upcoming features; TikTok + feedback links from `LINKS` in `config.ts`. |
+| **My Skill Issue / FAQ** | `MePage.tsx` (`#me`), `FaqPage.tsx` (`#faq`) | Clean logbook in "My Krillion" style (dashed section labels, 4-cell stat strip, list rows, garage tiles with pixel cars): an always-visible **"keep your scores together."** box (Google / email), a "play with your friends · soon" box, stats, today, garage. Without Supabase the account buttons show "accounts aren't live yet". Plus the rules/scoring FAQ. |
+
+---
+
+## 5. Inspiration: what we took from krillion.io
+
+[Krillion](https://krillion.io) ("the daily dive") is a solo-dev daily game with the exact model we want: free, daily, anonymous-first, ad-funded. Reviewed on 2026-11-12.
+
+| Krillion feature | What it does | Us |
+|---|---|---|
+| Retro pixel look (VT323, navy `#050a14`, cyan/pink) | Strong, simple identity | ✅ done (our theme) |
+| Daily number ("dive #120"), same for everyone | Shareable, comparable | ✅ `SKILL ISSUE #N` |
+| **☰ Main menu**: modal with 2-column pixel tiles (Daily, Unlimited, Party, Archive, Packs, My Krillion, Friends, Settings, FAQ), current page in pink, link cards (Merch ↗, sister game ↗), footer tagline | One place for everything, very "app-like" | ✅ done: ☰ top-left → Today/Draw/Cut/Brake (with today's emoji row), My Skill Issue, Settings, FAQ, Privacy, plus **"soon"** tiles (Archive, Practice, Friends, Brake Battle), link cards (TikTok ↗, Feedback ↗), "it's a skill issue." |
+| Collapsible **"▸ how to play"** with 5–6 short lowercase lines | Zero-friction onboarding | ✅ done (home + `#how`) |
+| **Settings**: low-power mode, colorblind mode, "add link under shared results" toggle | Accessibility & performance on cheap phones | ✅ done (⚙️ top-right). Our share link defaults **ON** (virality), theirs OFF |
+| **"My Krillion" logbook page**: account, stats (current/best streak, days played, best score), completed games, earned buddies | Retention, one history | ✅ done: **"My Skill Issue"** page (`#me`): account card, stats, today's results, garage |
+| **FAQ page** | Answers scoring/rules questions | ✅ done (`#faq`) |
+| **Wardrobe**: dive-buddy mascots unlocked at 5/14/30/45-day streaks | Streak rewards keep people coming back | ✅ done as a **garage**: BRAKE! car skins at 3/7/14/30-day streaks |
+| Anonymous play + "Continue with Google" to sync devices | No friction, optional account | ✅ done (+ email magic link) |
+| **Asks to merge this device's history when signing in** | No lost progress when logging in on a new device | ⏳ TODO (we currently warn that guest tries won't merge; needs a server `merge_guest` step) |
+| **Privacy page** + footer links (privacy, FAQ, socials) | Required for ads/GDPR, builds trust | ✅ privacy (`#privacy`) + FAQ (`#faq`); social/feedback links in `LINKS` (`config.ts`) |
+| **Cookie consent banner (CMP)**: consentmanager.net with Reject all / Settings / "Update Privacy Settings" link | **Legally required** in EU/UK for personalized ads; Google requires a certified CMP | ⏳ TODO before enabling ads (Google "Privacy & messaging" or consentmanager/Cookiebot) |
+| Ads via Google Ad Manager (GPT) + Google Analytics | Monetization + metrics | ⏳ TODO (banner slot ready) |
+| **One-time $5 unlock (Stripe Payment Link)** = removes ads site-wide + unlocks archive/unlimited; "Restore on another device" | Second revenue stream, no subscription | ⏳ TODO idea: "SKILL ISSUE+": no ads, unlimited practice mode, archive of past days |
+| **Archive** (replay past days; replays don't extend streak) | Content for new players | ⏳ TODO (easy: the daily seed already supports any date) |
+| **Unlimited / themed packs** | Endless play | ⏳ TODO (practice mode with random seed, not ranked) |
+| **Friends leaderboard** via invite link | Social pressure, small groups | ⏳ TODO (`friends` table + invite token in URL hash) |
+| **Live multiplayer party mode** ("Puffer Party", live player count) | Huge engagement spike | 💡 later (e.g. live BRAKE! battle rooms via Supabase Realtime) |
+| Mascot with personality ("a friend… blub!") | Brand, shareability | 💡 idea: our blob from Cut 50/50 as the mascot |
+| OG image 1200×630, Google site verification | Nice link previews, SEO | ⏳ TODO |
+| Merch, Instagram, subreddit; warns about **impersonator accounts** | Community | 💡 reserve @skillissue handles early (TikTok, IG, X) |
+| Day resets at midnight **ET** | US-centric audience | We keep **00:00 UTC** (fair worldwide). Revisit if the audience is mostly US |
+
+---
+
+## 6. Player identity: how it works
+
+### A) Today: no database connected → "demo mode"
+Everything is stored in **this browser's `localStorage`** (`skillissue:v1`, `skillissue:mocklb`).
+- A random `playerId` is created silently; the player just plays.
+- Tries, nickname and streak are saved locally.
+- Leaderboard = **demo board**: seeded fake bots + you, labelled "🧪 demo".
+- Same browser later → everything still there. Other device / incognito / cleared data → new player, progress lost.
+- Account card ("save progress") is **hidden** in this mode.
+
+### B) Supabase connected, no account → "guest" (default for everyone)
+- First visit → Supabase **anonymous sign-in** happens silently (no login screen). Session token stored in the browser.
+- Every try is sent to the server (`record_attempt`). **The server counts tries**, so a 4th one is refused unless a bonus was granted.
+- Every player gets a random silly name; it's claimed automatically (`set_nickname`, re-rolled if taken). Every try appears on the board automatically. "✏️ change name" renames (unique, "taken 😤" if not).
+- Real global leaderboard (only players with a nickname are listed).
+- Same browser later → same guest, state loaded from the server (`get_my_state`).
+- Other device / cleared data → a *new* guest (old progress stays on the server but is unreachable). Hence →
+
+### C) Supabase connected, with account (Google or email linked)
+- After setting a nickname, players see **"🔒 save your progress"** with `continue with google` or `email → send link`.
+- Linking **does not create a new player**: Google/email is attached to the *same* user id → nickname, scores, streak are kept.
+- **New device**: open the site (silently a new guest) → press the **same buttons**:
+  - Google already linked to a player → "that Google account already has a player, switch to it?" → logs in.
+  - Email already registered → a login link is emailed.
+  - Then nickname, today's tries, streak and leaderboard spot are loaded. The 3-try limit is shared across devices.
+- **Sign out** → becomes a fresh anonymous guest; account data stays on the server.
+
+| | Demo (now) | Guest | Account |
+|---|---|---|---|
+| Login needed | no | no | one tap (optional) |
+| Real global leaderboard | ❌ | ✅ | ✅ |
+| Reserved nickname | ❌ | ✅ | ✅ |
+| 3 tries enforced by server | ❌ | ✅ | ✅ |
+| Survives clearing browser data | ❌ | ❌ | ✅ |
+| Continue on another device | ❌ | ❌ | ✅ |
+
+Known limitation: guest tries made on a new device are **not merged** when you then log into an existing account (the UI warns before switching).
+
+---
+
+## 7. Connecting Supabase (real leaderboard + accounts)
+
+**Status: NOT connected yet. There is no database at the moment.**
+
+1. Create a free project at [supabase.com](https://supabase.com).
+2. **SQL Editor** → paste and run [`supabase/schema.sql`](supabase/schema.sql). The same SQL is also in the comment at the top of `src/lib/leaderboard.ts`.
+3. **Authentication → Providers / Sign In**: enable **Anonymous sign-ins**, **Email**, **Google** (needs a Google Cloud OAuth client), and **Manual linking**.
+4. **Authentication → URL Configuration**: set Site URL and add your domains (and `http://localhost:5173`) to Redirect URLs.
+5. `cp .env.example .env` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Project Settings → API). `.env` is git-ignored.
+6. Restart `npm run dev`. The demo label disappears, and the account card shows up after a nickname is set.
+
+### Database design (`supabase/schema.sql`)
+| Object | Purpose |
+|---|---|
+| `profiles(id → auth.users, nickname)` | Unique case-insensitive nickname per player |
+| `attempts` | Every try (user, UTC date, mode, score, detail). Enables server-side try limit and cross-device resume |
+| `bonuses` | +1 try per mode/day (rewarded ad) |
+| `daily_scores` | Best score per (user, day, mode) → leaderboards |
+| `record_attempt(mode, score, detail)` | Validates input, **server decides the date**, enforces 3 (+bonus) tries, updates the best score |
+| `grant_bonus(mode)` | Adds the +1 try |
+| `set_nickname(name)` | Claims/renames; raises `nickname_taken` |
+| `get_my_state()` | Nickname, today's tries, bonuses, played dates (streak) for a returning player |
+| `get_leaderboard(mode)` | Today's Top 10 (+ your own row if outside) for `draw`/`cut`/`brake`/`overall`; never exposes user ids, only `is_me` |
+
+Security: RLS is on for all tables. Players can only read their own rows, and **all writes go through the `SECURITY DEFINER` functions above**.
+
+---
+
+## 8. Project structure
+
+```
+skill-issue/
+├── index.html                 # meta/OG tags, root
+├── .env.example               # Supabase keys template
+├── supabase/schema.sql        # full DB setup (tables, RLS, RPC functions)
+└── src/
+    ├── config.ts              # Supabase placeholders, game name, LAUNCH_DATE, modes, colors
+    ├── App.tsx                # hash routing (#draw/#cut/#brake/#me/#faq/#privacy), menu, day rollover, mute, toasts
+    ├── index.css              # retro pixel theme
+    ├── games/                 # pure canvas engines (no React)
+    │   ├── types.ts           # Game interface, stage size, palette
+    │   ├── canvas.ts          # drawing helpers (grid, scanlines, banner stamp, text)
+    │   ├── drawGame.ts | cutGame.ts | brakeGame.ts | lockedGame.ts
+    ├── components/            # React UI
+    │   ├── Home.tsx           # game cards, total, Grand Master board, account card
+    │   ├── GameScreen.tsx     # one attempt = one game instance; result timing; clip; ads
+    │   ├── GameCanvas.tsx     # render loop + pointer/keyboard → game
+    │   ├── ResultPanel.tsx    # score, badge, retry/ad/next, clip, share, nickname
+    │   ├── MenuModal.tsx      # ☰ Krillion-style tile menu
+    │   ├── SettingsModal.tsx  # settings toggles
+    │   ├── MePage.tsx         # #me: account, stats, today, car garage
+    │   ├── FaqPage.tsx        # #faq
+    │   ├── PrivacyPage.tsx    # #privacy
+    │   ├── Leaderboard.tsx | AccountCard.tsx | RewardedAdModal.tsx | AdBanner.tsx | Countdown.tsx
+    └── lib/
+        ├── store.ts           # zustand + localStorage (versioned + migrate): player, tries, streak, stats, settings, skin
+        ├── auth.ts            # anonymous auth, Google/email linking, sign out, sync
+        ├── supabase.ts        # lazy Supabase client (only loaded when configured)
+        ├── leaderboard.ts     # SQL (comment) + record/claim/bonus/fetch + demo board
+        ├── scoring.ts         # formatting, badges, roasts, emoji, share text
+        ├── geometry.ts        # clipping, shoelace, centroid, circle accuracy
+        ├── daily.ts           # seeded PRNG, UTC dates, countdown
+        ├── audio.ts           # Web Audio synthesized SFX (slice, crash, screech, engine…)
+        ├── clip.ts            # canvas+audio recorder, share/download
+        └── ui.ts              # toasts, ranks, leaderboard refresh
+```
+
+Libraries: `react`, `zustand` (state), `motion` (UI animation), `canvas-confetti`, `react-share` (social share buttons), `@supabase/supabase-js` (lazy), `vitest`, `oxlint`.
+
+---
+
+## 9. Status & next steps
+
+**Done & verified in the browser (demo mode):** all 3 games, scoring, results, nickname, per-game and overall leaderboards, tries/ad flow, share text, clip button, home/totals/streak, how-to-play, ☰ menu, My Skill Issue page, FAQ, desktop layout (games left · sticky leaderboard right, 4-column menu), settings (low-power / colorblind / share link), stats, garage, privacy page, storage migration. Type-check, tests and build all pass.
+
+**Not done / not verified yet:**
+- [ ] Create the Supabase project and run `schema.sql` (the SQL has **not** been executed against a real database yet).
+- [ ] Configure the Google OAuth client and email templates in Supabase.
+- [ ] Test guest → link Google/email → new device login end-to-end.
+- [ ] **Cookie consent (CMP)** before any ads/analytics in EU/UK (Google Privacy & messaging, consentmanager.net or Cookiebot) + "update privacy settings" link in the footer.
+- [ ] Real ad network: banner (AdSense/Adsterra/Ad Manager) + rewarded unit in `RewardedAdModal`.
+- [ ] Privacy page: real contact email, ad/CMP vendor names. Replace `LINKS` (TikTok handle, feedback email) in `config.ts`.
+- [ ] Merge guest history on sign-in (ask first, like Krillion).
+- [ ] Archive (replay past days, no streak) + unlimited practice mode (random seed, unranked).
+- [ ] Friends leaderboard via invite link.
+- [ ] Optional one-time unlock "SKILL ISSUE+" (Stripe Payment Link): no ads + archive + unlimited, restorable via account.
+- [ ] Analytics (privacy-friendly, e.g. Plausible, or GA4 behind consent).
+- [ ] Reserve social handles early (TikTok/IG/X) to avoid impersonators.
+- [ ] Domain + deploy (any static host: Vercel / Netlify / Cloudflare Pages → `npm run build`, serve `dist/`).
+- [ ] OG share image (1200×630) for nice link previews.
+- [ ] Test clip export on real iPhone/Android (MediaRecorder support varies; Safari records mp4).
+- [ ] Balance tuning after real players (circle scoring factor 4.5, brake decay 200 cm, road params).
+- [ ] Ideas: live multiplayer BRAKE! rooms, country flags on the board, blob mascot, more streak cosmetics (circle trail colors, blob hats).
+
+**Known limitations:** client-side scores can still be faked by a determined cheater (the server validates range and try count, not the gameplay itself). Possible future fix: send raw input (cut line / stroke / brake time) and recompute the score server-side.
