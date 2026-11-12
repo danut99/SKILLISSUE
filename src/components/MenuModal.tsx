@@ -1,13 +1,11 @@
 import { AnimatePresence, motion } from 'motion/react';
-import { LINKS, MODE_INFO, MODES } from '../config';
-import { emojiRow } from '../lib/scoring';
-import { maxTries, modeDay, usePlayer } from '../lib/store';
+import { LINKS } from '../config';
 import type { Route } from '../App';
+import { PixelIcon, type PixelIconName } from './PixelIcon';
 
 interface Props {
   open: boolean;
   route: Route;
-  date: string;
   onClose: () => void;
   onNavigate: (r: Route) => void;
   onSettings: () => void;
@@ -15,7 +13,7 @@ interface Props {
 
 interface Tile {
   id: string;
-  icon: string;
+  icon?: PixelIconName;
   label: string;
   sub?: string;
   route?: Route;
@@ -24,31 +22,19 @@ interface Tile {
 }
 
 /** Krillion-style main menu: big pixel tiles in a 2-column grid. */
-export function MenuModal({ open, route, date, onClose, onNavigate, onSettings }: Props) {
-  const days = usePlayer((s) => s.days);
-
-  const play: Tile[] = [
-    { id: 'home', icon: '🫠', label: 'today', sub: 'all 3 tests', route: null },
-    ...MODES.map((m) => {
-      const md = modeDay(days, date, m);
-      return {
-        id: m,
-        icon: MODE_INFO[m].emoji,
-        label: MODE_INFO[m].name,
-        sub: emojiRow(md) + '⬜'.repeat(Math.max(0, maxTries(md) - md.tries.length)),
-        route: m,
-      };
-    }),
+export function MenuModal({ open, route, onClose, onNavigate, onSettings }: Props) {
+  const options: Tile[] = [
+    { id: 'home', icon: 'calendar', label: 'home', route: null },
+    { id: 'me', icon: 'profile', label: 'my skill issue', route: 'me' },
+    { id: 'friends', icon: 'friends', label: 'friends', route: 'friends' },
+    { id: 'party', icon: 'battle', label: 'party', sub: '2-8 players', route: 'party' },
+    { id: 'settings', icon: 'settings', label: 'settings', action: onSettings },
+    { id: 'faq', icon: 'faq', label: 'faq', route: 'faq' },
+    { id: 'privacy', icon: 'privacy', label: 'privacy', route: 'privacy' },
   ];
-  const more: Tile[] = [
-    { id: 'me', icon: '👤', label: 'my skill issue', route: 'me' },
-    { id: 'settings', icon: '⚙️', label: 'settings', action: onSettings },
-    { id: 'faq', icon: '❓', label: 'faq', route: 'faq' },
-    { id: 'privacy', icon: '🔏', label: 'privacy', route: 'privacy' },
-    { id: 'archive', icon: '⟲', label: 'archive', soon: true },
-    { id: 'unlimited', icon: '∞', label: 'practice', soon: true },
-    { id: 'friends', icon: '👯', label: 'friends', soon: true },
-    { id: 'party', icon: '💥', label: 'brake battle', soon: true },
+  const upcoming: Tile[] = [
+    { id: 'archive', icon: 'archive', label: 'archive', soon: true },
+    { id: 'unlimited', icon: 'practice', label: 'practice', soon: true },
   ];
 
   const click = (t: Tile) => {
@@ -65,7 +51,7 @@ export function MenuModal({ open, route, date, onClose, onNavigate, onSettings }
       onClick={() => click(t)}
       disabled={t.soon}
     >
-      <span className="mt-icon">{t.icon}</span>
+      {t.icon && <span className="mt-icon"><PixelIcon name={t.icon} size={48} /></span>}
       <span className="mt-label">{t.label}</span>
       {t.sub && <span className="mt-sub">{t.sub}</span>}
       {t.soon && <span className="mt-soon">soon</span>}
@@ -94,29 +80,31 @@ export function MenuModal({ open, route, date, onClose, onNavigate, onSettings }
               </button>
             </header>
 
-            <p className="menu-rule">
-              <span>play today</span>
-            </p>
-            <div className="menu-grid">{play.map(renderTile)}</div>
+            <div className="menu-grid">{options.map(renderTile)}</div>
+            <p className="menu-rule"><span>coming soon</span></p>
+            <div className="menu-grid">{upcoming.map(renderTile)}</div>
 
-            <p className="menu-rule">
-              <span>more</span>
-            </p>
-            <div className="menu-grid">{more.map(renderTile)}</div>
-
-            {LINKS.tiktok && (
+            {LINKS.tiktok ? (
               <a className="menu-link pink" href={LINKS.tiktok} target="_blank" rel="noopener">
-                <span className="ml-icon">🎵</span>
+                <span className="ml-icon"><PixelIcon name="social" size={32} /></span>
                 <span className="ml-copy">
                   <span className="ml-label">follow on tiktok</span>
                   <span className="ml-detail">fails, crashes &amp; daily top 10</span>
                 </span>
                 <span className="ml-arrow">↗</span>
               </a>
+            ) : (
+              <button className="menu-link pink" disabled>
+                <span className="ml-icon"><PixelIcon name="social" size={32} /></span>
+                <span className="ml-copy">
+                  <span className="ml-label">TikTok</span>
+                  <span className="ml-detail">Coming soon</span>
+                </span>
+              </button>
             )}
             {LINKS.feedback && (
               <a className="menu-link cyan" href={LINKS.feedback}>
-                <span className="ml-icon">💬</span>
+                <span className="ml-icon"><PixelIcon name="feedback" size={32} /></span>
                 <span className="ml-copy">
                   <span className="ml-label">ideas &amp; feedback</span>
                   <span className="ml-detail">suggest the next stupid test</span>

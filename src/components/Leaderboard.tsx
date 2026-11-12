@@ -1,20 +1,29 @@
 import { useEffect, useRef, useState } from 'react';
-import type { BoardMode } from '../config';
-import { fetchBoard, type Board } from '../lib/leaderboard';
+import type { BoardMode, LeaderboardPeriod } from '../config';
+import { fetchAllTimeBoard, fetchBoard, type Board } from '../lib/leaderboard';
 import { fmtResult } from '../lib/scoring';
 import { useUi } from '../lib/ui';
+import { fetchFriendsBoard } from '../lib/friends';
+import { useAuth } from '../lib/auth';
+import { PixelIcon } from './PixelIcon';
 
 interface Props {
   mode: BoardMode;
   date: string;
   title: string;
   onLoad?: (b: Board) => void;
+  scope?: 'global' | 'friends';
 }
 
-export function Leaderboard({ mode, date, title, onLoad }: Props) {
+export function Leaderboard({ mode, date, title, onLoad, scope = 'global' }: Props) {
+  const [period, setPeriod] = useState<LeaderboardPeriod>('daily');
   const version = useUi((s) => s.boardVersion);
   const setRank = useUi((s) => s.setRank);
-  const [board, setBoard] = useState<Board | null>(null);
+  const userId = useAuth((s) => s.userId);
+  const requestKey = `${date}:${mode}:${scope}:${period}:${version}:${userId}`;
+  const [result, setResult] = useState<{ key: string; board: Board | null; error?: string } | null>(null);
+  const board = result?.key === requestKey ? result.board : null;
+  const error = result?.key === requestKey ? result.error : null;
   const onLoadRef = useRef(onLoad);
   const meRef = useRef<HTMLTableRowElement | null>(null);
   useEffect(() => {
@@ -23,40 +32,67 @@ export function Leaderboard({ mode, date, title, onLoad }: Props) {
 
   useEffect(() => {
     let alive = true;
-    fetchBoard(date, mode)
+    const request = scope === 'friends' ? fetchFriendsBoard(mode, period)
+      : period === 'all-time' ? fetchAllTimeBoard(date, mode) : fetchBoard(date, mode);
+    request
       .then((b) => {
         if (!alive) return;
-        setBoard(b);
-        setRank(mode, b.myRank);
-        onLoadRef.current?.(b);
+        setResult({ key: requestKey, board: b });
+        if (period === 'daily') {
+          if (scope === 'global') setRank(mode, b.myRank);
+          onLoadRef.current?.(b);
+        }
       })
-      .catch(() => alive && setBoard({ rows: [], myRank: null, source: 'demo' }));
+      .catch(() => {
+        if (alive) setResult({ key: requestKey, board: null, error: 'Could not load scores. Please try again.' });
+      });
+    // Result cards and the cut ghost always use today's rank and best cut.
+    if (period === 'all-time' && scope === 'global') {
+      fetchBoard(date, mode).then(daily => {
+        if (!alive) return;
+        setRank(mode, daily.myRank);
+        onLoadRef.current?.(daily);
+      }).catch(() => { /* The selected board reports its own loading error. */ });
+    }
     return () => {
       alive = false;
     };
-  }, [date, mode, version, setRank]);
+  }, [date, mode, scope, period, requestKey, setRank]);
 
   const top = board?.rows.filter((r) => r.rank <= 10) ?? [];
   const meOutside = board?.rows.find((r) => r.is_me && r.rank > 10);
+  const formatScore = (row: Board['rows'][number]) => period === 'all-time'
+    ? row.score.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+    : fmtResult(mode, row);
 
   return (
     <div className="card lb-card">
-      <h3>{title}</h3>
-      {!board ? (
+      <h3 className="leaderboard-heading"><PixelIcon name="trophy" />{title}</h3>
+      <div className="leaderboard-period" role="group" aria-label="Leaderboard period">
+        <button type="button" aria-pressed={period === 'daily'} onClick={() => setPeriod('daily')}>Daily</button>
+        <button type="button" aria-pressed={period === 'all-time'} onClick={() => setPeriod('all-time')}>All-time</button>
+      </div>
+      <p className="leaderboard-period-note">{period === 'daily' ? "Today's best scores" : 'Total points · best score per game per day'}</p>
+      {error ? (
+        <div className="lb-empty" role="alert">
+          <p>{error}</p>
+          <button className="btn btn-ghost btn-sm" onClick={() => useUi.getState().refreshBoards()}>Try again</button>
+        </div>
+      ) : !board ? (
         <div className="lb-empty">loading…</div>
       ) : top.length === 0 ? (
-        <div className="lb-empty">No scores yet today. Be the first legend.</div>
+        <div className="lb-empty">{period === 'daily' ? 'No scores yet today. Be the first legend.' : 'No scores yet. Be the first legend.'}</div>
       ) : (
-        <table className="lb">
+        <table className={`lb ${period === 'all-time' ? 'lb-all-time' : ''}`} aria-label={`${period === 'daily' ? 'Daily' : 'All-time'} rankings`}>
           <tbody>
             {top.map((r) => (
               <tr key={r.rank} className={r.is_me ? 'me' : ''} ref={r.is_me ? meRef : undefined}>
-                <td>{r.rank === 1 ? '👑' : `#${r.rank}`}</td>
+                <td>#{r.rank}</td>
                 <td className="nick">
                   {r.nickname}
                   {r.is_me && ' (you)'}
                 </td>
-                <td>{fmtResult(mode, r)}</td>
+                <td>{formatScore(r)}</td>
               </tr>
             ))}
             {meOutside && (
@@ -67,15 +103,15 @@ export function Leaderboard({ mode, date, title, onLoad }: Props) {
                 <tr className="me" ref={meRef}>
                   <td>#{meOutside.rank}</td>
                   <td className="nick">{meOutside.nickname} (you)</td>
-                  <td>{fmtResult(mode, meOutside)}</td>
+                  <td>{formatScore(meOutside)}</td>
                 </tr>
               </>
             )}
           </tbody>
         </table>
       )}
-      {board?.myRank && <div className="lb-you">▶ you're <b>#{board.myRank}</b> today</div>}
-      {board?.source === 'demo' && <div className="lb-note">🧪 demo board (bots + you) — connect Supabase for the real global one</div>}
+      {board?.myRank && <div className="lb-you">▶ you're <b>#{board.myRank}</b> {period === 'daily' ? 'today' : 'all-time'}</div>}
+      {board?.source === 'demo' && <div className="lb-note">demo board (bots + you) — connect Supabase for the real global one</div>}
     </div>
   );
 }

@@ -1,0 +1,76 @@
+import { isOnline, whenAuthReady } from './auth';
+import { ensureNickname } from './leaderboard';
+import { getSupabase } from './supabase';
+import type { AttemptResult } from '../games/types';
+
+export const PARTY_ROUNDS = [
+  { mode: 'draw', shape: 'circle', seconds: 16, level: 'Warm-up', complexity: 0 },
+  { mode: 'cut', shape: 'circle', seconds: 16, level: 'Steady hands', complexity: 0 },
+  { mode: 'draw', shape: 'square', seconds: 16, level: 'Corners count', complexity: 0 },
+  { mode: 'cut', shape: 'circle', seconds: 16, level: 'Under pressure', complexity: 1 },
+  { mode: 'draw', shape: 'triangle', seconds: 16, level: 'No hesitation', complexity: 0 },
+  { mode: 'cut', shape: 'circle', seconds: 16, level: 'Final chaos', complexity: 2 },
+] as const;
+export const PARTY_REVEAL_SECONDS = 6;
+export const PARTY_DURATION = PARTY_ROUNDS.reduce((n, r) => n + r.seconds + PARTY_REVEAL_SECONDS, 0);
+export interface PartyPlayer {
+  name: string; is_me: boolean; is_host: boolean; ready: boolean;
+  results: { round: number; score: number | null }[];
+}
+export interface PartyRoom {
+  token: string; match_no: number; started_at: string | null; expires_at: string;
+  server_now: string; is_host: boolean; joined: boolean; players: PartyPlayer[];
+}
+export type PartyPhase = { kind: 'lobby' | 'countdown' | 'playing' | 'reveal' | 'finished'; round: number; secondsLeft: number; start: number; end: number };
+export function partyRoundOffset(round: number): number {
+  return PARTY_ROUNDS.slice(0, round).reduce((sum, r) => sum + r.seconds + PARTY_REVEAL_SECONDS, 0);
+}
+export function partyPhase(startedAt: string | null, now: number): PartyPhase {
+  if (!startedAt) return { kind: 'lobby', round: 0, secondsLeft: 0, start: 0, end: 0 };
+  const start = Date.parse(startedAt);
+  if (now < start) return { kind: 'countdown', round: 0, secondsLeft: (start - now) / 1000, start, end: start };
+  for (let round = 0; round < PARTY_ROUNDS.length; round++) {
+    const roundStart = start + partyRoundOffset(round) * 1000;
+    const end = roundStart + PARTY_ROUNDS[round].seconds * 1000;
+    const revealEnd = end + PARTY_REVEAL_SECONDS * 1000;
+    if (now < revealEnd) return { kind: now < end ? 'playing' : 'reveal', round, secondsLeft: (now < end ? end - now : revealEnd - now) / 1000, start: roundStart, end };
+  }
+  return { kind: 'finished', round: 5, secondsLeft: 0, start, end: start + PARTY_DURATION * 1000 };
+}
+export function partyStandings(players: PartyPlayer[], revealedThrough: number) {
+  const rows = players.map(player => ({ ...player, total: Math.round(player.results.reduce((sum, result) => sum + (result.round <= revealedThrough ? result.score ?? 0 : 0), 0) * 100) / 100 }));
+  rows.sort((a, b) => b.total - a.total || a.name.localeCompare(b.name));
+  return rows.map((row, index) => ({ ...row, rank: rows.findIndex(r => r.total === row.total) + 1, order: index }));
+}
+export function readPartyToken(hash: string): string | null {
+  return /^#party\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(hash)?.[1] ?? null;
+}
+export function partyUrl(token: string, base = location.href) {
+  const url = new URL(base); url.search = ''; url.hash = `party/${token}`; return url.href;
+}
+const ERRORS: Record<string, string> = {
+  invalid_room: 'This room has expired or no longer exists.', room_full: 'This room is full (8 players).',
+  already_started: 'This party has already started. Join the next match.', not_joined: 'Join the room first.',
+  host_only: 'Only the host can do that.', need_players: 'You need at least 2 players.',
+  not_ready: 'Wait until everyone is ready.', round_closed: 'The round ended. No score was received in time.',
+  wrong_match: 'A new match has started. Rejoin the current round.', match_not_finished: 'Wait until the match finishes.',
+  room_limit: 'You already have 10 active rooms. Reuse one of your invite links.',
+};
+async function rpc<T>(name: string, args = {}): Promise<T> {
+  await whenAuthReady(); const sb = await getSupabase();
+  if (!sb || !isOnline()) throw new Error('Party Mode needs an online connection.');
+  const { data, error } = await sb.rpc(name, args);
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === '42P01') throw new Error('Party Mode is not set up yet. Apply the party rooms database migration.');
+    for (const [key, message] of Object.entries(ERRORS)) if (error.message.includes(key)) throw new Error(message);
+    throw new Error('Could not connect to the party. Please try again.');
+  }
+  return data as T;
+}
+export async function createPartyRoom() { await whenAuthReady(); await ensureNickname(); return rpc<PartyRoom>('create_party_room'); }
+export const getPartyRoom = (token: string) => rpc<PartyRoom>('get_party_room', { p_room: token });
+export async function joinPartyRoom(token: string) { await whenAuthReady(); await ensureNickname(); return rpc<PartyRoom>('join_party_room', { p_room: token }); }
+export const readyPartyRoom = (token: string, ready: boolean) => rpc<PartyRoom>('ready_party_room', { p_room: token, p_ready: ready });
+export const startPartyRoom = (token: string) => rpc<PartyRoom>('start_party_room', { p_room: token });
+export const rematchPartyRoom = (token: string) => rpc<PartyRoom>('rematch_party_room', { p_room: token });
+export const submitPartyResult = (token: string, match: number, round: number, result: AttemptResult) => rpc<PartyRoom>('submit_party_result', { p_room: token, p_match: match, p_round: round, p_score: result.score, p_detail: result.detail });

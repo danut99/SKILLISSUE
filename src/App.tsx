@@ -1,12 +1,16 @@
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
-import { useEffect, useState } from 'react';
-import { MODES, type Mode } from './config';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { LINKS, MODES, type Mode } from './config';
 import { AdBanner } from './components/AdBanner';
 import { GameScreen } from './components/GameScreen';
+import { PixelIcon } from './components/PixelIcon';
 import { Home } from './components/Home';
 import { FaqPage } from './components/FaqPage';
+import { FriendsPage } from './components/FriendsPage';
+import { readFriendInvite } from './lib/friends';
 import { MePage } from './components/MePage';
 import { MenuModal } from './components/MenuModal';
+import { MobileLeaderboard } from './components/MobileLeaderboard';
 import { PrivacyPage } from './components/PrivacyPage';
 import { SettingsModal } from './components/SettingsModal';
 import { C } from './games/types';
@@ -16,20 +20,28 @@ import { usePlayer } from './lib/store';
 import { whenAuthReady } from './lib/auth';
 import { toast, useUi } from './lib/ui';
 
-const PAGES = ['privacy', 'faq', 'me'] as const;
+const PartyPage = lazy(() => import('./components/PartyPage').then(module => ({ default: module.PartyPage })));
+
+const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party'] as const;
+const ChallengePreview = import.meta.env.DEV
+  ? lazy(() => import('./components/ChallengesPage').then(module => ({ default: module.ChallengesPage })))
+  : null;
 type Page = (typeof PAGES)[number];
 export type Route = Mode | Page | null;
 
 const parseHash = (): Route => {
-  const h = location.hash.replace('#', '');
+  const h = location.hash.replace('#', '').split('/')[0];
+  if (h === 'challenges' && !import.meta.env.DEV) return null;
   if (PAGES.includes(h as Page)) return h as Page;
   return MODES.includes(h as Mode) ? (h as Mode) : null;
 };
 
 export default function App() {
   const [mode, setMode] = useState<Route>(parseHash);
+  const [inviteToken, setInviteToken] = useState(readFriendInvite);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const settings = usePlayer((s) => s.settings);
   const [date, setDate] = useState(todayUTC);
   const muted = usePlayer((s) => s.muted);
@@ -38,7 +50,11 @@ export default function App() {
   const [toastVisible, setToastVisible] = useState(false);
 
   useEffect(() => {
-    const onHash = () => setMode(parseHash());
+    const onHash = () => {
+      setMode(parseHash());
+      setInviteToken(readFriendInvite());
+      setLeaderboardOpen(false);
+    };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
@@ -50,7 +66,8 @@ export default function App() {
       if (d !== date) {
         setDate(d);
         toast('🌅 New day, new challenges!');
-        location.hash = '';
+        const current = parseHash();
+        if (current === null || MODES.includes(current as Mode)) location.hash = '';
       }
     }, 1000);
     return () => clearInterval(id);
@@ -105,21 +122,34 @@ export default function App() {
           <span />
         )}
         <div className="topbar-right">
-          <button className="corner-btn px-box" onClick={toggleMuted} aria-label="Toggle sound">
-            {muted ? '🔇' : '🔊'}
+          <a className="corner-btn px-box header-feedback" href={LINKS.feedback} aria-label="Send feedback by email" title="Send feedback">
+            <PixelIcon name="feedback" size={24} />
+            <span>Feedback</span>
+          </a>
+          <button className="corner-btn px-box mobile-leaderboard-button" onClick={() => setLeaderboardOpen(true)} aria-label="Open leaderboard" aria-haspopup="dialog" aria-expanded={leaderboardOpen}>
+            <PixelIcon name="trophy" size={28} />
+          </button>
+          <button className="corner-btn px-box" onClick={toggleMuted} aria-label={muted ? 'Turn sound on' : 'Mute sound'} aria-pressed={!muted}>
+            <PixelIcon name={muted ? 'sound-off' : 'sound-on'} size={28} />
           </button>
           <button className="corner-btn px-box" onClick={() => setSettingsOpen(true)} aria-label="Open settings">
-            ⚙️
+            <PixelIcon name="settings" size={28} />
           </button>
         </div>
       </header>
       <main id="app" key={settings.colorblind ? 'cb' : 'std'}>
-        {mode === 'privacy' ? (
+        {mode === 'challenges' ? (
+          ChallengePreview ? <Suspense fallback={<p>Loading preview…</p>}><ChallengePreview today={date} /></Suspense> : <Home date={date} onPlay={navigate} />
+        ) : mode === 'privacy' ? (
           <PrivacyPage />
         ) : mode === 'faq' ? (
           <FaqPage />
         ) : mode === 'me' ? (
           <MePage date={date} onPlay={navigate} />
+        ) : mode === 'party' ? (
+          <Suspense fallback={<p>Loading party...</p>}><PartyPage /></Suspense>
+        ) : mode === 'friends' ? (
+          <FriendsPage date={date} inviteToken={inviteToken} />
         ) : mode ? (
           <GameScreen key={`${mode}:${date}`} mode={mode} date={date} onNavigate={navigate} />
         ) : (
@@ -127,10 +157,12 @@ export default function App() {
         )}
       </main>
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      {leaderboardOpen && <MobileLeaderboard key={`${mode}:${date}`} date={date}
+        initialMode={mode && MODES.includes(mode as Mode) ? mode as Mode : 'overall'}
+        onClose={() => setLeaderboardOpen(false)} />}
       <MenuModal
         open={menuOpen}
         route={mode}
-        date={date}
         onClose={() => setMenuOpen(false)}
         onNavigate={navigate}
         onSettings={() => setSettingsOpen(true)}

@@ -1,14 +1,15 @@
+import { drawResultCompanion } from './resultCompanion';
 import { sfx } from '../lib/audio';
 import { rngFor } from '../lib/daily';
 import { clamp, easeOut, innerPoint, lineSide, polygonCentroid, round2, splitPolygon, type Pt } from '../lib/geometry';
 import { roastFor } from '../lib/scoring';
-import { banner, paper, text } from './canvas';
+import { paper, text } from './canvas';
 import { C, H, W, type Game, type GameApi } from './types';
 
 /** Today's asymmetric 7–9 vertex blob — identical for every player (UTC date seed). */
-export function dailyShape(date: string): { poly: Pt[]; hue: number } {
+export function dailyShape(date: string, complexity = 0): { poly: Pt[]; hue: number } {
   const rng = rngFor(`${date}:cut`);
-  const n = 7 + Math.floor(rng() * 3);
+  const n = 7 + Math.floor(rng() * 3) + Math.max(0, Math.min(2, complexity)) * 2;
   const off = rng() * Math.PI * 2;
   let poly: Pt[] = [];
   for (let i = 0; i < n; i++) {
@@ -44,8 +45,8 @@ interface Piece {
   dir: 1 | -1;
 }
 
-export function createCutGame(api: GameApi): Game {
-  const { poly, hue } = dailyShape(api.date);
+export function createCutGame(api: GameApi, options?: { complexity?: number }): Game {
+  const { poly, hue } = dailyShape(api.date, options?.complexity);
   const face = innerPoint(poly, 6);
   const fs = clamp(face.d / 38, 0.55, 1.2);
   const fill = `hsl(${hue} 90% 66%)`;
@@ -61,6 +62,7 @@ export function createCutGame(api: GameApi): Game {
   let score = 0;
   let display = '';
   let ghost: number[] | null = null;
+  let resultSound: ReturnType<typeof setTimeout> | undefined;
 
   function drawFace(c: CanvasRenderingContext2D, scared: boolean, sliced: boolean) {
     const { x, y } = face.p;
@@ -134,11 +136,12 @@ export function createCutGame(api: GameApi): Game {
     state = 'done';
     cutAt = performance.now();
     sfx.slice();
-    setTimeout(() => (score >= 95 ? sfx.ding() : score < 70 ? sfx.fail() : sfx.pop()), 350);
+    resultSound = setTimeout(() => (score >= 95 ? sfx.ding() : score < 70 ? sfx.fail() : sfx.pop()), 350);
     api.finish({ score, detail: { a: lo, b: hi, line: [a.x, a.y, b.x, b.y].map(Math.round) }, display });
   }
 
   return {
+    destroy() { clearTimeout(resultSound); },
     setGhost(line) {
       ghost = line;
     },
@@ -222,9 +225,10 @@ export function createCutGame(api: GameApi): Game {
           c.lineTo(g2.x, g2.y);
           c.stroke();
           c.restore();
-          text(c, "👑 #1's cut", W / 2, H - 40, { size: 24, color: C.yellow, outline: 4 });
+          text(c, "👑 #1's cut", W / 2, 520, { size: 24, color: C.yellow, outline: 4 });
         }
-        banner(c, display, roastFor('cut', { score, detail: {}, at: 0 }), score >= 95 ? C.green : score >= 80 ? C.yellow : C.red, now - cutAt - 500);
+        text(c, roastFor('cut', { score, detail: {}, at: 0 }), W / 2, 104, { size: 25, maxWidth: W - 32 });
+        drawResultCompanion(c, score, 'cut', display);
       }
 
       if (state === 'dragging' && A && B) {

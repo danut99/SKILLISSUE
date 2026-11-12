@@ -95,7 +95,7 @@ Daily content comes from a **UTC-date-seeded PRNG** (`xmur3` + `mulberry32`) →
 | **"You" on the leaderboard** | `Leaderboard.tsx` | Your row is cyan with a pink marker and flashes when updated; "▶ you're #N today" under the table. |
 | **Top bar** | `App.tsx` | ☰ menu (left) · small **SKILL ISSUE** logo linking home on every sub-page, like Krillion (home keeps the big logo) · 🔊 / ⚙️ (right). No "← home" buttons. |
 | **☰ Menu** | `MenuModal.tsx` | Krillion-style tile menu; "soon" tiles tease upcoming features; TikTok + feedback links from `LINKS` in `config.ts`. |
-| **My Skill Issue / FAQ** | `MePage.tsx` (`#me`), `FaqPage.tsx` (`#faq`) | Clean logbook in "My Krillion" style (dashed section labels, 4-cell stat strip, list rows, garage tiles with pixel cars): an always-visible **"keep your scores together."** box (Google / email), a "play with your friends · soon" box, stats, today, garage. Without Supabase the account buttons show "accounts aren't live yet". Plus the rules/scoring FAQ. |
+| **My Skill Issue / FAQ** | `MePage.tsx` (`#me`), `FaqPage.tsx` (`#faq`) | Clean logbook in "My Krillion" style (dashed section labels, 4-cell stat strip, list rows, garage tiles with pixel cars): an always-visible **"keep your scores together."** box (Google / email), a friends invite link, stats, today, garage. Without Supabase the account buttons show "accounts aren't live yet". Plus the rules/scoring FAQ. |
 
 ---
 
@@ -107,7 +107,7 @@ Daily content comes from a **UTC-date-seeded PRNG** (`xmur3` + `mulberry32`) →
 |---|---|---|
 | Retro pixel look (VT323, navy `#050a14`, cyan/pink) | Strong, simple identity | ✅ done (our theme) |
 | Daily number ("dive #120"), same for everyone | Shareable, comparable | ✅ `SKILL ISSUE #N` |
-| **☰ Main menu**: modal with 2-column pixel tiles (Daily, Unlimited, Party, Archive, Packs, My Krillion, Friends, Settings, FAQ), current page in pink, link cards (Merch ↗, sister game ↗), footer tagline | One place for everything, very "app-like" | ✅ done: ☰ top-left → Today/Draw/Cut/Brake (with today's emoji row), My Skill Issue, Settings, FAQ, Privacy, plus **"soon"** tiles (Archive, Practice, Friends, Brake Battle), link cards (TikTok ↗, Feedback ↗), "it's a skill issue." |
+| **☰ Main menu**: modal with 2-column pixel tiles (Daily, Unlimited, Party, Archive, Packs, My Krillion, Friends, Settings, FAQ), current page in pink, link cards (Merch ↗, sister game ↗), footer tagline | One place for everything, very "app-like" | ✅ done: ☰ top-left → Today/Draw/Cut/Brake (with today's emoji row), My Skill Issue, Settings, FAQ, Privacy, Friends, plus **"soon"** tiles (Archive, Practice, Brake Battle), link cards (TikTok ↗, Feedback ↗), "it's a skill issue." |
 | Collapsible **"▸ how to play"** with 5–6 short lowercase lines | Zero-friction onboarding | ✅ done (home + `#how`) |
 | **Settings**: low-power mode, colorblind mode, "add link under shared results" toggle | Accessibility & performance on cheap phones | ✅ done (⚙️ top-right). Our share link defaults **ON** (virality), theirs OFF |
 | **"My Krillion" logbook page**: account, stats (current/best streak, days played, best score), completed games, earned buddies | Retention, one history | ✅ done: **"My Skill Issue"** page (`#me`): account card, stats, today's results, garage |
@@ -121,7 +121,7 @@ Daily content comes from a **UTC-date-seeded PRNG** (`xmur3` + `mulberry32`) →
 | **One-time $5 unlock (Stripe Payment Link)** = removes ads site-wide + unlocks archive/unlimited; "Restore on another device" | Second revenue stream, no subscription | ⏳ TODO idea: "SKILL ISSUE+": no ads, unlimited practice mode, archive of past days |
 | **Archive** (replay past days; replays don't extend streak) | Content for new players | ⏳ TODO (easy: the daily seed already supports any date) |
 | **Unlimited / themed packs** | Endless play | ⏳ TODO (practice mode with random seed, not ranked) |
-| **Friends leaderboard** via invite link | Social pressure, small groups | ⏳ TODO (`friends` table + invite token in URL hash) |
+| **Friends leaderboard** via invite link | Social pressure, small groups | Implemented at `#friends`: invite previews, acceptance, removal, daily overall/per-game rankings. Apply the friends migration to enable it. |
 | **Live multiplayer party mode** ("Puffer Party", live player count) | Huge engagement spike | 💡 later (e.g. live BRAKE! battle rooms via Supabase Realtime) |
 | Mascot with personality ("a friend… blub!") | Brand, shareability | 💡 idea: our blob from Cut 50/50 as the mascot |
 | OG image 1200×630, Google site verification | Nice link previews, SEO | ⏳ TODO |
@@ -172,13 +172,13 @@ Known limitation: guest tries made on a new device are **not merged** when you t
 
 ## 7. Connecting Supabase (real leaderboard + accounts)
 
-**Status: NOT connected yet. There is no database at the moment.**
+**Status: Supabase is configured locally. Friends RPCs were detected on the live project on 2026-11-12.**
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. **SQL Editor** → paste and run [`supabase/schema.sql`](supabase/schema.sql). The same SQL is also in the comment at the top of `src/lib/leaderboard.ts`.
+2. **SQL Editor** → paste and run [`supabase/schema.sql`](supabase/schema.sql). The core game SQL is also in the comment at the top of `src/lib/leaderboard.ts`. Friends SQL is maintained in `schema.sql` and the migration below.
 3. **Authentication → Providers / Sign In**: enable **Anonymous sign-ins**, **Email**, **Google** (needs a Google Cloud OAuth client), and **Manual linking**.
 4. **Authentication → URL Configuration**: set Site URL and add your domains (and `http://localhost:5173`) to Redirect URLs.
-5. `cp .env.example .env` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (Project Settings → API). `.env` is git-ignored.
+5. `cp .env.example .env` and fill in `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` (Project Settings → API Keys, copy the `sb_publishable_...` key). `.env` is git-ignored. Existing deployments can still use `VITE_SUPABASE_ANON_KEY` as a fallback. The publishable variable takes priority when both are set.
 6. Restart `npm run dev`. The demo label disappears, and the account card shows up after a nickname is set.
 
 ### Database design (`supabase/schema.sql`)
@@ -197,6 +197,20 @@ Known limitation: guest tries made on a new device are **not merged** when you t
 Security: RLS is on for all tables. Players can only read their own rows, and **all writes go through the `SECURITY DEFINER` functions above**.
 
 ---
+
+### Friends database update
+
+For an existing database, run [`supabase/migrations/20261112000000_friends.sql`](supabase/migrations/20261112000000_friends.sql) in the Supabase SQL Editor. For a fresh database, `schema.sql` already includes it.
+
+The migration adds `friends` and `friend_invites`, with row-level security and authenticated RPCs. Friendships are mutual and stored once per pair. Invite links expire after seven days and can be replaced. Opening a link shows a preview, and accepting it connects the players. Either player can remove the connection. Friends work for anonymous players too. Linking Google/email preserves the same player identity.
+
+The `#friends` page shows the Top 10 friends plus your own rank, for overall or an individual game. Rankings include you and your direct friends, with Daily and All-time views.
+
+### All-time leaderboard database update
+
+For an existing database, run [`supabase/migrations/20261112010000_all_time_leaderboard.sql`](supabase/migrations/20261112010000_all_time_leaderboard.sql) in the Supabase SQL Editor after the friends migration. Fresh databases include this function in `schema.sql`.
+
+Daily and All-time are available on each leaderboard, including the mobile trophy panel and friends page. All-time adds the best score per game per UTC day from `daily_scores`. Overall sums all three games across all dates. Rankings return the top 10 plus the caller's row. Daily result-card ranks and the best-cut reveal continue to use today's board. Offline totals use the history saved on the device, which is now retained beyond one week.
 
 ## 8. Project structure
 
@@ -246,7 +260,7 @@ Libraries: `react`, `zustand` (state), `motion` (UI animation), `canvas-confetti
 **Done & verified in the browser (demo mode):** all 3 games, scoring, results, nickname, per-game and overall leaderboards, tries/ad flow, share text, clip button, home/totals/streak, how-to-play, ☰ menu, My Skill Issue page, FAQ, desktop layout (games left · sticky leaderboard right, 4-column menu), settings (low-power / colorblind / share link), stats, garage, privacy page, storage migration. Type-check, tests and build all pass.
 
 **Not done / not verified yet:**
-- [ ] Create the Supabase project and run `schema.sql` (the SQL has **not** been executed against a real database yet).
+- [x] Configure the Supabase project and apply the friends database update (live friends RPCs detected).
 - [ ] Configure the Google OAuth client and email templates in Supabase.
 - [ ] Test guest → link Google/email → new device login end-to-end.
 - [ ] **Cookie consent (CMP)** before any ads/analytics in EU/UK (Google Privacy & messaging, consentmanager.net or Cookiebot) + "update privacy settings" link in the footer.
@@ -254,7 +268,7 @@ Libraries: `react`, `zustand` (state), `motion` (UI animation), `canvas-confetti
 - [ ] Privacy page: real contact email, ad/CMP vendor names. Replace `LINKS` (TikTok handle, feedback email) in `config.ts`.
 - [ ] Merge guest history on sign-in (ask first, like Krillion).
 - [ ] Archive (replay past days, no streak) + unlimited practice mode (random seed, unranked).
-- [ ] Friends leaderboard via invite link.
+- [x] Friends invite links, acceptance, removal and daily leaderboard. Friends RPCs detected on the configured live project after the migration was run.
 - [ ] Optional one-time unlock "SKILL ISSUE+" (Stripe Payment Link): no ads + archive + unlimited, restorable via account.
 - [ ] Analytics (privacy-friendly, e.g. Plausible, or GA4 behind consent).
 - [ ] Reserve social handles early (TikTok/IG/X) to avoid impersonators.
@@ -265,3 +279,43 @@ Libraries: `react`, `zustand` (state), `motion` (UI animation), `canvas-confetti
 - [ ] Ideas: live multiplayer BRAKE! rooms, country flags on the board, blob mascot, more streak cosmetics (circle trail colors, blob hats).
 
 **Known limitations:** client-side scores can still be faked by a determined cheater (the server validates range and try count, not the gameplay itself). Possible future fix: send raw input (cut line / stroke / brake time) and recompute the score server-side.
+
+
+## Tracked score challenges
+
+Run `supabase/migrations/20261112020000_score_challenges.sql` in Supabase SQL Editor on an existing project. Fresh installs include the same setup in `schema.sql`.
+
+- Beat my score creates a database challenge from the sender's saved daily score. The target score is fixed at link creation.
+- New links use `#cut/duel/<token>` (or draw/brake). Opening previews the challenge; Accept challenge records the recipient's consent.
+- Daily scores automatically supply accepted players' results. Acceptance is idempotent and uses the existing daily attempts, without granting extra tries.
+- Your challenges appears in Friends and on the homepage. It polls every 15 seconds while visible and refreshes on focus and score updates.
+- Anonymous sessions work; email linking preserves ownership. Older `/beat?` links remain local comparisons and cannot be retroactively tracked.
+- Tables deny direct API access; authenticated RPCs enforce ownership and participant visibility. Link previews expose the sender's nickname and target score, and no other recipients.
+- To verify against a live project: send a link from browser A; open it in a separate browser B; accept; check A's list; play in B; check both scores and winner in A. Repeat acceptance (no duplicates), try an expired link (no acceptance), and confirm a third account cannot list A's challenges.
+
+
+## Party Mode (six-round Draw/Cut rooms)
+
+Run `supabase/migrations/20261112030000_party_rooms.sql` in Supabase SQL Editor on an existing project. Fresh installs include it in `schema.sql`.
+
+Menu -> Party -> Create party -> Copy invite. Players explicitly join and ready up; only the host starts the match with 2-8 ready players. A shared server start time gives everyone a five-second countdown, then six rounds:
+
+| Round | Test | Time |
+|---|---|---|
+| 1 | Draw circle | 16s |
+| 2 | Cut | 16s |
+| 3 | Draw square | 16s |
+| 4 | Cut, more vertices | 16s |
+| 5 | Draw triangle | 16s |
+| 6 | Cut, most vertices | 16s |
+
+Each round gives every player 16 seconds, followed by six seconds for the reveal. Difficulty increases through shape changes, not shorter timers. One attempt each; results total up to 600, with tied totals sharing rank. Missing rounds score zero. Host can open a rematch lobby using the same invite; players ready again and new match seeds are used. Room links expire after 24 hours.
+
+Party play never calls daily attempt/bonus APIs. The server enforces membership, host controls, capacity, match/round submission windows and one immutable score per player/round. Other players' scores are masked until the round deadline. Scores are still computed client-side, like the daily games; this is not a cheat-proof tournament system.
+
+Clients poll once per second and estimate the server clock from request timing. They use an absolute round deadline (not a touch-start timer). Local attempt records prevent a refresh from granting another attempt; reloading an unfinished active round forfeits it. Lost score acknowledgements retry idempotently during the server's two-second delivery grace period. No Realtime configuration is required.
+
+Live verification after applying SQL: use two separate browser sessions; join, ready, start, verify identical polygons and synchronized timers; submit, verify scores hidden until reveal; refresh an active attempt and verify no replay; miss a round and verify zero; verify six rounds and tied final standings; rematch and confirm readiness and scores reset. Also verify non-host start is rejected, ninth-player join is rejected, and old-match/late submissions are rejected.
+
+
+Party timer update: after the party rooms migration, run `supabase/migrations/20261112040000_party_equal_round_times.sql` to use equal 16-second rounds. Apply between matches, then start a fresh match. The shared match schedule is 132 seconds plus the five-second initial countdown.

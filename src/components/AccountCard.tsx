@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { connectEmail, connectGoogle, signOut, switchToGoogle, useAuth } from '../lib/auth';
+import { connectEmail, signOut, useAuth } from '../lib/auth';
 import { toast } from '../lib/ui';
 
 /**
@@ -7,7 +7,7 @@ import { toast } from '../lib/ui';
  * Same buttons work on a new device — they log into the existing player.
  */
 export function AccountCard({ compact = false, page = false }: { compact?: boolean; page?: boolean }) {
-  const { status, email, providers, conflict } = useAuth();
+  const { status, email } = useAuth();
   const [mail, setMail] = useState('');
   const [sent, setSent] = useState<'link_sent' | 'login_sent' | null>(null);
   const [busy, setBusy] = useState(false);
@@ -18,29 +18,12 @@ export function AccountCard({ compact = false, page = false }: { compact?: boole
   const notLive = () =>
     toast(status === 'connecting' ? 'Connecting… try again in a second ⏳' : "Accounts aren't live yet. Your scores are safe on this device 🔌");
 
-  if (conflict) {
-    return (
-      <div className="card px-box account-card">
-        <div className="acc-title">🤔 that Google account already has a player</div>
-        <p className="acc-text">Switch to it? Tries made on this device as a guest won't be merged.</p>
-        <div className="r-actions">
-          <button className="btn btn-primary" onClick={() => void switchToGoogle()}>
-            switch account
-          </button>
-          <button className="btn btn-ghost" onClick={() => useAuth.setState({ conflict: null })}>
-            stay guest
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   if (status === 'linked') {
     if (compact) return null;
-    const via = email ?? (providers.includes('google') ? 'Google' : 'your account');
+    const via = email ?? 'your account';
     return (
       <div className="card px-box account-card linked">
-        <div className="acc-title">✅ progress saved</div>
+        <div className="acc-title">progress saved</div>
         <p className="acc-text">
           as <b>{via}</b>. log in with it on any device to continue.
         </p>
@@ -65,19 +48,17 @@ export function AccountCard({ compact = false, page = false }: { compact?: boole
     return (
       <div className="me-box">
         <h3>Keep your scores together.</h3>
-        <p>Sign in with Google or email to save your nickname, streak, scores and cars on every device. Free. No password.</p>
-        <button className="btn google me-google" onClick={() => (unavailable ? notLive() : void connectGoogle())}>
-          <span className="g">G</span> Continue with Google
-        </button>
+        <p>Sign in with email to save your nickname, streak, scores and cars on every device. Free. No password.</p>
+        <p className="me-fine">We will email you a confirmation link. Click it to confirm your email and save your progress. No password needed.</p>
         {sent ? (
-          <p className="acc-sent">📬 {sent === 'link_sent' ? 'Check your inbox to confirm the email.' : 'We sent you a login link.'}</p>
+          <p className="acc-sent">📬 {sent === 'link_sent' ? 'Check your inbox and click the link to confirm your email and save your progress. Check spam too.' : 'Check your inbox and click the link to sign in. Check spam too.'}</p>
         ) : (
           <form className="me-email" onSubmit={sendLink}>
             <input
               type="email"
               value={mail}
               onChange={(e) => setMail(e.target.value)}
-              placeholder="or continue with email"
+              placeholder="Your email"
               aria-label="Email"
               autoComplete="email"
               required
@@ -88,7 +69,7 @@ export function AccountCard({ compact = false, page = false }: { compact?: boole
           </form>
         )}
         <p className="me-fine">
-          Everything you played on this device comes with you. Already have an account on another device? The same buttons log you in
+          Everything you played on this device comes with you. Already have an account on another device? Enter the same email to log in
           (guest tries from this device won't be merged).
         </p>
       </div>
@@ -97,17 +78,15 @@ export function AccountCard({ compact = false, page = false }: { compact?: boole
 
   return (
     <div className={`card px-box account-card ${compact ? 'compact' : ''}`}>
-      <div className="acc-title">🔒 save your progress</div>
+      <div className="acc-title">save your progress</div>
       <p className="acc-text">
         keep your name, streak &amp; scores on any device. no password.
-        {!compact && <> already played somewhere else? same buttons log you in.</>}
+        {!compact && <> already played somewhere else? use the same email to log in.</>}
       </p>
-      <button className="btn btn-ghost wide google" onClick={() => void connectGoogle()}>
-        <span className="g">G</span> continue with google
-      </button>
+      <p className="acc-text">Enter your email, then click the link in your inbox to confirm it and save your progress.</p>
       {sent ? (
         <p className="acc-sent">
-          📬 {sent === 'link_sent' ? 'check your inbox to confirm the email.' : 'we sent you a login link.'}
+          📬 {sent === 'link_sent' ? 'check your inbox and click the link to confirm your email and save your progress. check spam too.' : 'check your inbox and click the link to sign in. check spam too.'}
         </p>
       ) : (
         <form className="nick-form" onSubmit={sendLink}>
@@ -115,7 +94,7 @@ export function AccountCard({ compact = false, page = false }: { compact?: boole
             type="email"
             value={mail}
             onChange={(e) => setMail(e.target.value)}
-            placeholder="or your email"
+            placeholder="your email"
             aria-label="Email"
             autoComplete="email"
             required

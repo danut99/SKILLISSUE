@@ -9,12 +9,13 @@ interface Props {
   gameRef: RefObject<Game | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   date: string;
+  label?: string;
 }
 
 /** Runs the render loop and forwards pointer/keyboard input (in stage coords) to the active game. */
-export function GameCanvas({ gameRef, canvasRef, date }: Props) {
+export function GameCanvas({ gameRef, canvasRef, date, label: customLabel }: Props) {
   useEffect(() => {
-    const label = DAY_LABEL(date);
+    const label = customLabel ?? DAY_LABEL(date);
     const canvas = canvasRef.current!;
     canvas.width = W * SCALE;
     canvas.height = H * SCALE;
@@ -51,7 +52,7 @@ export function GameCanvas({ gameRef, canvasRef, date }: Props) {
     };
     const onUp = (e: PointerEvent) => gameRef.current?.up?.(toStage(e), e);
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+      if ((e.target as HTMLElement)?.closest('input, textarea, select, button, a, dialog, [contenteditable="true"]')) return;
       gameRef.current?.key?.(e);
     };
 
@@ -68,7 +69,7 @@ export function GameCanvas({ gameRef, canvasRef, date }: Props) {
       canvas.removeEventListener('pointercancel', onUp);
       window.removeEventListener('keydown', onKey);
     };
-  }, [canvasRef, gameRef, date]);
+  }, [canvasRef, gameRef, date, customLabel]);
 
   return (
     <div className="stage-wrap">

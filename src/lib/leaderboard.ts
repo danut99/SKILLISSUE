@@ -165,7 +165,7 @@ grant execute on function public.get_leaderboard(text) to anon, authenticated;
 ================================================================================
 */
 import { type BoardMode, type Mode, MODES } from '../config';
-import { isOnline, syncFromServer, whenAuthReady } from './auth';
+import { isOnline, syncFromServer, useAuth, whenAuthReady } from './auth';
 import { rngFor } from './daily';
 import { round2 } from './geometry';
 import { bestAttempt, modeDay, randomName, usePlayer, type Attempt, type Detail } from './store';
@@ -182,7 +182,7 @@ export interface BoardRow {
 export interface Board {
   rows: BoardRow[];
   myRank: number | null;
-  source: 'global' | 'demo';
+  source: 'global' | 'demo' | 'friends';
 }
 
 // ---------------------------------------------------------------------------
@@ -256,6 +256,42 @@ function mockBoard(date: string, mode: BoardMode): Board {
   return { rows: ranked.filter((r) => r.rank <= 10 || r.is_me), myRank: me?.rank ?? null, source: 'demo' };
 }
 
+/** Demo totals use saved history, with only one best score per day and game. */
+export function localAllTimeBoard(date: string, mode: BoardMode): Board {
+  const { days, nickname } = usePlayer.getState();
+  const dates = [...new Set([...Object.keys(days).filter(day => day <= date), date])].sort();
+  const modes = mode === 'overall' ? MODES : [mode];
+  const bots = new Map<string, { score: number; days: Set<string>; games: number }>();
+  let score = 0;
+  let games = 0;
+  let playedDays = 0;
+  for (const day of dates) {
+    let played = false;
+    for (const game of modes) {
+      for (const entry of botEntries(day, game)) {
+        const bot = bots.get(entry.nickname) ?? { score: 0, days: new Set<string>(), games: 0 };
+        bot.score += entry.score;
+        bot.games++;
+        bot.days.add(day);
+        bots.set(entry.nickname, bot);
+      }
+      const best = bestAttempt(modeDay(days, day, game));
+      if (best) {
+        score += best.score;
+        games++;
+        played = true;
+      }
+    }
+    if (played) playedDays++;
+  }
+  const rows = [...bots].map(([name, bot]) => ({ nickname: name, score: round2(bot.score),
+    detail: { days: bot.days.size, games: bot.games }, is_me: false }));
+  if (games) rows.push({ nickname, score: round2(score), detail: { days: playedDays, games }, is_me: true });
+  rows.sort((a, b) => b.score - a.score || Number(a.is_me) - Number(b.is_me) || a.nickname.localeCompare(b.nickname));
+  const ranked = rows.map((row, index) => ({ ...row, rank: index + 1 }));
+  return { rows: ranked.filter(row => row.rank <= 10 || row.is_me), myRank: ranked.find(row => row.is_me)?.rank ?? null, source: 'demo' };
+}
+
 function mockSubmit(date: string, mode: Mode, a: Attempt, nickname: string) {
   const store = loadMock(date);
   const prev = store.entries[mode];
@@ -276,18 +312,17 @@ function mockSubmitAll(date: string, nickname: string) {
 // Public API — Supabase when online, demo board otherwise
 // ---------------------------------------------------------------------------
 
-let nameClaimed = false;
+let nameClaimedFor: string | null = null;
 
 /** Online: make sure the auto-assigned name is registered (unique) before the first score shows up. */
-async function ensureNickname() {
-  if (nameClaimed) return;
+export async function ensureNickname() {
+  if (nameClaimedFor === useAuth.getState().userId && nameClaimedFor !== null) return;
   const st = usePlayer.getState();
   let name = st.nickname || randomName();
   for (let i = 0; i < 5; i++) {
     const r = await claimNickname('', name);
     if (r.ok) {
       st.setNickname(r.nickname);
-      nameClaimed = true;
       return;
     }
     if (r.reason !== 'taken') return;
@@ -318,7 +353,7 @@ export async function claimNickname(date: string, raw: string): Promise<{ ok: tr
   if (sb && isOnline()) {
     const { data, error } = await sb.rpc('set_nickname', { p_nickname: raw });
     if (error) return { ok: false, reason: error.message.includes('nickname_taken') ? 'taken' : 'error' };
-    nameClaimed = true;
+    nameClaimedFor = useAuth.getState().userId;
     return { ok: true, nickname: String(data) };
   }
   if (date) mockSubmitAll(date, raw);
@@ -349,4 +384,19 @@ export async function fetchBoard(date: string, mode: BoardMode): Promise<Board> 
     console.warn('get_leaderboard failed → demo board', error);
   }
   return mockBoard(date, mode);
+}
+
+export async function fetchAllTimeBoard(date: string, mode: BoardMode): Promise<Board> {
+  await whenAuthReady();
+  const sb = await getSupabase();
+  if (sb && isOnline()) {
+    const { data, error } = await sb.rpc('get_all_time_leaderboard', { p_mode: mode, p_friends_only: false });
+    if (error || !Array.isArray(data)) {
+      console.warn('get_all_time_leaderboard failed', error);
+      throw new Error('All-time scores are temporarily unavailable.');
+    }
+    const rows = (data as BoardRow[]).map(row => ({ ...row, rank: Number(row.rank), score: Number(row.score), detail: row.detail ?? {} }));
+    return { rows, myRank: rows.find(row => row.is_me)?.rank ?? null, source: 'global' };
+  }
+  return localAllTimeBoard(date, mode);
 }

@@ -9,6 +9,9 @@ export function fmtResult(mode: BoardMode, a: Pick<Attempt, 'score' | 'detail'> 
   if (!a) return '—';
   if (mode === 'overall') return a.score.toFixed(1);
   const d = a.detail ?? {};
+  if (mode === 'brake' && d.fail && d.objective === 'parking') return 'MISSED BAY';
+  if (mode === 'brake' && d.fail && d.objective === 'stop-line') return 'OVER LINE';
+  if (d.timedOut) return 'TIME UP';
   if (d.fail) return '💀';
   if (mode === 'draw') return `${a.score.toFixed(1)}%`;
   if (mode === 'cut') return d.a != null && d.b != null ? `${d.a.toFixed(1)} / ${d.b.toFixed(1)}` : `${a.score.toFixed(1)}`;
@@ -76,9 +79,9 @@ export function roastFor(mode: Mode, a: Attempt): string {
   if (mode === 'draw') {
     if (s >= 98) return 'Ok robot, calm down.';
     if (s >= 93) return 'Your geometry teacher just smiled.';
-    if (s >= 85) return 'Almost round. Like a slightly sat-on donut.';
-    if (s >= 70) return 'That circle has seen things.';
-    if (s >= 50) return "Is that an egg? It's an egg.";
+    if (s >= 85) return 'Almost perfect. Your ruler is nervous.';
+    if (s >= 70) return 'That shape has seen things.';
+    if (s >= 50) return 'Geometry has left the chat.';
     return 'Picasso would call this "a bit much".';
   }
   if (mode === 'cut') {
@@ -89,6 +92,16 @@ export function roastFor(mode: Mode, a: Attempt): string {
     return 'You cut it like a toddler with safety scissors.';
   }
   if (a.detail.crashed) return CRASH_ROASTS[(a.detail.impactKmh ?? 0) % CRASH_ROASTS.length];
+  if (a.detail.objective === 'parking') {
+    if (a.detail.fail) return 'The parking bay is over there.';
+    if (s >= 95) return 'Valet parking wants your number.';
+    return (a.detail.offsetCm ?? 0) < 0 ? 'A little enthusiastic with that parking spot.' : 'Almost parked. Keep going next time.';
+  }
+  if (a.detail.objective === 'stop-line') {
+    if (a.detail.fail) return 'Red means stop. The camera saw that.';
+    if (s >= 95) return 'Driving test passed. Somehow.';
+    return 'The light is red. Your timing needs work.';
+  }
   const cm = a.detail.gapCm ?? 9999;
   if (cm < 1) return 'The wall felt your breath. 😱';
   if (cm < 10) return 'Parking sensors are jealous.';

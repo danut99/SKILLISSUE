@@ -22,8 +22,9 @@ export function PrivacyPage() {
       <ul>
         <li>An anonymous player id, created automatically when you first play.</li>
         <li>Your tries and scores (with the date), your nickname, and bonus tries.</li>
+        <li>Your friend connections and invite links, if you use the friends feature.</li>
         <li>
-          If you choose "save your progress": your email address or your Google account id/email, only to log you in on other
+          If you choose "save your progress": your email address, only to log you in on other
           devices.
         </li>
       </ul>
@@ -40,7 +41,7 @@ export function PrivacyPage() {
 
       <h2>delete your data</h2>
       <p>Contact us and we'll delete your player and all its scores.</p>
-      <p className="muted">contact: hello@YOUR-DOMAIN · last updated: {new Date(2026, 10, 12).toDateString()}</p>
+      <p className="muted">contact: <a href="mailto:bocadanut99@gmail.com">bocadanut99@gmail.com</a> · last updated: {new Date(2026, 10, 12).toDateString()}</p>
     </section>
   );
 }

@@ -36,7 +36,7 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
         <div className="me-box">
           <h3>Play with your friends.</h3>
           <p>Invite friends and compare daily scores on your own private leaderboard.</p>
-          <span className="me-soon">friends leaderboard · coming soon</span>
+          <a className="btn btn-primary" href="#friends">Invite friends</a>
         </div>
       </Section>
 
@@ -101,7 +101,7 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
                 onClick={() => setCarSkin(s.id)}
                 title={unlocked ? `Drive the ${s.name}` : `Unlocks at a ${s.streak}-day streak`}
               >
-                <span className="px-car" style={{ ['--car' as string]: unlocked ? s.color : '#2a3550' }} />
+                <img className="garage-car-art" src={`${import.meta.env.BASE_URL}art/pixellab/car-top-${s.id}.png`} width="48" height="80" alt="" />
                 <span className="me-car-name">{s.name}</span>
                 <span className="me-car-req">{picked ? 'Driving' : unlocked ? 'Earned' : `${s.streak}-day streak`}</span>
               </button>

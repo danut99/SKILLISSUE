@@ -1,3 +1,4 @@
+import { savedResultCanvas } from './savedResult';
 import { GAME_NAME, MODE_INFO, MODES, type Mode, siteUrl } from '../config';
 import { C, FONT } from '../games/types';
 import { dayNumber } from './daily';
@@ -124,7 +125,8 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
     const sw = Math.round((sh * 9) / 16);
     const sx = (CW - sw) / 2;
     box(c, sx - 10, top - 10, sw + 20, sh + 20, info.color, C.bg);
-    if (input.snapshot) c.drawImage(input.snapshot, sx, top, sw, sh);
+    const image = input.snapshot ?? (a ? savedResultCanvas(m, input.date, a) : null);
+    if (image) c.drawImage(image, sx, top, sw, sh);
 
     // result
     txt(c, a ? fmtResult(m, a) : '—', CW / 2, top + sh + 120, 170, color, { shadow: '#000', maxWidth: CW - 120 });

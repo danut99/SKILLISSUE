@@ -5,13 +5,22 @@ import { addDays } from './daily';
 
 /** Extra info per attempt — also stored as jsonb in the leaderboard. */
 export interface Detail {
+  /** Aggregate leaderboard metadata. */
+  days?: number;
+  games?: number;
   fail?: boolean;
+  timedOut?: boolean;
+  /** Bounded drawing samples for restoring the actual stroke. */
+  stroke?: number[][];
   /** cut: smaller / larger half in % */
   a?: number;
   b?: number;
   /** cut: the slicing line [x1, y1, x2, y2] in stage coords */
   line?: number[];
   /** brake */
+  objective?: 'wall' | 'parking' | 'stop-line';
+  /** Signed distance to target. Negative means past it. */
+  offsetCm?: number;
   gapCm?: number;
   crashed?: boolean;
   impactKmh?: number;
@@ -140,10 +149,7 @@ export const usePlayer = create<PlayerState>()(
         set((s) => {
           const day = s.days[date] ?? {};
           const md = day[mode] ?? EMPTY;
-          const days: Record<string, DayRecord> = {};
-          // keep one week of history
-          for (const d of Object.keys(s.days)) if (d >= addDays(date, -7)) days[d] = s.days[d];
-          days[date] = { ...day, [mode]: { ...md, tries: [...md.tries, attempt] } };
+          const days = { ...s.days, [date]: { ...day, [mode]: { ...md, tries: [...md.tries, attempt] } } };
           let { streak, daysPlayed } = s;
           if (s.lastDay !== date) {
             streak = s.lastDay === addDays(date, -1) ? streak + 1 : 1;

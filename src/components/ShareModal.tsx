@@ -116,14 +116,14 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt }: Pro
 
             <div className="share-main">
               <button className="btn btn-pink" onClick={() => shareImage('TikTok')} disabled={!file}>
-                🎵 TikTok
+                TikTok
               </button>
               <button className="btn btn-insta" onClick={() => shareImage('Instagram')} disabled={!file}>
-                📸 Instagram
+                Instagram
               </button>
               {canShareFile && (
                 <button className="btn btn-primary" onClick={() => shareImage()} disabled={!file}>
-                  📤 more…
+                  more…
                 </button>
               )}
             </div>
@@ -154,10 +154,10 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt }: Pro
 
             <div className="share-row">
               <button className="btn btn-ghost" onClick={download} disabled={!url}>
-                ⬇ save image
+                save image
               </button>
               <button className="btn btn-ghost" onClick={copy}>
-                📋 copy text
+                copy text
               </button>
             </div>
             <p className="share-hint">TikTok &amp; Instagram: on your phone the card opens the share sheet. On a computer it downloads, then upload it in the app.</p>

@@ -6,8 +6,10 @@
 // ---------------------------------------------------------------------------
 export const SUPABASE_URL: string =
   import.meta.env.VITE_SUPABASE_URL ?? 'https://YOUR-PROJECT-ID.supabase.co';
-export const SUPABASE_ANON_KEY: string =
-  import.meta.env.VITE_SUPABASE_ANON_KEY ?? 'YOUR-SUPABASE-ANON-KEY';
+export const SUPABASE_PUBLISHABLE_KEY: string =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ||
+  'YOUR-SUPABASE-PUBLISHABLE-KEY';
 
 export const GAME_NAME = 'SKILL ISSUE';
 export const LAUNCH_DATE = '2026-11-12';
@@ -18,6 +20,7 @@ export const REWARDED_ADS = false;
 export const MODES = ['draw', 'cut', 'brake'] as const;
 export type Mode = (typeof MODES)[number];
 export type BoardMode = Mode | 'overall';
+export type LeaderboardPeriod = 'daily' | 'all-time';
 
 export interface ModeInfo {
   emoji: string;
@@ -32,24 +35,24 @@ export const MODE_INFO: Record<Mode, ModeInfo> = {
   draw: {
     emoji: '🎯',
     name: 'Draw',
-    title: 'Perfect Circle',
-    tagline: 'Draw a perfect circle. One stroke. No excuses.',
+    title: 'Perfect Shape',
+    tagline: 'One shape. One stroke. No excuses.',
     crown: 'Master of Drawing',
     color: '#4de3ff',
   },
   cut: {
     emoji: '🔪',
     name: 'Cut',
-    title: 'Cut 50/50',
-    tagline: "Slice today's blob into two equal halves.",
+    title: 'Perfect Cut',
+    tagline: "Today's shape. One cut. Two equal halves.",
     crown: 'Master of Cuts',
     color: '#ff5d8f',
   },
   brake: {
     emoji: '🚗',
     name: 'Brake',
-    title: 'BRAKE!',
-    tagline: "Stop as close to the wall as you can. Don't crash.",
+    title: 'Perfect Stop',
+    tagline: 'A new driving objective each day. Nail the stop.',
     crown: 'Master of Brakes',
     color: '#ffd23f',
   },
@@ -69,6 +72,6 @@ export const CAR_SKINS = [
 
 /** Social / contact links shown in the menu. Replace before launch (leave '' to hide). */
 export const LINKS = {
-  tiktok: 'https://www.tiktok.com/@YOUR-HANDLE',
-  feedback: 'mailto:hello@YOUR-DOMAIN?subject=SKILL%20ISSUE%20feedback',
+  tiktok: '',
+  feedback: 'mailto:bocadanut99@gmail.com?subject=SKILL%20ISSUE%20feedback',
 };
