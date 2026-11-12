@@ -102,7 +102,7 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion={settings.lowPower ? 'always' : 'user'}>
-      <header className={`topbar ${mode === null || MODES.includes(mode as Mode) ? '' : 'narrow'}`}>
+      <header className="topbar">
         <button className="corner-btn px-box" onClick={() => setMenuOpen(true)} aria-label="Open menu">
           ☰
         </button>

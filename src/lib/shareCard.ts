@@ -1,4 +1,6 @@
 import { savedResultCanvas } from './savedResult';
+import { preloadResultCompanions } from '../games/resultCompanion';
+import { carSprite } from './pixelAssets';
 import { GAME_NAME, MODE_INFO, MODES, type Mode, siteUrl } from '../config';
 import { C, FONT } from '../games/types';
 import { dayNumber } from './daily';
@@ -105,7 +107,11 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
   cv.width = CW;
   cv.height = CH;
   const c = cv.getContext('2d')!;
-  const { nickname, days } = usePlayer.getState();
+  const { nickname, days, carSkin } = usePlayer.getState();
+  await Promise.all([
+    preloadResultCompanions(),
+    carSprite(carSkin).image.decode().catch(() => {}),
+  ]);
   background(c);
   header(c, input.date);
 
@@ -137,22 +143,28 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
   } else {
     // "my day" summary
     const total = totalScore(days, input.date);
-    let y = 420;
-    for (const m of MODES) {
+    for (const [index, m] of MODES.entries()) {
       const info = MODE_INFO[m];
       const md = modeDay(days, input.date, m);
       const best = bestAttempt(md);
-      box(c, 110, y, CW - 220, 230, info.color);
-      txt(c, info.emoji, 200, y + 115, 90, C.text);
-      txt(c, info.title.toUpperCase(), 290, y + 75, 54, info.color, { align: 'left' });
-      txt(c, best ? emojiRow(md) : 'skipped 🐔', 290, y + 155, 44, C.muted, { align: 'left' });
-      txt(c, best ? fmtResult(m, best) : '—', CW - 150, y + 115, 76, C.text, { align: 'right', maxWidth: 360 });
-      y += 290;
+      const x = 60 + index * 328;
+      const width = 304;
+      const center = x + width / 2;
+      box(c, x, 370, width, 800, info.color);
+      txt(c, info.title.toUpperCase(), center, 418, 44, info.color, { maxWidth: width - 24 });
+      if (best) {
+        const image = savedResultCanvas(m, input.date, best);
+        c.drawImage(image, x + 12, 464, 280, 280 * 16 / 9);
+      } else {
+        txt(c, 'NOT PLAYED', center, 710, 38, C.muted, { maxWidth: width - 24 });
+      }
+      txt(c, best ? fmtResult(m, best) : '—', center, 1030, 66, best ? C.text : C.muted, { maxWidth: width - 28 });
+      txt(c, best ? emojiRow(md) : 'Try it today', center, 1110, 40, C.muted, { maxWidth: width - 28 });
     }
-    txt(c, "TODAY'S TOTAL", CW / 2, y + 60, 46, C.muted);
-    txt(c, `${total.toFixed(1)} / 300`, CW / 2, y + 170, 160, C.yellow, { shadow: '#000' });
-    txt(c, overallBadge(total), CW / 2, y + 290, 64, C.text, { maxWidth: CW - 160 });
-    if (input.rank) txt(c, `#${input.rank} worldwide today`, CW / 2, y + 380, 54, C.cyan);
+    txt(c, "TODAY'S TOTAL", CW / 2, 1250, 46, C.muted);
+    txt(c, `${total.toFixed(1)} / 300`, CW / 2, 1360, 160, C.yellow, { shadow: '#000', maxWidth: CW - 160 });
+    txt(c, overallBadge(total), CW / 2, 1480, 64, C.text, { maxWidth: CW - 160 });
+    if (input.rank) txt(c, `#${input.rank} worldwide today`, CW / 2, 1570, 54, C.cyan);
   }
 
   footer(c, nickname);

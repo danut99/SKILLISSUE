@@ -39,9 +39,22 @@ export function TrackedChallengeBanner({ token, mode, date }: { token: string; m
     </div>
     {data.is_owner ? <p>{data.participants.length ? `${data.participants.length} ${data.participants.length === 1 ? 'player accepted' : 'players accepted'}` : 'Waiting for someone to accept'}</p> :
       data.accepted && player ? <p className={`challenge-outcome ${winner === 1 ? 'won' : ''}`} role="status">{challengeWinner(data, player)}</p> : null}
+    {data.is_owner && data.participants.length > 0 && (
+      <ul className="challenge-banner-responses" aria-label="Challenge responses">
+        {data.participants.map((participant, index) => (
+          <li key={`${participant.accepted_at}:${index}`}>
+            <div className="challenge-response-player">
+              <span>{participant.nickname}</span>
+              <b>{participant.score !== null ? fmtResult(mode, { score: participant.score, detail: participant.detail ?? {} }) : 'Not played yet'}</b>
+            </div>
+            <span className="challenge-response-outcome">{challengeWinner(data, participant)}</span>
+          </li>
+        ))}
+      </ul>
+    )}
     {expired ? <p>This challenge is from {data.play_date}. Start a new challenge for today.</p> : !data.is_owner && !data.accepted ?
       <button className="btn btn-primary" disabled={busy} onClick={() => void accept()}>{busy ? 'Accepting...' : 'Accept challenge'}</button> : null}
-    <small className="challenge-source challenge-attribution">{data.accepted ? expired || player?.attempts_remaining === 0 ? 'Final result for that day.' : 'Best scores so far. Your result updates after scores sync.' : data.is_owner ? 'Send this link to a friend.' : 'Accept to share your daily best with the sender.'}</small>
+    <small className="challenge-source challenge-attribution">{data.is_owner && data.participants.length > 0 ? 'Your shared target is fixed. Results update as players finish their daily attempts.' : data.accepted ? expired || player?.attempts_remaining === 0 ? 'Final result for that day.' : 'Best scores so far. Your result updates after scores sync.' : data.is_owner ? 'Send this link to a friend.' : 'Accept to share your daily best with the sender.'}</small>
     <a className="challenge-manage" href="#friends">View challenge responses</a>
   </div>;
 }

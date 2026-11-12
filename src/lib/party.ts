@@ -1,6 +1,7 @@
 import { isOnline, whenAuthReady } from './auth';
 import { ensureNickname } from './leaderboard';
 import { getSupabase } from './supabase';
+import type { Detail } from './store';
 import type { AttemptResult } from '../games/types';
 
 export const PARTY_ROUNDS = [
@@ -12,30 +13,43 @@ export const PARTY_ROUNDS = [
   { mode: 'cut', shape: 'circle', seconds: 16, level: 'Final chaos', complexity: 2 },
 ] as const;
 export const PARTY_REVEAL_SECONDS = 6;
+export const PARTY_ROUND_COUNTS = Array.from({ length: 11 }, (_, index) => index + 2);
+export const partyRound = (round: number) => {
+  const shapes = ['circle', 'square', 'triangle', 'diamond', 'hexagon', 'triangle'] as const;
+  const tier = Math.min(5, Math.floor(round / 2));
+  return { mode: round % 2 === 0 ? 'draw' as const : 'cut' as const, shape: shapes[tier], seconds: 16, level: ['Warm-up', 'Corners count', 'Tricky angles', 'Sharp turns', 'Many sides', 'Final chaos'][tier], complexity: tier };
+};
 export const PARTY_DURATION = PARTY_ROUNDS.reduce((n, r) => n + r.seconds + PARTY_REVEAL_SECONDS, 0);
 export interface PartyPlayer {
-  name: string; is_me: boolean; is_host: boolean; ready: boolean;
-  results: { round: number; score: number | null }[];
+  player_id?: string; name: string; is_me: boolean; is_host: boolean; ready: boolean;
+  results: { round: number; score: number | null; detail?: Detail | null }[];
 }
 export interface PartyRoom {
+  round_count?: number;
   token: string; match_no: number; started_at: string | null; expires_at: string;
   server_now: string; is_host: boolean; joined: boolean; players: PartyPlayer[];
 }
+export interface PartyMatch {
+  round_count?: number;
+  match_no: number;
+  roster_complete: boolean;
+  players: PartyPlayer[];
+}
 export type PartyPhase = { kind: 'lobby' | 'countdown' | 'playing' | 'reveal' | 'finished'; round: number; secondsLeft: number; start: number; end: number };
 export function partyRoundOffset(round: number): number {
-  return PARTY_ROUNDS.slice(0, round).reduce((sum, r) => sum + r.seconds + PARTY_REVEAL_SECONDS, 0);
+  return round * (PARTY_ROUNDS[0].seconds + PARTY_REVEAL_SECONDS);
 }
-export function partyPhase(startedAt: string | null, now: number): PartyPhase {
+export function partyPhase(startedAt: string | null, now: number, roundCount = 6): PartyPhase {
   if (!startedAt) return { kind: 'lobby', round: 0, secondsLeft: 0, start: 0, end: 0 };
   const start = Date.parse(startedAt);
   if (now < start) return { kind: 'countdown', round: 0, secondsLeft: (start - now) / 1000, start, end: start };
-  for (let round = 0; round < PARTY_ROUNDS.length; round++) {
+  for (let round = 0; round < roundCount; round++) {
     const roundStart = start + partyRoundOffset(round) * 1000;
-    const end = roundStart + PARTY_ROUNDS[round].seconds * 1000;
+    const end = roundStart + partyRound(round).seconds * 1000;
     const revealEnd = end + PARTY_REVEAL_SECONDS * 1000;
     if (now < revealEnd) return { kind: now < end ? 'playing' : 'reveal', round, secondsLeft: (now < end ? end - now : revealEnd - now) / 1000, start: roundStart, end };
   }
-  return { kind: 'finished', round: 5, secondsLeft: 0, start, end: start + PARTY_DURATION * 1000 };
+  return { kind: 'finished', round: roundCount - 1, secondsLeft: 0, start, end: start + partyRoundOffset(roundCount) * 1000 };
 }
 export function partyStandings(players: PartyPlayer[], revealedThrough: number) {
   const rows = players.map(player => ({ ...player, total: Math.round(player.results.reduce((sum, result) => sum + (result.round <= revealedThrough ? result.score ?? 0 : 0), 0) * 100) / 100 }));
@@ -55,6 +69,9 @@ const ERRORS: Record<string, string> = {
   not_ready: 'Wait until everyone is ready.', round_closed: 'The round ended. No score was received in time.',
   wrong_match: 'A new match has started. Rejoin the current round.', match_not_finished: 'Wait until the match finishes.',
   room_limit: 'You already have 10 active rooms. Reuse one of your invite links.',
+  removed_player: 'The host removed you from this room.',
+  match_in_progress: 'Players can leave or be removed in the lobby or after the match.',
+  bad_round_count: 'Choose between 2 and 12 rounds.',
 };
 async function rpc<T>(name: string, args = {}): Promise<T> {
   await whenAuthReady(); const sb = await getSupabase();
@@ -69,8 +86,12 @@ async function rpc<T>(name: string, args = {}): Promise<T> {
 }
 export async function createPartyRoom() { await whenAuthReady(); await ensureNickname(); return rpc<PartyRoom>('create_party_room'); }
 export const getPartyRoom = (token: string) => rpc<PartyRoom>('get_party_room', { p_room: token });
+export const getPartyMatch = (token: string, match: number) => rpc<PartyMatch>('get_party_match', { p_room: token, p_match: match });
 export async function joinPartyRoom(token: string) { await whenAuthReady(); await ensureNickname(); return rpc<PartyRoom>('join_party_room', { p_room: token }); }
 export const readyPartyRoom = (token: string, ready: boolean) => rpc<PartyRoom>('ready_party_room', { p_room: token, p_ready: ready });
+export const setPartyRoundCount = (token: string, count: number) => rpc<PartyRoom>('set_party_round_count', { p_room: token, p_round_count: count });
 export const startPartyRoom = (token: string) => rpc<PartyRoom>('start_party_room', { p_room: token });
 export const rematchPartyRoom = (token: string) => rpc<PartyRoom>('rematch_party_room', { p_room: token });
 export const submitPartyResult = (token: string, match: number, round: number, result: AttemptResult) => rpc<PartyRoom>('submit_party_result', { p_room: token, p_match: match, p_round: round, p_score: result.score, p_detail: result.detail });
+
+export const leavePartyRoom = (token: string, player?: string) => rpc<void>('leave_party_room', { p_room: token, p_player: player ?? null });

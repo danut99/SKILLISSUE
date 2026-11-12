@@ -107,7 +107,8 @@ function FriendsContent({ date, inviteToken }: { date: string; inviteToken: stri
         </div>
       )}
 
-      <ChallengeInbox />
+      <div className="friends-layout">
+      <div className="friends-sidebar">
       <div className="me-box">
         <h2>Invite a friend</h2>
         <p>Anyone with your link can become your friend. Links expire after 7 days.</p>
@@ -154,6 +155,9 @@ function FriendsContent({ date, inviteToken }: { date: string; inviteToken: stri
         </label>
         <Leaderboard date={date} mode={mode} scope="friends" title="You + your friends" />
       </section>
+      </div>
+      <div className="friends-challenges"><ChallengeInbox /></div>
+      </div>
     </>
   );
 }

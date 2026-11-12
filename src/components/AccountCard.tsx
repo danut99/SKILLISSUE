@@ -78,12 +78,12 @@ export function AccountCard({ compact = false, page = false }: { compact?: boole
 
   return (
     <div className={`card px-box account-card ${compact ? 'compact' : ''}`}>
-      <div className="acc-title">save your progress</div>
-      <p className="acc-text">
+      {!compact && <div className="acc-title">save your progress</div>}
+      {!compact && <p className="acc-text">
         keep your name, streak &amp; scores on any device. no password.
         {!compact && <> already played somewhere else? use the same email to log in.</>}
-      </p>
-      <p className="acc-text">Enter your email, then click the link in your inbox to confirm it and save your progress.</p>
+      </p>}
+      <p className="acc-text">Enter your email, then click the link in your inbox. Already registered? Use the same email to log in.</p>
       {sent ? (
         <p className="acc-sent">
           📬 {sent === 'link_sent' ? 'check your inbox and click the link to confirm your email and save your progress. check spam too.' : 'check your inbox and click the link to sign in. check spam too.'}

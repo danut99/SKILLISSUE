@@ -27,11 +27,11 @@ const SECTIONS: { title: string; questions: [string, string][] }[] = [
   ] },
   { title: 'Party Mode', questions: [
     ['How do I start a party?', 'Open Menu ? Party and create a room. Copy the invite link and send it to friends. Each player joins and taps I?m ready. The host starts once all players are ready. You need 2?8 players and an online connection.'],
-    ['What are the six rounds?', `Draw a circle, Cut, Draw a square, Cut, Draw a triangle, and a final Cut. Later cutting shapes have more vertices. Every round gives everyone ${PARTY_ROUNDS[0].seconds} seconds; the shapes provide the difficulty increase.`],
+    ['How many rounds can we play?', `The host chooses 2-12 rounds in the lobby. Six is the default. Rounds cycle through Draw a circle, Cut, Draw a square, Cut, Draw a triangle, and Cut. Longer matches repeat the cycle with new challenges. Later cutting shapes have more vertices. Every round gives everyone ${PARTY_ROUNDS[0].seconds} seconds; the shapes provide the difficulty increase.`],
     ['When does the timer start?', 'After the shared countdown, everyone starts each round together. The timer starts automatically, not on first touch. There is one scored attempt per round. Keep the game visible and be ready for the next round.'],
     ['What happens after I finish?', `Your result shows immediately with Saving your score or Score saved, a finished-player count, and a countdown to the reveal. Opponents? scores stay hidden until the round ends. There are ${PARTY_REVEAL_SECONDS} seconds to view results before the next round.`],
-    ['How do we win?', 'Your six round scores add up to a total out of 600. Highest total wins. Tied totals share a place. A missed or timed-out round scores zero. Party scores do not affect daily rankings or use daily tries.'],
-    ['Can we restart after the final results?', 'Yes. The host taps Restart game. The same room, players, and invite link are kept; everyone readies up again for six new rounds.'],
+    ['How do we win?', 'Your round scores add up. Each round is worth up to 100 points, so a six-round match is out of 600. Highest total wins. Tied totals share a place. A missed or timed-out round scores zero. Party scores do not affect daily rankings or use daily tries.'],
+    ['Can we restart after the final results?', 'Yes. The host taps Restart game. The same room, players, and invite link are kept; the host can adjust the round count and everyone readies up again.'],
     ['What if I reload, leave, or join late?', 'Reloading or leaving an unfinished active round forfeits that attempt. Missed rounds score zero, and the match continues on its shared schedule. Players must join before the match starts; late arrivals wait for the next lobby. Room links last 24 hours.'],
   ] },
   { title: 'Account, progress & sharing', questions: [
@@ -53,12 +53,12 @@ export function FaqPage() {
     <h1>faq</h1>
     <p>Controls, rules, friends, and party chaos. Pick a question.</p>
     <nav className="faq-topics" aria-label="FAQ topics">{SECTIONS.map((section, index) => <a key={section.title} href={`#faq/topic-${index}`} onClick={() => requestAnimationFrame(() => document.getElementById(`faq-topic-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))}>{section.title}</a>)}</nav>
-    {SECTIONS.map((section, index) => <section className="faq-group" id={`faq-topic-${index}`} key={section.title} aria-labelledby={`faq-heading-${index}`}>
+    <div className="faq-groups">{SECTIONS.map((section, index) => <section className="faq-group" id={`faq-topic-${index}`} key={section.title} aria-labelledby={`faq-heading-${index}`}>
       <h2 id={`faq-heading-${index}`}>{section.title}</h2>
       {section.questions.map(([question, answer]) => <details className="faq-question" key={question}>
         <summary>{question}</summary><p>{answer}</p>
       </details>)}
-    </section>)}
+    </section>)}</div>
     <p><a href="#">Back to today's games</a></p>
   </section>;
 }

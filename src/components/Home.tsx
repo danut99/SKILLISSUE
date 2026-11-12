@@ -1,3 +1,6 @@
+import { GuestProgressPrompt } from './GuestProgressPrompt';
+import { useAuth } from '../lib/auth';
+import { PartyStats } from './PartyStats';
 import { ChallengeInbox } from './ChallengeInbox';
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
@@ -42,6 +45,7 @@ export function Home({ date, onPlay }: Props) {
     const id = setInterval(() => setLine((i) => (i + 1) % TAGLINES.length), 4000);
     return () => clearInterval(id);
   }, [line, paused]);
+  const authStatus = useAuth(s => s.status);
   const days = usePlayer((s) => s.days);
   const streak = usePlayer((s) => s.streak);
   const lastDay = usePlayer((s) => s.lastDay);
@@ -109,6 +113,7 @@ export function Home({ date, onPlay }: Props) {
       <div className="with-board">
       <div className="main-col">
 
+      <GuestProgressPrompt date={date} />
       <div className="cards">
       {MODES.map((m, i) => {
         const md = modeDay(days, date, m);
@@ -152,7 +157,8 @@ export function Home({ date, onPlay }: Props) {
         <div>
           <span className="pill home-party-testing">In testing</span>
           <h2 id="home-party-title">Who's the skill issue in your group?</h2>
-          <p>Invite your friends. Six rounds. One winner.</p>
+          <p>Invite your friends. Pick your rounds. One winner.</p>
+          <PartyStats />
           <small>Party mode is still in testing. You may run into bugs.</small>
         </div>
         <a className="btn btn-primary" href="#party">Try Party mode <span aria-hidden="true">&#8594;</span></a>
@@ -160,19 +166,30 @@ export function Home({ date, onPlay }: Props) {
 
       {playedAny && (
         <div className="card px-box total-card">
-          <div className="eyebrow">today's total</div>
-          <div className="total-score">
-            {total.toFixed(1)}
-            <small>/300</small>
+          <div className="daily-total-summary">
+            <div className="eyebrow">today's total</div>
+            <div className="total-score">
+              {total.toFixed(1)}
+              <small>/300</small>
+            </div>
+            <div className="badge">{overallBadge(total)}</div>
           </div>
-          <div className="badge">{overallBadge(total)}</div>
-          <button className="btn btn-primary wide" onClick={shareDay}>
-            share my day
+          <button className="btn btn-primary daily-total-share" onClick={shareDay}>
+            Share my day <span aria-hidden="true">&#8599;</span>
           </button>
+          <div className="daily-total-games">
+            {MODES.map(mode => {
+              const best = bestAttempt(modeDay(days, date, mode));
+              return <button key={mode} className={`daily-total-game ${best ? 'played' : ''}`} onClick={() => onPlay(mode)} aria-label={`${MODE_INFO[mode].title}: ${best ? fmtResult(mode, best) : 'not played'}`}>
+                <span className="daily-total-game-label"><PixelIcon name={mode} size={26} />{MODE_INFO[mode].name}</span>
+                <span className="daily-total-game-score">{best ? fmtResult(mode, best).replace(/\s*\/\s*/, '/') : 'Not played'}</span>
+              </button>;
+            })}
+          </div>
         </div>
       )}
 
-      <AccountCard />
+      {authStatus !== 'anon' && <AccountCard />}
       </div>
 
       <aside className="board-col">

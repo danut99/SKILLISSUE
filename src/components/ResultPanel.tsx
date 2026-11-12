@@ -1,13 +1,13 @@
 import { createTrackedChallenge, trackedChallengeUrl } from '../lib/trackedChallenges';
 import { motion } from 'motion/react';
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { MODE_INFO, MODES, REWARDED_ADS, type Mode } from '../config';
 import { saveClip } from '../lib/clip';
-import { claimNickname } from '../lib/leaderboard';
 import { useAuth } from '../lib/auth';
-import { AccountCard } from './AccountCard';
+import { GuestProgressPrompt } from './GuestProgressPrompt';
+import { NicknameControl } from './NicknameControl';
 import { copyText, badgeFor, emojiRow, fmtResult, roastFor, shareText, toneFor } from '../lib/scoring';
-import { bestAttempt, cleanNickname, maxTries, modeDay, triesLeft, usePlayer, type Attempt } from '../lib/store';
+import { bestAttempt, maxTries, modeDay, triesLeft, usePlayer, type Attempt } from '../lib/store';
 import { toast, useUi } from '../lib/ui';
 import { Countdown } from './Countdown';
 import { PixelIcon } from './PixelIcon';
@@ -29,14 +29,8 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
   const [shareOpen, setShareOpen] = useState(false);
   const [challengeBusy, setChallengeBusy] = useState(false);
   const days = usePlayer((s) => s.days);
-  const nickname = usePlayer((s) => s.nickname);
-  const setNickname = usePlayer((s) => s.setNickname);
   const ranks = useUi((s) => s.ranks);
   const authStatus = useAuth((s) => s.status);
-  const refreshBoards = useUi((s) => s.refreshBoards);
-  const [nick, setNick] = useState(nickname);
-  const [busy, setBusy] = useState(false);
-  const [editing, setEditing] = useState(false);
 
   const md = modeDay(days, date, mode);
   const best = bestAttempt(md);
@@ -51,42 +45,12 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
     try {
       const challenge = await createTrackedChallenge(mode);
       const url = trackedChallengeUrl(location.href, challenge);
-      const text = `${challenge.creator_name} scored ${fmtResult(mode, { score: challenge.creator_score, detail: challenge.creator_detail })} in ${MODE_INFO[mode].title}. Beat my score!`;
       useUi.getState().refreshBoards();
-      if (navigator.share) {
-        try { await navigator.share({ title: 'Beat my score - SKILL ISSUE', text, url }); return; }
-        catch (error) { if ((error as Error).name === 'AbortError') return; }
-      }
-      toast(await copyText(`${text}\n${url}`) ? 'Challenge link copied! Track responses in Friends.' : 'Open Friends to copy your challenge link.');
+      toast(await copyText(url) ? 'Challenge link copied!' : 'Could not copy link. Open Friends to copy your challenge link.');
     } catch (cause) {
       toast(cause instanceof Error ? cause.message : 'Could not create challenge.');
     } finally { setChallengeBusy(false); }
   }
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    const clean = cleanNickname(nick);
-    if (!clean) return toast('Pick a nickname first 🙃');
-    if (clean === nickname) return setEditing(false);
-    setBusy(true);
-    try {
-      const r = await claimNickname(date, clean);
-      if (!r.ok) {
-        toast(r.reason === 'taken' ? `"${clean}" is taken 😤 pick another` : 'Leaderboard hiccup. Try again 😵');
-        return;
-      }
-      setNickname(r.nickname);
-      setNick(r.nickname);
-      setEditing(false);
-      toast(`You're now ${r.nickname} 😎`);
-      refreshBoards();
-    } catch {
-      toast('Leaderboard hiccup. Try again 😵');
-    } finally {
-      setBusy(false);
-    }
-  }
-
 
   async function downloadClip() {
     if (!clip || !shown) return;
@@ -118,6 +82,8 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
         best today: <b>{fmtResult(mode, best)}</b> <span className="emojis">{emojiRow(md)}</span>
         {ranks[mode] ? <> · rank <b>#{ranks[mode]}</b></> : null}
       </div>
+
+      <GuestProgressPrompt date={date} />
 
       <div className="r-actions">
         {left > 0 ? (
@@ -158,31 +124,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
         </span>
         {ranks[mode] ? <span className="saved-rank">#{ranks[mode]}</span> : null}
       </div>
-      {editing ? (
-        <form className="nick-form" onSubmit={submit}>
-          <input
-            value={nick}
-            onChange={(e) => setNick(e.target.value.slice(0, 15))}
-            maxLength={15}
-            placeholder="new nickname"
-            aria-label="Nickname"
-            autoComplete="nickname"
-            enterKeyHint="done"
-            autoFocus
-          />
-          <button className="btn btn-primary" type="submit" disabled={busy}>
-            {busy ? '…' : 'save'}
-          </button>
-        </form>
-      ) : (
-        <div className="nick-status">
-          playing as <b>{nickname}</b>{' '}
-          <button className="link-btn" onClick={() => setEditing(true)}>
-            change name
-          </button>
-        </div>
-      )}
-      {authStatus === 'anon' && <AccountCard compact />}
+      {authStatus !== 'anon' && <NicknameControl date={date} />}
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} date={date} mode={mode} snapshot={snapshot} attempt={shown} />
     </motion.div>
   );

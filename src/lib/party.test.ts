@@ -3,7 +3,7 @@ const mocks = vi.hoisted(() => ({ rpc: vi.fn(), online: vi.fn(() => true), nickn
 vi.mock('./auth', () => ({ isOnline: mocks.online, whenAuthReady: vi.fn(async () => {}) }));
 vi.mock('./leaderboard', () => ({ ensureNickname: mocks.nickname }));
 vi.mock('./supabase', () => ({ getSupabase: vi.fn(async () => ({ rpc: mocks.rpc })) }));
-import { PARTY_DURATION, PARTY_ROUNDS, createPartyRoom, joinPartyRoom, partyPhase, partyRoundOffset, partyStandings, partyUrl, readPartyToken, readyPartyRoom, startPartyRoom, submitPartyResult, type PartyPlayer } from './party';
+import { PARTY_DURATION, PARTY_ROUNDS, createPartyRoom, getPartyMatch, joinPartyRoom, partyPhase, partyRound, partyRoundOffset, partyStandings, partyUrl, readPartyToken, readyPartyRoom, setPartyRoundCount, startPartyRoom, submitPartyResult, type PartyPlayer } from './party';
 
 const token = '12345678-1234-4234-8234-123456789012';
 const start = Date.parse('2026-11-12T12:00:00Z');
@@ -32,6 +32,16 @@ describe('six-round party schedule', () => {
     expect(partyPhase(date, start + 50000)).toMatchObject({ round: 2, kind: 'playing', secondsLeft: 10 });
     expect(partyPhase(date, start + 140000).kind).toBe('finished');
   });
+  it('finishes at the selected round count and continues past the default six rounds', () => {
+    for (const count of [2, 3, 6, 8, 12]) {
+      const end = start + count * 22000;
+      expect(partyPhase(date, end - 1, count)).toMatchObject({ kind: 'reveal', round: count - 1 });
+      expect(partyPhase(date, end, count)).toMatchObject({ kind: 'finished', round: count - 1, end });
+    }
+    expect(partyPhase(date, start + 132000, 12)).toMatchObject({ kind: 'playing', round: 6 });
+    expect(partyRound(6)).toMatchObject({ mode: 'draw', shape: 'diamond', seconds: 16 });
+    expect(partyRound(11)).toMatchObject({ mode: 'cut', complexity: 5, seconds: 16 });
+  });
   it('only totals revealed rounds, counts missing results as zero, and shares tied places', () => {
     const make = (name: string, scores: number[]): PartyPlayer => ({ name, is_me: false, is_host: false, ready: true, results: scores.map((score, round) => ({ round, score })) });
     const players = [make('Alex', [80, 99]), make('Danik', [80]), make('Mia', [70])];
@@ -47,6 +57,16 @@ describe('six-round party schedule', () => {
   });
 });
 describe('party RPCs', () => {
+  it('sends the host round selection to the server', async () => {
+    await setPartyRoundCount(token, 12);
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('set_party_round_count', { p_room: token, p_round_count: 12 });
+  });
+  it('loads a previous match without changing or submitting current scores', async () => {
+    const history = { match_no: 1, roster_complete: true, players: [] };
+    mocks.rpc.mockResolvedValue({ data: history, error: null });
+    expect(await getPartyMatch(token, 1)).toEqual(history);
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('get_party_match', { p_room: token, p_match: 1 });
+  });
   it('uses a separate room and score endpoint instead of consuming daily tries', async () => {
     await createPartyRoom();
     await joinPartyRoom(token);

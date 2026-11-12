@@ -6,6 +6,23 @@ import { C, W } from './types';
 
 const sprites = new Map<string, HTMLImageElement>();
 
+function resultSprite(speaker: string) {
+  let sprite = sprites.get(speaker);
+  if (!sprite && typeof Image !== 'undefined') {
+    sprite = new Image();
+    sprite.src = pixelArtUrl(`${speaker}-192.png`);
+    sprites.set(speaker, sprite);
+  }
+  return sprite;
+}
+
+export async function preloadResultCompanions() {
+  await Promise.all(['angel', 'demon'].map(async speaker => {
+    const sprite = resultSprite(speaker);
+    if (sprite) await sprite.decode().catch(() => {});
+  }));
+}
+
 /** Kept inside the stage so snapshots and recorded clips include the reaction. */
 export function drawResultCompanion(c: CanvasRenderingContext2D, score: number, mode: Mode = 'draw', result = `${score.toFixed(1)}%`, detail: Detail = {}) {
   const angel = score >= 80;
@@ -30,12 +47,7 @@ export function drawResultCompanion(c: CanvasRenderingContext2D, score: number, 
   c.strokeStyle = color;
   c.lineWidth = 2;
   c.strokeRect(82, 540, W - 96, 88);
-  let sprite = sprites.get(speaker);
-  if (!sprite && typeof Image !== 'undefined') {
-    sprite = new Image();
-    sprite.src = pixelArtUrl(`${speaker}-192.png`);
-    sprites.set(speaker, sprite);
-  }
+  const sprite = resultSprite(speaker);
   if (sprite?.complete && sprite.naturalWidth) {
     c.imageSmoothingEnabled = false;
     c.drawImage(sprite, 10, 560, 72, 72);

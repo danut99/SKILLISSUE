@@ -9,7 +9,7 @@ import { C, H, W, type Game, type GameApi } from './types';
 /** Today's asymmetric 7–9 vertex blob — identical for every player (UTC date seed). */
 export function dailyShape(date: string, complexity = 0): { poly: Pt[]; hue: number } {
   const rng = rngFor(`${date}:cut`);
-  const n = 7 + Math.floor(rng() * 3) + Math.max(0, Math.min(2, complexity)) * 2;
+  const n = 7 + Math.floor(rng() * 3) + Math.max(0, Math.min(5, complexity)) * 2;
   const off = rng() * Math.PI * 2;
   let poly: Pt[] = [];
   for (let i = 0; i < n; i++) {

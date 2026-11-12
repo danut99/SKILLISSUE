@@ -3,7 +3,7 @@ import { createDrawGame } from '../games/drawGame';
 import { createCutGame } from '../games/cutGame';
 import { banner, paper, text } from '../games/canvas';
 import { C, W, type AttemptResult, type Game, type GameApi } from '../games/types';
-import { PARTY_ROUNDS, submitPartyResult } from '../lib/party';
+import { partyRound, submitPartyResult } from '../lib/party';
 import { toast } from '../lib/ui';
 import { GameCanvas } from './GameCanvas';
 
@@ -17,7 +17,8 @@ function write(key: string, data: SavedRound) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch { /* current tab still protects against replay */ }
 }
 
-export function PartyRound({ token, match, round, userId, end, offset, receivedScore, onRefresh, reveal, secondsLeft, finishedPlayers, totalPlayers }: {
+export function PartyRound({ token, match, round, roundCount, userId, end, offset, receivedScore, onRefresh, reveal, secondsLeft, finishedPlayers, totalPlayers }: {
+  roundCount: number;
   token: string; match: number; round: number; userId: string; end: number; offset: number;
   receivedScore: number | null | undefined; onRefresh: () => void;
   reveal: boolean; secondsLeft: number; finishedPlayers: number; totalPlayers: number;
@@ -32,7 +33,7 @@ export function PartyRound({ token, match, round, userId, end, offset, receivedS
   useEffect(() => { clockOffset.current = offset; }, [offset]);
 
   useEffect(() => {
-    const rule = PARTY_ROUNDS[round];
+    const rule = partyRound(round);
     let finished = false;
     let finalResult: AttemptResult | null = null;
     let game: Game | null = null;
@@ -121,7 +122,7 @@ export function PartyRound({ token, match, round, userId, end, offset, receivedS
         <b>{score.toFixed(1)} <small>pts</small></b>
         <span className={savingError ? 'party-sync-error' : ''}>{savingError ? sync : saved ? 'Score saved' : 'Saving your score...'}</span>
         <div className="party-waiting-label">{reveal ? 'Results revealed' : 'Waiting for players'}{!reveal && <span className="waiting-dots" aria-hidden="true">...</span>}</div>
-        <small>{reveal ? `${round === 5 ? 'Final podium' : 'Next round'} in ${Math.max(0, Math.ceil(secondsLeft))}s` : `${finishedPlayers}/${totalPlayers} finished - results in ${Math.max(0, Math.ceil(secondsLeft))}s`}</small>
+        <small>{reveal ? `${round === roundCount - 1 ? 'Final podium' : 'Next round'} in ${Math.max(0, Math.ceil(secondsLeft))}s` : `${finishedPlayers}/${totalPlayers} finished - results in ${Math.max(0, Math.ceil(secondsLeft))}s`}</small>
       </div>}
     </div>
   </div>;
