@@ -21,6 +21,7 @@ import { siteUrl, type Mode } from '../config';
 import { copyText, shareText } from '../lib/scoring';
 import { cardFileName, renderShareCard } from '../lib/shareCard';
 import { toast, useUi } from '../lib/ui';
+import { track } from '../lib/clarity';
 
 interface Props {
   open: boolean;
@@ -31,11 +32,14 @@ interface Props {
   snapshot?: HTMLCanvasElement | null;
   /** the try that was just played (defaults to today's best) */
   attempt?: import('../lib/store').Attempt | null;
+  /** past-day challenge replays have no daily rank */
+  noRank?: boolean;
 }
 
 /** Share card preview + TikTok / Instagram (image via share sheet or download) + link-based socials. */
-export function ShareModal({ open, onClose, date, mode, snapshot, attempt }: Props) {
-  const ranks = useUi((s) => s.ranks);
+export function ShareModal({ open, onClose, date, mode, snapshot, attempt, noRank = false }: Props) {
+  const liveRanks = useUi((s) => s.ranks);
+  const ranks = noRank ? {} : liveRanks;
   const [blob, setBlob] = useState<Blob | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const rank = mode ? ranks[mode] : ranks.overall;
@@ -66,6 +70,8 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt }: Pro
   const file = blob ? new File([blob], cardFileName(date, mode), { type: 'image/png' }) : null;
   const canShareFile = !!file && !!navigator.canShare?.({ files: [file] });
 
+  const shared = (channel: string) => track(`share_${channel}_${mode ?? 'day'}`);
+
   function download() {
     if (!url) return;
     const a = document.createElement('a');
@@ -77,6 +83,7 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt }: Pro
   /** TikTok & Instagram have no web share links → native share sheet with the image, else download. */
   async function shareImage(app?: 'TikTok' | 'Instagram') {
     if (!file) return;
+    shared(app?.toLowerCase() ?? 'native');
     if (canShareFile) {
       try {
         await navigator.share({ files: [file], text });
@@ -91,6 +98,7 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt }: Pro
   }
 
   async function copy() {
+    shared('copy_text');
     toast((await copyText(text)) ? 'Text copied 📋' : "Couldn't copy 😵");
   }
 
@@ -129,31 +137,31 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt }: Pro
             </div>
 
             <div className="share-socials">
-              <FacebookShareButton url={link} hashtag="#skillissue" aria-label="Share on Facebook">
+              <FacebookShareButton beforeOnClick={() => shared('facebook')} url={link} hashtag="#skillissue" aria-label="Share on Facebook">
                 <FacebookIcon size={size} />
               </FacebookShareButton>
-              <XShareButton url={link} text={short} aria-label="Share on X">
+              <XShareButton beforeOnClick={() => shared('x')} url={link} text={short} aria-label="Share on X">
                 <XIcon size={size} />
               </XShareButton>
-              <WhatsappShareButton url={link} message={short} separator={'\n'} aria-label="Share on WhatsApp">
+              <WhatsappShareButton beforeOnClick={() => shared('whatsapp')} url={link} message={short} separator={'\n'} aria-label="Share on WhatsApp">
                 <WhatsappIcon size={size} />
               </WhatsappShareButton>
-              <TelegramShareButton url={link} text={short} aria-label="Share on Telegram">
+              <TelegramShareButton beforeOnClick={() => shared('telegram')} url={link} text={short} aria-label="Share on Telegram">
                 <TelegramIcon size={size} />
               </TelegramShareButton>
-              <ThreadsShareButton url={link} text={short} aria-label="Share on Threads">
+              <ThreadsShareButton beforeOnClick={() => shared('threads')} url={link} text={short} aria-label="Share on Threads">
                 <ThreadsIcon size={size} />
               </ThreadsShareButton>
-              <BlueskyShareButton url={link} text={short} aria-label="Share on Bluesky">
+              <BlueskyShareButton beforeOnClick={() => shared('bluesky')} url={link} text={short} aria-label="Share on Bluesky">
                 <BlueskyIcon size={size} />
               </BlueskyShareButton>
-              <RedditShareButton url={link} shareTitle={short.split('\n')[0]} aria-label="Share on Reddit">
+              <RedditShareButton beforeOnClick={() => shared('reddit')} url={link} shareTitle={short.split('\n')[0]} aria-label="Share on Reddit">
                 <RedditIcon size={size} />
               </RedditShareButton>
             </div>
 
             <div className="share-row">
-              <button className="btn btn-ghost" onClick={download} disabled={!url}>
+              <button className="btn btn-ghost" onClick={() => { shared('save_image'); download(); }} disabled={!url}>
                 save image
               </button>
               <button className="btn btn-ghost" onClick={copy}>

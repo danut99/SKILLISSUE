@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
+import { track } from '../lib/clarity';
 import { usePlayer, type Settings } from '../lib/store';
 
 interface Props {
@@ -40,7 +41,7 @@ export function SettingsModal({ open, onClose }: Props) {
                   <span className="t-label">{t.label}</span>
                   <span className="t-hint">{t.hint}</span>
                 </span>
-                <input type="checkbox" checked={settings[t.key]} onChange={(e) => setSetting(t.key, e.target.checked)} />
+                <input type="checkbox" checked={settings[t.key]} onChange={(e) => { track(`setting_${t.key}_${e.target.checked ? 'on' : 'off'}`); setSetting(t.key, e.target.checked); }} />
                 <span className={`t-pill ${settings[t.key] ? 'on' : ''}`}>{settings[t.key] ? 'ON' : 'OFF'}</span>
               </label>
             ))}

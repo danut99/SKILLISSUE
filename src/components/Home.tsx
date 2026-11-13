@@ -1,4 +1,5 @@
 import { GuestProgressPrompt } from './GuestProgressPrompt';
+import { track } from '../lib/clarity';
 import { useAuth } from '../lib/auth';
 import { PartyStats } from './PartyStats';
 import { ChallengeInbox } from './ChallengeInbox';
@@ -55,7 +56,10 @@ export function Home({ date, onPlay }: Props) {
 
 
   const [shareOpen, setShareOpen] = useState(false);
-  const shareDay = () => setShareOpen(true);
+  const shareDay = () => {
+    track('share_open_day');
+    setShareOpen(true);
+  };
 
   return (
     <section className="screen home">
@@ -125,7 +129,7 @@ export function Home({ date, onPlay }: Props) {
             key={m}
             className="game-card px-box"
             style={{ ['--accent' as string]: info.color }}
-            onClick={() => onPlay(m)}
+            onClick={() => { track(`home_card_${m}`); onPlay(m); }}
             initial={{ opacity: 0, x: i % 2 ? 30 : -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.08 * i }}

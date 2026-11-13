@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
 import type { Mode } from '../config';
+import type { PastChallenge } from './GameScreen';
+import { track } from '../lib/clarity';
 import { useAuth } from '../lib/auth';
 import { fmtResult } from '../lib/scoring';
-import { acceptTrackedChallenge, previewTrackedChallenge, challengeWinner, type TrackedChallenge } from '../lib/trackedChallenges';
+import { acceptTrackedChallenge, previewTrackedChallenge, challengeWinner, pastChallengeDate, type TrackedChallenge } from '../lib/trackedChallenges';
 import { toast, useUi } from '../lib/ui';
 import { useChallengeRefresh } from '../lib/useChallengeRefresh';
 
-export function TrackedChallengeBanner({ token, mode, date }: { token: string; mode: Mode; date: string }) {
+export function TrackedChallengeBanner({ token, mode, date, onPastChallenge }: { token: string; mode: Mode; date: string; onPastChallenge?: (c: PastChallenge | null) => void }) {
   const { userId, status } = useAuth();
   const version = useUi(s => s.boardVersion);
   const revision = useChallengeRefresh();
@@ -20,9 +22,18 @@ export function TrackedChallengeBanner({ token, mode, date }: { token: string; m
   }, [token, userId, status, version, revision]);
   const current = result?.token === token && result.owner === userId ? result : null;
   const data = current?.data;
+  const pastDate = data && data.mode === mode ? pastChallengeDate(data, date) : null;
+  useEffect(() => { onPastChallenge?.(pastDate ? { token, date: pastDate } : null); }, [pastDate, token, onPastChallenge]);
   async function accept() {
     setBusy(true);
-    try { const data = await acceptTrackedChallenge(token); setResult({ token, owner: userId, data }); useUi.getState().refreshBoards(); toast('Challenge accepted! The sender can now see your response.'); }
+    try {
+      const data = await acceptTrackedChallenge(token);
+      setResult({ token, owner: userId, data });
+      useUi.getState().refreshBoards();
+      const past = data.play_date < date;
+      track(past ? `challenge_accept_past_${mode}` : `challenge_accept_${mode}`);
+      toast(past ? `Challenge accepted! Now playing the ${data.play_date} puzzle.` : 'Challenge accepted! The sender can now see your response.');
+    }
     catch (cause) { toast(cause instanceof Error ? cause.message : 'Could not accept challenge.'); }
     finally { setBusy(false); }
   }
@@ -52,9 +63,13 @@ export function TrackedChallengeBanner({ token, mode, date }: { token: string; m
         ))}
       </ul>
     )}
-    {expired ? <p>This challenge is from {data.play_date}. Start a new challenge for today.</p> : !data.is_owner && !data.accepted ?
-      <button className="btn btn-primary" disabled={busy} onClick={() => void accept()}>{busy ? 'Accepting...' : 'Accept challenge'}</button> : null}
-    <small className="challenge-source challenge-attribution">{data.is_owner && data.participants.length > 0 ? 'Your shared target is fixed. Results update as players finish their daily attempts.' : data.accepted ? expired || player?.attempts_remaining === 0 ? 'Final result for that day.' : 'Best scores so far. Your result updates after scores sync.' : data.is_owner ? 'Send this link to a friend.' : 'Accept to share your daily best with the sender.'}</small>
+    {expired && <p>{data.is_owner ? `This challenge is from ${data.play_date}. Start a new challenge for today.`
+      : data.accepted ? `You're playing the ${data.play_date} puzzle. It counts in the all-time leaderboard only, not today's daily board.`
+      : `This challenge is from ${data.play_date}. You can still play that day's puzzle: it counts in the all-time leaderboard only, not today's daily board.`}</p>}
+    {!data.is_owner && !data.accepted &&
+      <button className="btn btn-primary" disabled={busy} onClick={() => void accept()}>{busy ? 'Accepting...' : expired ? `Accept & play ${data.play_date}` : 'Accept challenge'}</button>}
+    <small className="challenge-source challenge-attribution">{data.is_owner && data.participants.length > 0 ? 'Your shared target is fixed. Results update as players finish their daily attempts.' : data.accepted ? player?.attempts_remaining === 0 ? 'Final result for that day.' : 'Best scores so far. Your result updates after scores sync.' : data.is_owner ? 'Send this link to a friend.' : 'Accept to share your daily best with the sender.'}</small>
     <a className="challenge-manage" href="#friends">View challenge responses</a>
+    {expired && <a className="challenge-today" href="#">Play today's challenges →</a>}
   </div>;
 }

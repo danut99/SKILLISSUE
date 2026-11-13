@@ -32,6 +32,14 @@ describe('all-time totals', () => {
     expect(localAllTimeBoard('2026-11-12', 'draw').rows.find(row => row.is_me)?.score).toBe(185);
   });
 
+  it('counts a past-day challenge replay in all-time without touching the streak', () => {
+    usePlayer.getState().addAttempt('2026-11-12', 'draw', attempt(70));
+    usePlayer.getState().addAttempt('2026-11-05', 'cut', attempt(60), true);
+    const s = usePlayer.getState();
+    expect([s.streak, s.daysPlayed, s.lastDay]).toEqual([1, 1, '2026-11-12']);
+    expect(localAllTimeBoard('2026-11-12', 'overall').rows.find(row => row.is_me)?.score).toBe(130);
+  });
+
   it('includes a played zero-score day and omits players with no attempts', () => {
     expect(localAllTimeBoard('2026-11-12', 'draw').rows.some(row => row.is_me)).toBe(false);
     usePlayer.getState().addAttempt('2026-11-12', 'draw', attempt(0));

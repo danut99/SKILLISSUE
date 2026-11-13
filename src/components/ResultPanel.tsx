@@ -9,6 +9,7 @@ import { NicknameControl } from './NicknameControl';
 import { copyText, badgeFor, emojiRow, fmtResult, roastFor, shareText, toneFor } from '../lib/scoring';
 import { bestAttempt, maxTries, modeDay, triesLeft, usePlayer, type Attempt } from '../lib/store';
 import { toast, useUi } from '../lib/ui';
+import { track } from '../lib/clarity';
 import { Countdown } from './Countdown';
 import { PixelIcon } from './PixelIcon';
 import { ShareModal } from './ShareModal';
@@ -23,13 +24,16 @@ interface Props {
   onRetry: () => void;
   onWatchAd: () => void;
   onNext: (mode: Mode | null) => void;
+  /** Replaying a past day's challenge: all-time only, no daily rank. */
+  archived?: boolean;
 }
 
-export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatchAd, onNext }: Props) {
+export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatchAd, onNext, archived = false }: Props) {
   const [shareOpen, setShareOpen] = useState(false);
   const [challengeBusy, setChallengeBusy] = useState(false);
   const days = usePlayer((s) => s.days);
-  const ranks = useUi((s) => s.ranks);
+  const todayRanks = useUi((s) => s.ranks);
+  const ranks = archived ? {} : todayRanks;
   const authStatus = useAuth((s) => s.status);
 
   const md = modeDay(days, date, mode);
@@ -42,6 +46,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
   async function challengeFriend() {
     if (!best || challengeBusy) return;
     setChallengeBusy(true);
+    track(`challenge_friend_${mode}`);
     try {
       const challenge = await createTrackedChallenge(mode);
       const url = trackedChallengeUrl(location.href, challenge);
@@ -54,6 +59,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
 
   async function downloadClip() {
     if (!clip || !shown) return;
+    track(`clip_save_${mode}`);
     const name = `skill-issue-${mode}-${fmtResult(mode, shown).replace(/[^\w.]+/g, '_')}.${clip.ext}`;
     const r = await saveClip(clip.blob, name, shareText(date, ranks, mode));
     if (r === 'downloaded') toast('Clip saved 🎬 Upload it to TikTok!');
@@ -71,7 +77,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
           {MODE_INFO[mode].title}
         </span>
         <span className="pill">
-          {last ? `try ${md.tries.length}/${maxTries(md)}` : 'best today'}
+          {last ? `try ${md.tries.length}/${maxTries(md)}` : archived ? date : 'best today'}
         </span>
       </div>
 
@@ -79,7 +85,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
       {shown && <div className="r-sub">{roastFor(mode, shown)}</div>}
       <div className="r-badge">{badgeFor(mode, best)}</div>
       <div className="r-best">
-        best today: <b>{fmtResult(mode, best)}</b> <span className="emojis">{emojiRow(md)}</span>
+        {archived ? `best on ${date}` : 'best today'}: <b>{fmtResult(mode, best)}</b> <span className="emojis">{emojiRow(md)}</span>
         {ranks[mode] ? <> · rank <b>#{ranks[mode]}</b></> : null}
       </div>
 
@@ -90,16 +96,16 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
           <button className="btn btn-primary result-retry" onClick={onRetry} aria-label={`Retry, ${left} ${left === 1 ? 'attempt' : 'attempts'} left`}>
             <span aria-hidden="true">&#8635;</span> Retry <span className="retry-count" aria-hidden="true">{left}</span>
           </button>
-        ) : REWARDED_ADS && !md.bonus ? (
+        ) : REWARDED_ADS && !archived && !md.bonus ? (
           <button className="btn btn-ad" onClick={onWatchAd}>
             watch ad → +1 try
           </button>
         ) : (
           <div className="out">
-            no tries left · new day in <Countdown />
+            {archived ? 'no tries left for that day' : <>no tries left · new day in <Countdown /></>}
           </div>
         )}
-        <button className="btn btn-ghost result-next" onClick={() => onNext(next)} aria-label={next ? `Next: ${MODE_INFO[next].title}` : 'Back home'}>
+        <button className="btn btn-ghost result-next" onClick={() => { track(next ? `next_game_${next}` : 'next_game_home'); onNext(next); }} aria-label={next ? `Next: ${MODE_INFO[next].title}` : 'Back home'}>
           {next ? <><PixelIcon name={next} size={28} /><span>Next</span><span aria-hidden="true">&#8594;</span></> : 'Home'}
         </button>
       </div>
@@ -109,23 +115,25 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
             save clip for TikTok
           </button>
         )}
-        <button className="btn btn-ghost" onClick={() => setShareOpen(true)}>
+        <button className="btn btn-ghost" onClick={() => { track(`share_open_${mode}`); setShareOpen(true); }}>
           share result
         </button>
       </div>
 
-      {best && <button className="btn btn-primary challenge-cta" disabled={challengeBusy} onClick={() => void challengeFriend()}>{challengeBusy ? 'Creating link...' : 'Beat my score'} <span aria-hidden="true">&#8599;</span></button>}
+      {best && !archived && <button className="btn btn-primary challenge-cta" disabled={challengeBusy} onClick={() => void challengeFriend()}>{challengeBusy ? 'Creating link...' : 'Beat my score'} <span aria-hidden="true">&#8599;</span></button>}
       <a className="challenge-manage" href="#friends">Your challenges &amp; responses</a>
       <div className="saved-row">
         <span className="saved-ok">
-          {last && best && last.score < best.score
+          {archived
+            ? 'counts in the all-time leaderboard only'
+            : last && best && last.score < best.score
             ? `your best (${fmtResult(mode, best)}) stays on the board`
             : "saved to today's top 10"}
         </span>
         {ranks[mode] ? <span className="saved-rank">#{ranks[mode]}</span> : null}
       </div>
       {authStatus !== 'anon' && <NicknameControl date={date} />}
-      <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} date={date} mode={mode} snapshot={snapshot} attempt={shown} />
+      <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} date={date} mode={mode} snapshot={snapshot} attempt={shown} noRank={archived} />
     </motion.div>
   );
 }

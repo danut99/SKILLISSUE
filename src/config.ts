@@ -11,6 +11,9 @@ export const SUPABASE_PUBLISHABLE_KEY: string =
   import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ||
   'YOUR-SUPABASE-PUBLISHABLE-KEY';
 
+/** Microsoft Clarity project id (public, it ships in the page). Override with VITE_CLARITY_PROJECT_ID; set it to an empty value to disable. */
+export const CLARITY_PROJECT_ID: string = import.meta.env.VITE_CLARITY_PROJECT_ID?.trim() ?? 'zcwstocts6';
+
 export const GAME_NAME = 'SKILL ISSUE';
 export const LAUNCH_DATE = '2026-11-12';
 export const BASE_TRIES = 3;

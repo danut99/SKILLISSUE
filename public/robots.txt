@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://playskillissue.pages.dev/sitemap.xml

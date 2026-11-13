@@ -1027,6 +1027,9 @@ body:has(.leaderboard-dialog[open]) { overflow: hidden; }
 .challenge-attribution { display: block; margin-top: 8px; }
 
 .challenge-manage { display: block; text-align: center; color: var(--cyan); font-size: 16px; margin: 10px 0; }
+.challenge-today { display: block; width: fit-content; margin: 12px auto 0; padding: 8px 16px; background: var(--yellow); color: var(--bg); font-size: 22px; text-decoration: none; box-shadow: 4px 4px 0 #000; }
+.challenge-today:hover { filter: brightness(1.1); }
+.game-title-date { color: var(--muted); font-size: 0.6em; }
 .challenge-inbox h3 { color: var(--cyan); font-size: 26px; font-weight: normal; margin: 0 0 12px; }
 .challenge-inbox-list { list-style: none; margin: 0; padding: 0; }
 .challenge-inbox-list > li { padding: 9px 0; border-bottom: 1px dashed var(--line); }

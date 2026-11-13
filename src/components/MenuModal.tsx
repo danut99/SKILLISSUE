@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
+import { track } from '../lib/clarity';
 import { LINKS } from '../config';
 import type { Route } from '../App';
 import { PixelIcon, type PixelIconName } from './PixelIcon';
@@ -39,6 +40,7 @@ export function MenuModal({ open, route, onClose, onNavigate, onSettings }: Prop
 
   const click = (t: Tile) => {
     if (t.soon) return;
+    track(`menu_${t.id}`);
     onClose();
     if (t.action) t.action();
     else onNavigate(t.route ?? null);

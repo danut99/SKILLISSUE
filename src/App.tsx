@@ -19,6 +19,7 @@ import { todayUTC } from './lib/daily';
 import { usePlayer } from './lib/store';
 import { whenAuthReady } from './lib/auth';
 import { toast, useUi } from './lib/ui';
+import { tag, track } from './lib/clarity';
 
 const PartyPage = lazy(() => import('./components/PartyPage').then(module => ({ default: module.PartyPage })));
 
@@ -77,6 +78,12 @@ export default function App() {
     void whenAuthReady();
   }, []);
 
+  useEffect(() => {
+    const page = mode ?? 'home';
+    track(`page_${page}`);
+    tag('page', page);
+  }, [mode]);
+
   useEffect(() => sfx.setMuted(muted), [muted]);
 
   useEffect(() => {
@@ -103,7 +110,7 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={settings.lowPower ? 'always' : 'user'}>
       <header className="topbar">
-        <button className="corner-btn px-box" onClick={() => setMenuOpen(true)} aria-label="Open menu">
+        <button className="corner-btn px-box" onClick={() => { track('menu_open'); setMenuOpen(true); }} aria-label="Open menu">
           ☰
         </button>
         {mode !== null ? (
@@ -122,17 +129,17 @@ export default function App() {
           <span />
         )}
         <div className="topbar-right">
-          <a className="corner-btn px-box header-feedback" href={LINKS.feedback} aria-label="Send feedback by email" title="Send feedback">
+          <a className="corner-btn px-box header-feedback" href={LINKS.feedback} onClick={() => track('feedback_click')} aria-label="Send feedback by email" title="Send feedback">
             <PixelIcon name="feedback" size={24} />
             <span>Feedback</span>
           </a>
-          <button className="corner-btn px-box mobile-leaderboard-button" onClick={() => setLeaderboardOpen(true)} aria-label="Open leaderboard" aria-haspopup="dialog" aria-expanded={leaderboardOpen}>
+          <button className="corner-btn px-box mobile-leaderboard-button" onClick={() => { track('leaderboard_open'); setLeaderboardOpen(true); }} aria-label="Open leaderboard" aria-haspopup="dialog" aria-expanded={leaderboardOpen}>
             <PixelIcon name="trophy" size={28} />
           </button>
-          <button className="corner-btn px-box" onClick={toggleMuted} aria-label={muted ? 'Turn sound on' : 'Mute sound'} aria-pressed={!muted}>
+          <button className="corner-btn px-box" onClick={() => { track(muted ? 'sound_on' : 'sound_off'); toggleMuted(); }} aria-label={muted ? 'Turn sound on' : 'Mute sound'} aria-pressed={!muted}>
             <PixelIcon name={muted ? 'sound-off' : 'sound-on'} size={28} />
           </button>
-          <button className="corner-btn px-box" onClick={() => setSettingsOpen(true)} aria-label="Open settings">
+          <button className="corner-btn px-box" onClick={() => { track('settings_open'); setSettingsOpen(true); }} aria-label="Open settings">
             <PixelIcon name="settings" size={28} />
           </button>
         </div>

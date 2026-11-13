@@ -2,11 +2,12 @@ import { readTrackedToken } from '../lib/trackedChallenges';
 import { TrackedChallengeBanner } from './TrackedChallengeBanner';
 import { useEffect, useState } from 'react';
 import type { Mode } from '../config';
+import type { PastChallenge } from './GameScreen';
 import { readScoreChallenge } from '../lib/scoreChallenge';
 import { fmtResult } from '../lib/scoring';
 import { bestAttempt, modeDay, triesLeft, usePlayer } from '../lib/store';
 
-export function ScoreChallengeBanner({ mode, date }: { mode: Mode; date: string }) {
+export function ScoreChallengeBanner({ mode, date, onPastChallenge }: { mode: Mode; date: string; onPastChallenge?: (c: PastChallenge | null) => void }) {
   const [token, setToken] = useState(() => readTrackedToken(location.hash));
   const [challenge, setChallenge] = useState(() => readScoreChallenge(location.hash));
   const days = usePlayer(s => s.days);
@@ -15,9 +16,10 @@ export function ScoreChallengeBanner({ mode, date }: { mode: Mode; date: string 
     window.addEventListener('hashchange', update);
     return () => window.removeEventListener('hashchange', update);
   }, []);
-  if (token) return <TrackedChallengeBanner key={token} token={token} mode={mode} date={date} />;
+  useEffect(() => { if (!token) onPastChallenge?.(null); }, [token, onPastChallenge]);
+  if (token) return <TrackedChallengeBanner key={token} token={token} mode={mode} date={date} onPastChallenge={onPastChallenge} />;
   if (!challenge || challenge.mode !== mode) return null;
-  if (challenge.date !== date) return <div className="score-challenge expired">This challenge was for {challenge.date}. Today's test is different. Play today and send a new challenge!</div>;
+  if (challenge.date !== date) return <div className="score-challenge expired">This challenge was for {challenge.date}. Today's test is different. Play today and send a new challenge! <a className="challenge-today" href="#">Play today's challenges →</a></div>;
   const md = modeDay(days, date, mode);
   const best = bestAttempt(md);
   const winner = !best ? null : best.score > challenge.attempt.score ? 'you' : best.score < challenge.attempt.score ? 'friend' : 'tie';

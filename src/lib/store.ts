@@ -76,7 +76,8 @@ interface PlayerState {
   carSkin: string;
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
   setCarSkin: (id: string) => void;
-  addAttempt: (date: string, mode: Mode, attempt: Attempt) => void;
+  /** `archived`: a past day's challenge replay. Saved for that day, but never touches streak stats. */
+  addAttempt: (date: string, mode: Mode, attempt: Attempt, archived?: boolean) => void;
   grantBonus: (date: string, mode: Mode) => void;
   setNickname: (n: string) => void;
   toggleMuted: () => void;
@@ -145,11 +146,12 @@ export const usePlayer = create<PlayerState>()(
       carSkin: 'pink',
       setSetting: (key, value) => set((s) => ({ settings: { ...s.settings, [key]: value } })),
       setCarSkin: (carSkin) => set({ carSkin }),
-      addAttempt: (date, mode, attempt) =>
+      addAttempt: (date, mode, attempt, archived = false) =>
         set((s) => {
           const day = s.days[date] ?? {};
           const md = day[mode] ?? EMPTY;
           const days = { ...s.days, [date]: { ...day, [mode]: { ...md, tries: [...md.tries, attempt] } } };
+          if (archived) return { days };
           let { streak, daysPlayed } = s;
           if (s.lastDay !== date) {
             streak = s.lastDay === addDays(date, -1) ? streak + 1 : 1;

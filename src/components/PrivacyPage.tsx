@@ -39,6 +39,14 @@ export function PrivacyPage() {
         we ask for your consent first and you can change your choice at any time.
       </p>
 
+      <h2>analytics</h2>
+      <p>
+        We use Microsoft Clarity to see how people play (clicks, taps, scrolling and anonymized session replays) so we can fix
+        bugs and improve the game. Sessions are linked to your random player id and your public nickname, and we log game
+        events such as page visits, starting a game and your score range. Text you type is masked. See the{' '}
+        <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noreferrer">Microsoft privacy statement</a>.
+      </p>
+
       <h2>delete your data</h2>
       <p>Contact us and we'll delete your player and all its scores.</p>
       <p className="muted">contact: <a href="mailto:bocadanut99@gmail.com">bocadanut99@gmail.com</a> · last updated: {new Date(2026, 10, 12).toDateString()}</p>

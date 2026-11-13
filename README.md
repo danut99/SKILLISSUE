@@ -217,7 +217,7 @@ Daily and All-time are available on each leaderboard, including the mobile troph
 ```
 skill-issue/
 ├── index.html                 # meta/OG tags, root
-├── .env.example               # Supabase keys template
+├── .env.example               # Supabase keys + Clarity id template
 ├── supabase/schema.sql        # full DB setup (tables, RLS, RPC functions)
 └── src/
     ├── config.ts              # Supabase placeholders, game name, LAUNCH_DATE, modes, colors
@@ -270,7 +270,7 @@ Libraries: `react`, `zustand` (state), `motion` (UI animation), `canvas-confetti
 - [ ] Archive (replay past days, no streak) + unlimited practice mode (random seed, unranked).
 - [x] Friends invite links, acceptance, removal and daily leaderboard. Friends RPCs detected on the configured live project after the migration was run.
 - [ ] Optional one-time unlock "SKILL ISSUE+" (Stripe Payment Link): no ads + archive + unlimited, restorable via account.
-- [ ] Analytics (privacy-friendly, e.g. Plausible, or GA4 behind consent).
+- [x] Analytics: Microsoft Clarity (`src/lib/clarity.ts`). The project id is `CLARITY_PROJECT_ID` in `config.ts` (override with `VITE_CLARITY_PROJECT_ID`). It loads only in production builds and runs cookieless until `setClarityConsent('granted')` is called. Hook that up to the CMP. Sessions are identified by player id + nickname (`identify`). Custom events: `page_<route>`, `home_card_<mode>`, `game_start_<mode>`, `game_finish_<mode>`, `game_<perfect|great|ok|bad|fail>_<mode>`, `game_retry_<mode>`, `out_of_tries_<mode>`, `next_game_<mode|home>`, `share_open_<mode|day>`, `share_<channel>_<mode|day>`, `clip_save_<mode>`, `challenge_friend_<mode>`, `ad_open_<mode>`, `bonus_try_<mode>`, `menu_<tile>`, `menu_open`, `settings_open`, `setting_<key>_<on|off>`, `leaderboard_open`, `sound_<on|off>`, `feedback_click`. Tags: `nickname`, `account`, `page`, `played`, `score_<mode>`.
 - [ ] Reserve social handles early (TikTok/IG/X) to avoid impersonators.
 - [ ] Domain + deploy (any static host: Vercel / Netlify / Cloudflare Pages → `npm run build`, serve `dist/`).
 - [ ] OG share image (1200×630) for nice link previews.
@@ -289,9 +289,10 @@ Run `supabase/migrations/20261112020000_score_challenges.sql` in Supabase SQL Ed
 - New links use `#cut/duel/<token>` (or draw/brake). Opening previews the challenge; Accept challenge records the recipient's consent.
 - Daily scores automatically supply accepted players' results. Acceptance is idempotent and uses the existing daily attempts, without granting extra tries.
 - Your challenges appears in Friends and on the homepage. It polls every 15 seconds while visible and refreshes on focus and score updates.
+- **Past-day challenges** (`supabase/migrations/20261113000000_past_challenge_play.sql`): a link from an earlier day can still be accepted and played on that day's puzzle (3 tries, shared with any normal tries from that day). `record_challenge_attempt` saves the score under the challenge's `play_date`, so it never shows on today's daily board but counts in the all-time board and the challenge result. These replays don't count toward streaks. Expired banners link to "Play today's challenges".
 - Anonymous sessions work; email linking preserves ownership. Older `/beat?` links remain local comparisons and cannot be retroactively tracked.
 - Tables deny direct API access; authenticated RPCs enforce ownership and participant visibility. Link previews expose the sender's nickname and target score, and no other recipients.
-- To verify against a live project: send a link from browser A; open it in a separate browser B; accept; check A's list; play in B; check both scores and winner in A. Repeat acceptance (no duplicates), try an expired link (no acceptance), and confirm a third account cannot list A's challenges.
+- To verify against a live project: send a link from browser A; open it in a separate browser B; accept; check A's list; play in B; check both scores and winner in A. Repeat acceptance (no duplicates), open a past-day link (accept → that day's puzzle, score missing from today's daily board, present in all-time), and confirm a third account cannot list A's challenges.
 
 
 ## Party Mode (six-round Draw/Cut rooms)

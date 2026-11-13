@@ -1,9 +1,8 @@
 import type { Mode } from '../config';
-import type { Detail } from './store';
+import type { Attempt, Detail } from './store';
 import { isOnline, whenAuthReady } from './auth';
 import { ensureNickname } from './leaderboard';
 import { getSupabase } from './supabase';
-import { todayUTC } from './daily';
 
 export interface ChallengePlayer {
   nickname: string; accepted_at: string; is_me: boolean;
@@ -31,6 +30,8 @@ async function rpc<T>(name: string, args = {}): Promise<T> {
     if (error.message.includes('score_required')) throw new Error('Your score is still syncing. Try again in a moment.');
     if (error.message.includes('expired_challenge')) throw new Error('This daily challenge has expired.');
     if (error.message.includes('own_challenge')) throw new Error('This is your link. Send it to someone else.');
+    if (error.message.includes('not_accepted')) throw new Error('Accept the challenge first.');
+    if (error.message.includes('no_tries_left')) throw new Error('no_tries_left');
     if (error.message.includes('invalid_challenge')) throw new Error('This challenge link is no longer available.');
     throw new Error('Could not load challenges. Please try again.');
   }
@@ -45,9 +46,23 @@ export async function acceptTrackedChallenge(token: string): Promise<TrackedChal
   await whenAuthReady(); await ensureNickname();
   return rpc('accept_score_challenge', { p_token: token });
 }
+/** Accepted challenge from an earlier day → the date whose puzzle should be played (all-time only). */
+export function pastChallengeDate(challenge: TrackedChallenge | undefined, today: string): string | null {
+  return challenge && challenge.accepted && !challenge.is_owner && challenge.play_date < today ? challenge.play_date : null;
+}
+export async function recordChallengeAttempt(token: string, a: Attempt): Promise<'ok' | 'no_tries_left' | 'error'> {
+  try {
+    await rpc('record_challenge_attempt', { p_token: token, p_score: Math.round(a.score * 100) / 100, p_detail: a.detail });
+    return 'ok';
+  } catch (cause) {
+    console.warn('record_challenge_attempt failed', cause);
+    return cause instanceof Error && cause.message === 'no_tries_left' ? 'no_tries_left' : 'error';
+  }
+}
 export const getTrackedChallenges = () => rpc<TrackedChallenge[]>('get_score_challenges');
 export function challengeWinner(challenge: TrackedChallenge, player: ChallengePlayer): string {
-  const finished = challenge.play_date < todayUTC() || player.attempts_remaining === 0;
+  // Past-day challenges stay playable, so a result is only final once the player is out of tries.
+  const finished = player.attempts_remaining === 0;
   if (player.score === null) return finished ? 'No score submitted' : 'Accepted - waiting for a score';
   if (player.score === challenge.creator_score) return finished ? 'Finished in a tie!' : 'Tied so far';
   return `${player.score > challenge.creator_score ? player.nickname : challenge.creator_name} ${finished ? 'won!' : 'leads'}`;
