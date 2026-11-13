@@ -37,6 +37,7 @@ export const isOnline = () => {
 
 function applyUser(user: User | null) {
   if (!user) return;
+  if (!user.is_anonymous) sessionStorage.removeItem(SWITCH_KEY);
   useAuth.setState({
     status: user.is_anonymous ? 'anon' : 'linked',
     userId: user.id,
@@ -45,15 +46,25 @@ function applyUser(user: User | null) {
   });
 }
 
+const SWITCH_KEY = 'skillissue:google-switch';
+
 /** OAuth / magic-link errors come back in the URL (query or hash). */
 function readUrlError() {
   const params = new URLSearchParams(location.search);
   new URLSearchParams(location.hash.replace(/^#/, '')).forEach((v, k) => params.set(k, v));
   const code = params.get('error_code');
   if (!code) return;
-  if (code === 'identity_already_exists') useAuth.setState({ conflict: 'google' });
-  else toast(`Login failed: ${params.get('error_description') ?? code}`);
   history.replaceState(null, '', location.pathname);
+  // Linking Google to this guest failed because that Google account (or its email, e.g. from an
+  // older email login) already has a player → log into that player instead. Guarded against loops.
+  if (['identity_already_exists', 'email_exists', 'user_already_exists'].includes(code) && !sessionStorage.getItem(SWITCH_KEY)) {
+    sessionStorage.setItem(SWITCH_KEY, '1');
+    toast('Logging into your existing player…');
+    void switchToGoogle();
+    return;
+  }
+  sessionStorage.removeItem(SWITCH_KEY);
+  toast(`Login failed: ${params.get('error_description') ?? code}`);
 }
 
 export async function syncFromServer() {
