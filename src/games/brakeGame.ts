@@ -50,8 +50,10 @@ const COUNT_MS = 1650;
 export function createBrakeGame(api: GameApi, saved?: Attempt): Game {
   const P = brakeParams(api.date);
   const goal = BRAKE_GOALS[P.objective];
-  const limit = P.D + (P.objective === 'parking' ? 8 : 0);
   const basePpm = clamp(430 / (P.stopDist + 12), 3.2, 22);
+  // The sprite is a fixed CAR_H px; at the (unzoomed) parking camera that is this many meters.
+  const carLenM = CAR_H / basePpm;
+  const limit = P.D + (P.objective === 'parking' ? PARKING_TOLERANCE_M + carLenM + 3 : 0);
   const carColor = (CAR_SKINS.find((s) => s.id === usePlayer.getState().carSkin) ?? CAR_SKINS[0]).color;
   const sprite = carSprite(usePlayer.getState().carSkin);
 
@@ -145,7 +147,7 @@ export function createBrakeGame(api: GameApi, saved?: Attempt): Game {
     x = position;
     speed = 0;
     endT = t;
-    result = { score: 0, detail: { ...brakeStopResult(P.objective, P.D, position).detail, fail: true } };
+    result = { score: 0, detail: { ...brakeStopResult(P.objective, P.D, position, carLenM).detail, fail: true } };
     sfx.stop(engine);
     sfx.stop(screech);
     sfx.fail();
@@ -158,7 +160,7 @@ export function createBrakeGame(api: GameApi, saved?: Attempt): Game {
   }
 
   function stopped(t: number) {
-    result = brakeStopResult(P.objective, P.D, stopX);
+    result = brakeStopResult(P.objective, P.D, stopX, carLenM);
     if (result.detail.fail) return fail(t, stopX);
     state = 'stopped';
     x = stopX;
@@ -279,7 +281,8 @@ export function createBrakeGame(api: GameApi, saved?: Attempt): Game {
       let focusW = x;
       let focusS = CAR_Y;
       let zoomK = 0;
-      if (state === 'stopped') {
+      // Parking keeps the camera still so the car and the bay stay at the same scale.
+      if (state === 'stopped' && P.objective !== 'parking') {
         zoomK = easeInOut(clamp((now - endT) / 1000, 0, 1));
         const gap = Math.max(Math.abs(P.D - stopX), 0.0005);
         const zp = clamp(90 / gap, basePpm, 4000);
@@ -350,22 +353,28 @@ export function createBrakeGame(api: GameApi, saved?: Attempt): Game {
         for (let i = 0; i < 10; i++) c.fillRect(wallX + i * 26, wallY - 3, 13, 3);
         c.restore();
       } else if (P.objective === 'parking') {
-        // The front bumper belongs inside this band, with the ideal stop at D.
-        const bayTop = ws(P.D + PARKING_TOLERANCE_M);
-        const bayBottom = ws(P.D - PARKING_TOLERANCE_M);
-        c.fillStyle = 'rgba(77,227,255,0.12)';
-        c.fillRect(ROAD_L + 12, bayTop, ROAD_R - ROAD_L - 24, bayBottom - bayTop + CAR_H);
-        c.strokeStyle = C.cyan;
-        c.lineWidth = 4;
-        c.strokeRect(ROAD_L + 12, bayTop, ROAD_R - ROAD_L - 24, bayBottom - bayTop + CAR_H);
+        // A car-sized slot: the whole car must end up inside, centered on the ghost outline.
+        const slotTop = ws(P.D + PARKING_TOLERANCE_M);
+        const slotH = ws(P.D - PARKING_TOLERANCE_M) - slotTop + CAR_H;
+        const slotW = CAR_W + 40;
+        const slotX = W / 2 - slotW / 2;
+        c.fillStyle = 'rgba(77,227,255,0.10)';
+        c.fillRect(slotX, slotTop, slotW, slotH);
+        c.fillStyle = '#e8f1ff';
+        c.fillRect(slotX - 4, slotTop - 4, 4, slotH + 8);
+        c.fillRect(slotX + slotW, slotTop - 4, 4, slotH + 8);
+        c.fillRect(slotX - 4, slotTop - 4, slotW + 8, 4);
+        c.fillRect(slotX - 4, slotTop + slotH, slotW + 8, 4);
         c.save();
-        c.setLineDash([8, 6]);
-        c.beginPath();
-        c.moveTo(ROAD_L + 16, wallY);
-        c.lineTo(ROAD_R - 16, wallY);
+        c.strokeStyle = 'rgba(77,227,255,0.75)';
+        c.lineWidth = 2;
+        c.setLineDash([6, 5]);
+        rect(c, W / 2 - CAR_W / 2, wallY, CAR_W, CAR_H, 10);
         c.stroke();
         c.restore();
-        text(c, 'P', ROAD_L + 36, bayTop + 26, { size: 36, color: C.cyan, outline: 3 });
+        c.fillStyle = '#2f6bff';
+        c.fillRect(ROAD_R + 14, slotTop, 32, 32);
+        text(c, 'P', ROAD_R + 30, slotTop + 17, { size: 30, color: '#ffffff', outline: 0 });
       } else {
         // Red light and pedestrian crossing beyond the stopping line.
         c.fillStyle = '#e8f1ff';
@@ -403,6 +412,11 @@ export function createBrakeGame(api: GameApi, saved?: Attempt): Game {
           c.fillStyle = `rgba(255,255,255,${f * 0.8})`;
           c.fillRect(0, 0, W, H);
         }
+      }
+
+      if (state === 'stopped' && P.objective === 'parking' && now - endT > 600) {
+        const label = result?.detail.partial ? 'PARTLY IN THE BAY' : gapCm < 0.05 ? 'DEAD CENTER' : `${fmtCm(gapCm)} off center`;
+        text(c, label, W / 2, Math.min(ws(P.D + PARKING_TOLERANCE_M), ws(x)) - 22, { size: 26, color: C.cyan, outline: 4, maxWidth: W - 16 });
       }
 
       // measurement arrow after zoom

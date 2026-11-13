@@ -30,7 +30,7 @@ export function gameDialogue(mode: Mode, date: string): CompanionLine[] {
   if (mode === 'brake') {
     const instruction = {
       wall: 'Stop as close to the wall as you can without hitting it.',
-      parking: 'Stop inside the parking bay. Aim your front bumper at the cyan marker. A little short or past is allowed.',
+      parking: 'Stop with the whole car inside the parking bay. Line it up with the dashed outline: dead center scores 100.',
       'stop-line': 'The light is red. Stop as close as you can before the white line. Crossing it costs the try.',
     }[dailyBrakeObjective(date)];
     return [{ speaker: 'angel', text: `${instruction} Check the road and speed, then tap to start and tap or press Space to brake.` }];

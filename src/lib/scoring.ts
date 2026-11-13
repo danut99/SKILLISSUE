@@ -1,4 +1,5 @@
 import { GAME_NAME, MODE_INFO, MODES, type BoardMode, type Mode, siteUrl } from '../config';
+import { PARKING_TOLERANCE_M } from './brakeChallenge';
 import { dayNumber } from './daily';
 import { bestAttempt, modeDay, totalScore, type Attempt, type ModeDay, usePlayer } from './store';
 
@@ -93,7 +94,13 @@ export function roastFor(mode: Mode, a: Attempt): string {
   }
   if (a.detail.crashed) return CRASH_ROASTS[(a.detail.impactKmh ?? 0) % CRASH_ROASTS.length];
   if (a.detail.objective === 'parking') {
-    if (a.detail.fail) return 'The parking bay is over there.';
+    if (a.detail.fail) {
+      const offset = a.detail.offsetCm ?? 0;
+      const outCm = Math.max(1, Math.round(a.detail.missCm ?? Math.abs(offset) - PARKING_TOLERANCE_M * 100));
+      const out = outCm >= 100 ? `${(outCm / 100).toFixed(1)} m` : `${outCm} cm`;
+      return offset < 0 ? `Overshot the bay by ${out}.` : `Stopped ${out} short of the bay.`;
+    }
+    if (a.detail.partial) return (a.detail.offsetCm ?? 0) < 0 ? 'Half parked, half on the road ahead.' : 'Half parked. The rest is still driving in.';
     if (s >= 95) return 'Valet parking wants your number.';
     return (a.detail.offsetCm ?? 0) < 0 ? 'A little enthusiastic with that parking spot.' : 'Almost parked. Keep going next time.';
   }

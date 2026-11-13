@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { brakeParams, createBrakeGame } from './brakeGame';
 import { brakeStopResult, dailyBrakeObjective } from '../lib/brakeChallenge';
-import { fmtResult } from '../lib/scoring';
+import { fmtResult, roastFor } from '../lib/scoring';
 import type { AttemptResult } from './types';
 
 vi.mock('../lib/audio', () => ({ sfx: {
@@ -69,14 +69,17 @@ describe('daily driving objectives', () => {
     });
   }
 
-  it('allows parking past the marker, fails a red-light crossing and crashes into the wall', () => {
+  it('allows parking past the marker, gives partial credit half in the bay, fails a red-light crossing and crashes into the wall', () => {
     const parking = drive('2026-11-13', .1);
     expect(parking.score).toBeGreaterThan(90);
     expect(parking.detail.fail).toBeUndefined();
     expect(parking.detail.offsetCm).toBe(-10);
     expect(drive('2026-11-14', .1).display).toBe('OVER LINE');
     expect(drive('2026-11-12', .1).detail.crashed).toBe(true);
-    expect(drive('2026-11-13', -3).display).toBe('MISSED BAY');
+    const partly = drive('2026-11-13', -3);
+    expect(partly.detail.partial).toBe(true);
+    expect(partly.score).toBeGreaterThan(0);
+    expect(drive('2026-11-13', -40).display).toBe('MISSED BAY');
   });
 
   it('finishes even if the player never brakes', () => {
@@ -102,4 +105,25 @@ it('restores saved driving results without starting play or recording another at
     expect(startClip).not.toHaveBeenCalled();
     game.destroy!();
   }
+});
+
+describe('partly parked', () => {
+  it('scores a car partly inside the bay by how much of it is in, and fails only with no overlap', () => {
+    const edge = brakeStopResult('parking', 50, 52.5, 4).score;
+    const half = brakeStopResult('parking', 50, 54.5, 4);
+    expect(half.detail.partial).toBe(true);
+    expect(half.score).toBeCloseTo(edge / 2, 1);
+    expect(brakeStopResult('parking', 50, 45.5, 4).score).toBeCloseTo(edge / 2, 1);
+    const miss = brakeStopResult('parking', 50, 57, 4);
+    expect([miss.score, miss.detail.fail, miss.detail.missCm]).toEqual([0, true, 50]);
+  });
+});
+
+describe('missed parking bay feedback', () => {
+  it('says how far the car ended up outside the bay, in either direction', () => {
+    const over = brakeStopResult('parking', 50, 52.9);
+    const short = brakeStopResult('parking', 50, 46);
+    expect(roastFor('brake', { ...over, at: 0 })).toBe('Overshot the bay by 40 cm.');
+    expect(roastFor('brake', { ...short, at: 0 })).toBe('Stopped 1.5 m short of the bay.');
+  });
 });

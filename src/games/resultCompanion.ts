@@ -31,7 +31,7 @@ export function drawResultCompanion(c: CanvasRenderingContext2D, score: number, 
   const reaction = mode === 'brake'
     ? angel ? 'Smooth stop. Keep the keys.'
       : detail.crashed ? 'The wall has filed a complaint.'
-      : detail.objective === 'parking' ? 'Parking is apparently optional.'
+      : detail.objective === 'parking' ? detail.fail ? 'Parking is apparently optional.' : detail.partial ? 'Half parked. Half the points.' : 'In the bay. Barely centered.'
       : detail.objective === 'stop-line' && detail.fail ? 'The red light was a hint.'
       : 'Left room for another car?'
     : mode === 'cut'

@@ -22,6 +22,10 @@ export interface Detail {
   /** Signed distance to target. Negative means past it. */
   offsetCm?: number;
   gapCm?: number;
+  /** parking: car only partly inside the bay */
+  partial?: boolean;
+  /** parking: how far the car ended up outside the bay */
+  missCm?: number;
   crashed?: boolean;
   impactKmh?: number;
 }
