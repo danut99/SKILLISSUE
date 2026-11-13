@@ -47,7 +47,7 @@ const ROAD_L = 80;
 const ROAD_R = 280;
 const COUNT_MS = 1650;
 
-export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speedMultiplier?: number; objective?: BrakeObjective }): Game {
+export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speedMultiplier?: number; objective?: BrakeObjective; scoreDistanceCm?: number; passDistanceCm?: number }): Game {
   const P = brakeParams(api.date);
   if (options?.objective) P.objective = options.objective;
   if (options?.speedMultiplier) {
@@ -64,6 +64,7 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
   const limit = P.D + (P.objective === 'parking' ? PARKING_TOLERANCE_M + carLenM + 3 : 0);
   const carColor = (CAR_SKINS.find((s) => s.id === usePlayer.getState().carSkin) ?? CAR_SKINS[0]).color;
   const sprite = carSprite(usePlayer.getState().carSkin);
+  const reducedMotion = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
 
   let state: 'ready' | 'countdown' | 'driving' | 'braking' | 'stopped' | 'crashed' | 'failed' = 'ready';
   let x = 0;
@@ -119,8 +120,6 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
       impact = Math.sqrt(Math.max(0, P.v * P.v - 2 * P.decel * rem));
       tHit = t + ((P.v - impact) / P.decel) * 1000;
     }
-    sfx.stop(engine);
-    engine = null;
     screech = sfx.startScreech();
   }
 
@@ -155,7 +154,7 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
     x = position;
     speed = 0;
     endT = t;
-    result = { score: 0, detail: { ...brakeStopResult(P.objective, P.D, position, carLenM).detail, fail: true } };
+    result = { score: 0, detail: { ...brakeStopResult(P.objective, P.D, position, carLenM, options?.scoreDistanceCm).detail, fail: true } };
     sfx.stop(engine);
     sfx.stop(screech);
     sfx.fail();
@@ -168,12 +167,13 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
   }
 
   function stopped(t: number) {
-    result = brakeStopResult(P.objective, P.D, stopX, carLenM);
+    result = brakeStopResult(P.objective, P.D, stopX, carLenM, options?.scoreDistanceCm);
     if (result.detail.fail) return fail(t, stopX);
     state = 'stopped';
     x = stopX;
     speed = 0;
     endT = t;
+    sfx.stop(engine);
     sfx.stop(screech);
     gapCm = result.detail.gapCm!;
     score = result.score;
@@ -263,7 +263,8 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
       if (state === 'driving') {
         x = (P.v * Math.max(0, now - t0)) / 1000;
         speed = P.v;
-        sfx.setFreq(engine, 50 + speed * 5);
+        sfx.setFreq(engine, 50 + speed * 8);
+        sfx.setGain(engine, 0.06 + Math.min(speed / 35, 1) * 0.1);
         if (x >= limit) reachLimit(P.v, now);
       } else if (state === 'braking') {
         const dt = Math.max(0, (now - tb) / 1000);
@@ -272,6 +273,8 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
         else {
           x = xb + P.v * dt - (P.decel * dt * dt) / 2;
           speed = P.v - P.decel * dt;
+          sfx.setFreq(engine, 50 + speed * 8);
+          sfx.setGain(engine, 0.04 + 0.08 * speed / P.v);
           sfx.setGain(screech, 0.05 + 0.2 * (speed / P.v));
         }
       }
@@ -314,6 +317,21 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
       c.fillStyle = '#e8f1ff';
       c.fillRect(ROAD_L - 6, -20, 4, H + 40);
       c.fillRect(ROAD_R + 2, -20, 4, H + 40);
+
+      // Peripheral streaks use a consistent screen scale so higher km/h reads faster,
+      // even when the gameplay camera fits a longer stopping distance on screen.
+      if ((state === 'driving' || state === 'braking') && !reducedMotion?.matches && !usePlayer.getState().settings.lowPower) {
+        const travel = x * 14;
+        const streakLength = clamp(speed * 1.3, 4, 48);
+        c.fillStyle = 'rgba(232,241,255,0.24)';
+        for (let lane = 0; lane < 3; lane++) {
+          for (let index = -1; index < 8; index++) {
+            const y = ((index * 110 + travel + lane * 37) % (H + 110)) - 55;
+            c.fillRect(14 + lane * 18, y, 2, streakLength);
+            c.fillRect(W - 16 - lane * 18, y + 22, 2, streakLength);
+          }
+        }
+      }
 
       const wMin = focusW - (H - focusS) / ppm - 5;
       const wMax = focusW + focusS / ppm + 5;
@@ -459,6 +477,7 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
         text(c, goal.title, W / 2, 140, { size: 58, color: C.yellow, outline: 7, maxWidth: W - 24 });
         text(c, goal.instruction, W / 2, 182, { size: 23, color: C.text, outline: 4, maxWidth: W - 24 });
         text(c, `${P.kmh} km/h`, W / 2, 210, { size: 24, color: C.yellow, outline: 4 });
+        if (options?.passDistanceCm) text(c, `85+ goal: within ${fmtCm(options.passDistanceCm)}`, W / 2, 248, { size: 23, color: C.green, outline: 4 });
         text(c, 'TAP TO START', W / 2, 300 + Math.sin(now / 200) * 4, { size: 36, color: C.cyan, outline: 5 });
         text(c, 'then TAP (or SPACE) to brake', W / 2, 334, { size: 22, color: C.muted, outline: 3 });
       } else if (state === 'countdown') {

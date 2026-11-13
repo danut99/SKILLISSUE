@@ -39,7 +39,7 @@ describe('daily drawing targets', () => {
 });
 
 it('scores accurate outlines for the five additional level shapes', () => {
-  for (const shape of ['pentagon','octagon','oval','star','flower'] as const) {
+  for (const shape of ['pentagon','octagon','oval','star','flower','rectangle','heptagon'] as const) {
     const center = {x:180,y:332.8};
     const points=Array.from({length:361},(_,i)=>{
       const angle=i/360*Math.PI*2;

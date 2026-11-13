@@ -34,3 +34,7 @@ export async function finishLevel(token: string, score: number) {
  useUi.getState().refreshBoards();
  return rows;
 }
+
+/** Exact safe-stop distance that earns the 85-point Level pass threshold. */
+export const levelBrakePassCm = (level: number) => 150 - 20 * (Math.max(1, Math.min(5, level)) - 1);
+export const levelBrakeScoreScale = (level: number) => levelBrakePassCm(level) / -Math.log(.85);

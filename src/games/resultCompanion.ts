@@ -3,6 +3,7 @@ import type { Detail } from '../lib/store';
 import { pixelArtUrl } from '../lib/pixelAssets';
 import { text } from './canvas';
 import { C, W } from './types';
+import { brakeFeedback } from '../lib/brakeChallenge';
 
 const sprites = new Map<string, HTMLImageElement>();
 
@@ -29,11 +30,7 @@ export function drawResultCompanion(c: CanvasRenderingContext2D, score: number, 
   const speaker = angel ? 'angel' : 'demon';
   const color = angel ? C.cyan : C.pink;
   const reaction = mode === 'brake'
-    ? angel ? 'Smooth stop. Keep the keys.'
-      : detail.crashed ? 'The wall has filed a complaint.'
-      : detail.objective === 'parking' ? detail.fail ? 'Parking is apparently optional.' : detail.partial ? 'Half parked. Half the points.' : 'In the bay. Barely centered.'
-      : detail.objective === 'stop-line' && detail.fail ? 'The red light was a hint.'
-      : 'Left room for another car?'
+    ? `${brakeFeedback(score, detail).title} ${brakeFeedback(score, detail).tip}`
     : mode === 'cut'
     ? angel ? 'A fair split. Even the blob agrees.' : 'Someone got the bigger half.'
     : angel

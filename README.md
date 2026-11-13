@@ -363,3 +363,7 @@ Live checks: clear at 85 then continue immediately; replay the cleared level at 
 
 
 Level attempt update: run `supabase/migrations/20261114070000_five_level_attempts.sql` after the stars/replays migration. Each level now allows five attempts per UTC day, including replays. Existing used attempts, stars, and progress are preserved; players who used three attempts today receive two more.
+
+Party car limits: apply `supabase/migrations/20261114090000_party_car_round_limits.sql` after the party game selection migration. Car-only rooms allow 2–3 rounds; car plus one other game allows up to 6; all three games allow up to 9. Each car objective appears once per match. Rooms without car retain the 12-round maximum. Changing games clamps the lobby round count; existing waiting rooms are adjusted and readiness resets, while running matches retain their schedule. Fresh databases include this in `schema.sql`.
+
+Party Draw/Cut variety: version-two parties support twelve distinct targets per game: circle, square, triangle, diamond, hexagon, pentagon, oval, rectangle, heptagon, octagon, star and flower. Cut uses asymmetric, rotated silhouettes based on these outlines, with a shared round seed for every player. Single-game 12-round parties no longer repeat targets. Daily rotation and version-one party geometry remain unchanged. No additional SQL migration is needed for these shapes; deploy the client update between matches.

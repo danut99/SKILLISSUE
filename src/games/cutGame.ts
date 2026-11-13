@@ -1,13 +1,14 @@
 import { drawResultCompanion } from './resultCompanion';
 import { sfx } from '../lib/audio';
 import { rngFor } from '../lib/daily';
+import { shapeRadius, type DrawShape } from '../lib/drawShapes';
 import { clamp, easeOut, innerPoint, lineSide, polygonCentroid, round2, splitPolygon, type Pt } from '../lib/geometry';
 import { roastFor } from '../lib/scoring';
 import { paper, text } from './canvas';
 import { C, H, W, type Game, type GameApi } from './types';
 
 /** Today's asymmetric 7–9 vertex blob — identical for every player (UTC date seed). */
-export function dailyShape(date: string, complexity = 0): { poly: Pt[]; hue: number } {
+export function dailyShape(date: string, complexity = 0, partyShape?: DrawShape): { poly: Pt[]; hue: number } {
   const rng = rngFor(`${date}:cut`);
   const n = 7 + Math.floor(rng() * 3) + Math.max(0, Math.min(9, complexity)) * 2;
   const off = rng() * Math.PI * 2;
@@ -16,6 +17,42 @@ export function dailyShape(date: string, complexity = 0): { poly: Pt[]; hue: num
     const a = off + ((i + (rng() - 0.5) * 0.55) * Math.PI * 2) / n;
     const r = 58 + rng() * 100;
     poly.push({ x: Math.cos(a) * r, y: Math.sin(a) * r });
+  }
+  // Ordered silhouettes stay simple (no crossing edges), but move mass away
+  // from the bounding-box center: big lobes, thin necks and deep side pockets.
+  const tier = Math.max(0, Math.min(9, Math.floor(complexity)));
+  if (tier >= 3) {
+    const silhouettes: number[][][] = [
+      // A heavy body and a long, light tail.
+      [[-145,-48],[-105,-92],[-40,-102],[6,-72],[24,-24],[146,-12],[158,6],[32,20],[12,68],[-48,102],[-114,72],[-150,16]],
+      // Unequal dumbbell lobes joined by a thin, off-center neck.
+      [[-155,-55],[-116,-100],[-48,-94],[-15,-48],[0,-9],[63,-14],[76,-58],[119,-67],[151,-30],[156,30],[121,65],[79,48],[65,10],[0,17],[-13,68],[-76,105],[-133,72],[-161,17]],
+      // Deep bays and narrow peninsulas hide where the area really lies.
+      [[-158,-80],[-86,-112],[-22,-80],[-12,-16],[34,-22],[46,-94],[99,-114],[147,-76],[111,-43],[65,-40],[58,8],[153,26],[139,73],[63,59],[39,30],[12,40],[24,111],[-41,101],[-62,50],[-104,62],[-137,101],[-161,59],[-100,14],[-35,8],[-40,-29],[-120,-17]],
+    ];
+    const family = tier < 6 ? 0 : tier < 8 ? 1 : 2;
+    const template = silhouettes[family];
+    const mirror = rng() < .5 ? -1 : 1;
+    const stretch = .8 + rng() * .35;
+    const rotation = rng() * Math.PI * 2;
+    const cos = Math.cos(rotation), sin = Math.sin(rotation);
+    poly = template.map(([x, y]) => {
+      // Small global affine variations preserve the narrow connecting regions.
+      const px = x * mirror;
+      const py = y * stretch + x * (.08 + tier * .012);
+      return { x: px * cos - py * sin, y: px * sin + py * cos };
+    });
+  }
+  if (partyShape) {
+    // A shared seeded lean and unequal lobes make familiar outlines asymmetric.
+    // Positive radial distances in angular order keep the outline simple.
+    const lean = rng() * Math.PI * 2;
+    const rotation = rng() * Math.PI * 2;
+    poly = Array.from({ length: 120 }, (_, i) => {
+      const angle = i / 120 * Math.PI * 2;
+      const radius = 145 * shapeRadius(partyShape, angle) * (1 + .22 * Math.cos(angle - lean) + .08 * Math.sin(3 * angle + lean));
+      return { x: Math.cos(angle + rotation) * radius, y: Math.sin(angle + rotation) * radius };
+    });
   }
   const xs = poly.map((p) => p.x);
   const ys = poly.map((p) => p.y);
@@ -45,8 +82,8 @@ interface Piece {
   dir: 1 | -1;
 }
 
-export function createCutGame(api: GameApi, options?: { complexity?: number }): Game {
-  const { poly, hue } = dailyShape(api.date, options?.complexity);
+export function createCutGame(api: GameApi, options?: { complexity?: number; partyShape?: DrawShape }): Game {
+  const { poly, hue } = dailyShape(api.date, options?.complexity, options?.partyShape);
   const face = innerPoint(poly, 6);
   const fs = clamp(face.d / 38, 0.55, 1.2);
   const fill = `hsl(${hue} 90% 66%)`;

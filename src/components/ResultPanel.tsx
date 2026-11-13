@@ -1,5 +1,6 @@
 import { createTrackedChallenge, trackedChallengeUrl } from '../lib/trackedChallenges';
 import { motion } from 'motion/react';
+import { brakeFeedback } from '../lib/brakeChallenge';
 import { useState } from 'react';
 import { MODE_INFO, MODES, REWARDED_ADS, type Mode } from '../config';
 import { saveClip } from '../lib/clip';
@@ -82,7 +83,9 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
       </div>
 
       <div className={`r-big r-big-${mode} ${tone}`}>{shown ? fmtResult(mode, shown) : '—'}</div>
-      {shown && <div className="r-sub">{roastFor(mode, shown)}</div>}
+      {shown && (mode === 'brake'
+        ? <div className="r-sub brake-feedback"><b>{brakeFeedback(shown.score, shown.detail).title}</b><span>{brakeFeedback(shown.score, shown.detail).tip}</span></div>
+        : <div className="r-sub">{roastFor(mode, shown)}</div>)}
       <div className="r-badge">{badgeFor(mode, best)}</div>
       <div className="r-best">
         {archived ? `best on ${date}` : 'best today'}: <b>{fmtResult(mode, best)}</b> <span className="emojis">{emojiRow(md)}</span>

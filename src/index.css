@@ -250,6 +250,9 @@ body.low-power .podium-name { animation: none; text-shadow: none; }
 .r-big.ok { color: var(--yellow); }
 .r-big.bad { color: var(--red); }
 .r-sub { color: var(--text); font-size: 22px; min-height: 22px; }
+.brake-feedback b, .brake-feedback span { display: block; }
+.brake-feedback b { color: var(--cyan); margin-bottom: 5px; }
+.brake-feedback span { color: var(--muted); }
 .r-badge { font-size: 28px; color: var(--yellow); margin: 8px 0 2px; }
 .r-best { font-size: 20px; color: var(--muted); margin-bottom: 10px; }
 .r-best b { color: var(--text); font-weight: normal; }
@@ -1257,3 +1260,18 @@ body.low-power .waiting-dots { animation: none; }
 @media(max-width:540px) { .level-picker { grid-template-columns:repeat(3,minmax(0,1fr)); } }
 
 .gc-level-stars { color:var(--yellow); font-size:18px; margin-top:6px; }
+
+.party-code-form { display:flex; gap:10px; margin-top:8px; }
+.party-code-form input { min-width:0; flex:1; font:inherit; padding:8px; letter-spacing:2px; text-transform:uppercase; }
+.party-code-display { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:12px 0; }
+.party-code-display b { color:var(--cyan); letter-spacing:3px; }
+.party-public-switch { display:block; padding:14px; border:1px solid var(--line); background:var(--panel); margin:12px 0; cursor:pointer; }
+.party-public-switch input { margin-right:10px; accent-color:var(--cyan); }
+.party-public-switch small { display:block; color:var(--muted); margin-top:8px; font-size:17px; }
+.public-party-list { list-style:none; padding:0; margin:0; }
+.public-party-list li { display:flex; align-items:center; gap:12px; border-top:1px solid var(--line); padding:14px 0; }
+.public-party-list li>div { flex:1; min-width:0; overflow-wrap:anywhere; }
+.public-party-list b { font-weight:normal; color:var(--cyan); }
+.public-party-list small { display:block; color:var(--muted); font-size:16px; }
+.public-party-list code { display:block; font-family:var(--font); color:var(--yellow); font-size:18px; margin-top:5px; }
+@media(max-width:540px) { .party-code-form { flex-wrap:wrap; } .party-code-form input { width:100%; flex-basis:100%; } .public-party-list li { flex-wrap:wrap; } }

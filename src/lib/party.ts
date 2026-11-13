@@ -11,12 +11,20 @@ export const partyModes = (selected?: readonly Mode[]) => {
   const modes = MODES.filter(mode => selected?.includes(mode));
   return modes.length ? modes : [...MODES];
 };
+export function partyRoundCounts(selected?: readonly Mode[]) {
+  const modes = partyModes(selected);
+  const maximum = modes.includes('brake') ? modes.length * 3 : 12;
+  return PARTY_ROUND_COUNTS.filter(count => count <= maximum);
+}
 export const partyRound = (round: number, version = 2, selected?: readonly Mode[]) => {
   const modes = partyModes(selected);
-  const shapes = ['circle', 'square', 'triangle', 'diamond', 'hexagon', 'triangle'] as const;
-  const tier = Math.min(5, Math.floor(round / (version >= 2 ? modes.length : 2)));
+    const shapes = version >= 2
+      ? ['circle', 'square', 'triangle', 'diamond', 'hexagon', 'pentagon', 'oval', 'rectangle', 'heptagon', 'octagon', 'star', 'flower'] as const
+      : ['circle', 'square', 'triangle', 'diamond', 'hexagon', 'triangle'] as const;
+    const tier = Math.min(shapes.length - 1, Math.floor(round / (version >= 2 ? modes.length : 2)));
   const mode = version >= 2 ? modes[round % modes.length] : round % 2 === 0 ? 'draw' as const : 'cut' as const;
-  return { mode, shape: shapes[tier], seconds: 16, level: ['Warm-up', 'Corners count', 'Tricky angles', 'Sharp turns', 'Many sides', 'Final chaos'][tier], complexity: tier,
+    return { mode, shape: shapes[tier], seconds: 16, level: ['Warm-up', 'Corners count', 'Tricky angles', 'Sharp turns', 'Many sides', 'New angles', 'Smooth curves', 'Long sides', 'Seven sides', 'Eight sides', 'Star power', 'Flower power'][tier], complexity: mode === 'cut' ? [0, 3, 6, 7, 8, 9][Math.min(5, tier)] : tier,
+      cutShape: version >= 2 ? shapes[tier] : undefined,
     objective: (['wall', 'parking', 'stop-line'] as const)[tier % 3] };
 };
 export const PARTY_ROUNDS = Array.from({ length: 6 }, (_, index) => partyRound(index));
@@ -30,6 +38,8 @@ export interface PartyPlayer {
   results: { round: number; score: number | null; detail?: Detail | null }[];
 }
 export interface PartyRoom {
+  reused_room?: boolean;
+  code?: string; is_public?: boolean;
   game_version?: number;
   selected_games?: Mode[];
   round_count?: number;
@@ -72,6 +82,7 @@ export function partyUrl(token: string, base = location.href) {
   const url = new URL(base); url.search = ''; url.hash = `party/${token}`; return url.href;
 }
 const ERRORS: Record<string, string> = {
+  invalid_room_code: 'Room code not found or expired. Check the 8-character code.',
   invalid_room: 'This room has expired or no longer exists.', room_full: 'This room is full (8 players).',
   already_started: 'This party has already started. Join the next match.', not_joined: 'Join the room first.',
   host_only: 'Only the host can do that.', need_players: 'You need at least 2 players.',
@@ -81,7 +92,7 @@ const ERRORS: Record<string, string> = {
   removed_player: 'The host removed you from this room.',
   match_in_progress: 'Players can leave or be removed in the lobby or after the match.',
   bad_party_games: 'Choose one, two, or all three games.',
-  bad_round_count: 'Choose between 2 and 12 rounds.',
+  bad_round_count: 'Choose a round count supported by the selected games.',
 };
 async function rpc<T>(name: string, args = {}): Promise<T> {
   await whenAuthReady(); const sb = await getSupabase();
@@ -106,3 +117,8 @@ export const rematchPartyRoom = (token: string) => rpc<PartyRoom>('rematch_party
 export const submitPartyResult = (token: string, match: number, round: number, result: AttemptResult) => rpc<PartyRoom>('submit_party_result', { p_room: token, p_match: match, p_round: round, p_score: result.score, p_detail: result.detail });
 
 export const leavePartyRoom = (token: string, player?: string) => rpc<void>('leave_party_room', { p_room: token, p_player: player ?? null });
+
+export interface PublicParty { token:string; code:string; host:string; round_count:number; selected_games:Mode[]; players:number }
+export const listPublicParties=()=>rpc<PublicParty[]>('list_public_parties');
+export const findPartyCode=(code:string)=>rpc<string>('find_party_code',{p_code:code.trim().toUpperCase()});
+export const setPartyPublic=(token:string,visible:boolean)=>rpc<PartyRoom>('set_party_public',{p_room:token,p_public:visible});

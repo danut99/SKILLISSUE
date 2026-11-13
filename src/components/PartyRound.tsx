@@ -67,7 +67,7 @@ export function PartyRound({ token, match, round, roundCount, gameVersion, selec
     const timedOut = () => finish({ score: 0, detail: { fail: true, timedOut: true }, display: 'TIME UP' });
     const check = () => { if (!finished && now() >= end) timedOut(); return !finished; };
     const api: GameApi = { date: `party:${token}:${match}:${round}`, finish, startClip: () => {}, cancelClip: () => {}, toast };
-    game = rule.mode === 'draw' ? createDrawGame(api, { shape: rule.shape }) : rule.mode === 'cut' ? createCutGame(api, { complexity: rule.complexity }) : createBrakeGame(api, undefined, { objective: rule.objective });
+    game = rule.mode === 'draw' ? createDrawGame(api, { shape: rule.shape }) : rule.mode === 'cut' ? createCutGame(api, { complexity: rule.complexity, partyShape: rule.cutShape }) : createBrakeGame(api, undefined, { objective: rule.objective });
     const activeGame = game;
     gameRef.current = {
       down(p, e) { if (check()) activeGame.down?.(p, e); },

@@ -3,7 +3,7 @@ const mocks = vi.hoisted(() => ({ rpc: vi.fn(), online: vi.fn(() => true), nickn
 vi.mock('./auth', () => ({ isOnline: mocks.online, whenAuthReady: vi.fn(async () => {}) }));
 vi.mock('./leaderboard', () => ({ ensureNickname: mocks.nickname }));
 vi.mock('./supabase', () => ({ getSupabase: vi.fn(async () => ({ rpc: mocks.rpc })) }));
-import { PARTY_DURATION, PARTY_ROUNDS, createPartyRoom, getPartyMatch, joinPartyRoom, partyPhase, partyRound, partyRoundOffset, partyStandings, partyUrl, readPartyToken, readyPartyRoom, setPartyGames, setPartyRoundCount, startPartyRoom, submitPartyResult, type PartyPlayer } from './party';
+import { PARTY_DURATION, PARTY_ROUNDS, createPartyRoom, getPartyMatch, joinPartyRoom, partyPhase, partyRound, partyRoundCounts, partyRoundOffset, partyStandings, partyUrl, readPartyToken, readyPartyRoom, setPartyGames, setPartyRoundCount, startPartyRoom, submitPartyResult, type PartyPlayer } from './party';
 import { MODES } from '../config';
 
 const token = '12345678-1234-4234-8234-123456789012';
@@ -11,6 +11,30 @@ const start = Date.parse('2026-11-12T12:00:00Z');
 const date = new Date(start).toISOString();
 beforeEach(() => { vi.clearAllMocks(); mocks.online.mockReturnValue(true); mocks.rpc.mockResolvedValue({ data: { token }, error: null }); });
 describe('six-round party schedule', () => {
+  it('offers twelve distinct Draw targets and Cut silhouettes without changing legacy targets', () => {
+    for (const mode of ['draw', 'cut'] as const) {
+      const rounds = Array.from({ length: 12 }, (_, round) => partyRound(round, 2, [mode]));
+      expect(new Set(rounds.map(rule => mode === 'draw' ? rule.shape : rule.cutShape)).size).toBe(12);
+    }
+    expect(partyRound(10, 1).shape).toBe('triangle');
+    expect(partyRound(1, 1).cutShape).toBeUndefined();
+  });
+  it('limits car selections to three unique objectives without repeating them', () => {
+    expect(partyRoundCounts(['brake'])).toEqual([2, 3]);
+    expect(Math.max(...partyRoundCounts(['draw', 'brake']))).toBe(6);
+    expect(Math.max(...partyRoundCounts(['cut', 'brake']))).toBe(6);
+    expect(Math.max(...partyRoundCounts(MODES))).toBe(9);
+    expect(Math.max(...partyRoundCounts(['draw', 'cut']))).toBe(12);
+    for (let mask = 1; mask < 8; mask++) {
+      const games = MODES.filter((_, index) => mask & (1 << index));
+      if (!games.includes('brake')) continue;
+      for (const count of partyRoundCounts(games)) {
+        const cars = Array.from({ length: count }, (_, round) => partyRound(round, 2, games)).filter(rule => rule.mode === 'brake');
+        expect(cars.length).toBeLessThanOrEqual(3);
+        expect(new Set(cars.map(rule => rule.objective)).size).toBe(cars.length);
+      }
+    }
+  });
   it('rotates Draw, Cut and Brake with the same sixteen-second limit', () => {
     expect(PARTY_ROUNDS.map(r => r.mode)).toEqual(['draw', 'cut', 'brake', 'draw', 'cut', 'brake']);
     expect(PARTY_ROUNDS.map(r => r.seconds)).toEqual([16, 16, 16, 16, 16, 16]);
@@ -73,7 +97,7 @@ describe('six-round party schedule', () => {
       const rounds = Array.from({length:12}, (_, index) => partyRound(index, 2, games));
       expect(rounds.map(round => round.mode)).toEqual(Array.from({length:12}, (_, index) => games[index % games.length]));
       expect(rounds.every(round => round.seconds === 16)).toBe(true);
-      expect(rounds[games.length].complexity).toBe(1);
+      expect(rounds[games.length].complexity).toBe(rounds[games.length].mode === 'cut' ? 3 : 1);
     }
     expect(partyRound(2, 1, ['brake']).mode).toBe('draw');
   });

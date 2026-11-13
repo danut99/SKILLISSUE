@@ -1,8 +1,8 @@
-import { fmtResult } from '../lib/scoring';
+import { fmtCm, fmtResult } from '../lib/scoring';
 import { useEffect, useRef, useState } from 'react';
 import { MODE_INFO } from '../config';
 import { useAuth } from '../lib/auth';
-import { LEVEL_SHAPES, LEVEL_TRIES, levelCount, starsForScore, finishLevel, loadLevels, startLevel, useLevels, type LevelAttempt, type LevelMode } from '../lib/levels';
+import { LEVEL_SHAPES, levelBrakePassCm, levelBrakeScoreScale, LEVEL_TRIES, levelCount, starsForScore, finishLevel, loadLevels, startLevel, useLevels, type LevelAttempt, type LevelMode } from '../lib/levels';
 import { createDrawGame } from '../games/drawGame';
 import { createCutGame } from '../games/cutGame';
 import { createBrakeGame } from '../games/brakeGame';
@@ -34,7 +34,7 @@ export function LevelScreen({ mode, date }: { mode: LevelMode; date: string }) {
   let active=true;
   const level=attempt.level;
   const api:GameApi={date:addDays('2026-11-12',level-1),finish:value=>{if(active)setResult(value);},startClip:()=>{},cancelClip:()=>{},toast:message=>setError(message)};
-  const factory=(a:GameApi)=>mode==='draw'?createDrawGame(a,{shape:LEVEL_SHAPES[level-1]}):mode==='cut'?createCutGame({...a,date:`level:cut:${level}`},{complexity:level-1}):createBrakeGame(a,undefined,{speedMultiplier:.8+(level-1)*.15});
+  const factory=(a:GameApi)=>mode==='draw'?createDrawGame(a,{shape:LEVEL_SHAPES[level-1]}):mode==='cut'?createCutGame({...a,date:`level:cut:${level}`},{complexity:level-1}):createBrakeGame(a,undefined,{speedMultiplier:.8+(level-1)*.15,scoreDistanceCm:levelBrakeScoreScale(level),passDistanceCm:levelBrakePassCm(level)});
   gameRef.current=createTimedGame(mode,factory,api);
   return()=>{active=false;gameRef.current?.destroy?.();gameRef.current=null;};
  },[attempt,mode]);
@@ -90,6 +90,7 @@ export function LevelScreen({ mode, date }: { mode: LevelMode; date: string }) {
    <div className="card px-box level-status">
     <h2>Level {shownLevel} / {totalLevels}{shownLevel<progress.level?' - Cleared':''}</h2>
     <p>{mode==='draw'?`Draw a ${LEVEL_SHAPES[shownLevel-1]}`:mode==='cut'?`Cut complexity ${shownLevel} - equal areas`:`Driving difficulty ${shownLevel} - faster each level`}</p>
+    {mode==='brake'&&<p>Pass goal: stop safely within <b>{fmtCm(levelBrakePassCm(shownLevel))}</b> of the target for 85/100. Stay inside the parking bay and avoid crossing the stop line or hitting the wall.</p>}
     {result?<>
       <div className="level-score">{result.score.toFixed(1)} / 100</div>
       {mode==='brake'&&<p className="level-distance">{fmtResult('brake',result)} &middot; 85/100 needed to pass</p>}

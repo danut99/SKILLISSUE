@@ -1,3 +1,5 @@
+import { PartyDirectory } from './PartyDirectory';
+import { setPartyPublic } from '../lib/party';
 import { MODES, type Mode } from '../config';
 import { PartyGallery } from './PartyGallery';
 import { sharePartyInvite, sharePartyPodium } from '../lib/partyShare';
@@ -7,7 +9,7 @@ import { leavePartyRoom } from '../lib/party';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { copyText } from '../lib/scoring';
-import { PARTY_ROUND_COUNTS, partyRound, partyRoundLabel, partyModes, setPartyGames, setPartyRoundCount, createPartyRoom, getPartyRoom, joinPartyRoom, partyPhase, partyStandings, partyUrl, readPartyToken, readyPartyRoom, rematchPartyRoom, startPartyRoom, type PartyRoom } from '../lib/party';
+import { partyRoundCounts, partyRound, partyRoundLabel, partyModes, setPartyGames, setPartyRoundCount, createPartyRoom, getPartyRoom, joinPartyRoom, partyPhase, partyStandings, partyUrl, readPartyToken, readyPartyRoom, rematchPartyRoom, startPartyRoom, type PartyRoom } from '../lib/party';
 import { toast } from '../lib/ui';
 import { PixelIcon } from './PixelIcon';
 import { PartyRound } from './PartyRound';
@@ -28,7 +30,6 @@ export function PartyPage() {
   const [nickname, setNickname] = useState(usePlayer.getState().nickname);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const [creationGames, setCreationGames] = useState<Mode[]>([...MODES]);
   const [clock, setClock] = useState(Date.now);
   const online = status === 'anon' || status === 'linked';
   useEffect(() => {
@@ -70,7 +71,7 @@ export function PartyPage() {
     if (busy) return;
     setBusy(true);
     const before = Date.now();
-    try { const room = await action(); updateRoom(room, before); if (room.token !== token) { location.hash = `party/${room.token}`; setToken(room.token); } }
+    try { const room = await action(); updateRoom(room, before); if(room.reused_room) toast('Your existing party is still open. Invite someone or leave it to create a new one.'); if (room.token !== token) { location.hash = `party/${room.token}`; setToken(room.token); } }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not update party.'); }
     finally { setBusy(false); }
   }
@@ -96,29 +97,37 @@ export function PartyPage() {
   const ready = !!room && room.players.length >= 2 && room.players.every(p => p.ready);
   const gameVersion = room?.game_version ?? 1;
   const selectedGames = partyModes(room?.selected_games);
+  const allowedRounds = partyRoundCounts(selectedGames);
+  const maxRounds = allowedRounds[allowedRounds.length - 1];
+  const invalidRoundCount = !!room && !room.started_at && roundCount > maxRounds;
   const rule = partyRound(phase.round, gameVersion, selectedGames);
   const standings = partyStandings(room?.players ?? [], phase.kind === 'playing' ? phase.round - 1 : phase.kind === 'finished' ? roundCount - 1 : phase.kind === 'reveal' ? phase.round : -1);
   const winners = standings.filter(p => p.rank === 1);
   return <section className="screen party-page">
-    <header className="me-hero"><h1>Party Mode</h1><p className="me-sub">Draw. Cut. Brake. Host picks 2-12 rounds. 16 seconds each.</p></header>
+    <header className="me-hero"><h1>Party Mode</h1><p className="me-sub">Pick your games and match length. 16 seconds each round.</p></header>
     {error && <div className="party-error" role="alert">{error}</div>}
     {!online ? <div className="me-box">{status === 'connecting' ? 'Connecting...' : 'Connect online to play with friends.'}</div> : !token ? <>
-      <div className="me-box party-intro"><PixelIcon name="battle" size={64} /><h2>Bring 2-8 players.</h2><p>Share a room link, get ready, then race the same challenges together.</p><p>One attempt each round. Highest total wins. The host chooses how many rounds to play. Daily tries stay untouched.</p><PartyGamePicker games={creationGames} disabled={busy} onChange={setCreationGames} /><button className="btn btn-primary" disabled={busy} onClick={() => void run(() => createPartyRoom(creationGames))}>{busy ? 'Creating...' : 'Create party'}</button></div>
-      <ol className="party-round-plan">{Array.from({length:6}, (_, index) => partyRound(index, 2, creationGames)).map((r, index) => <li key={index}><PixelIcon name={r.mode} size={28} /><span>Round {index + 1}<small>{GAME_LABELS[r.mode]}</small></span><b>{r.seconds}s</b></li>)}</ol>
+      <div className="me-box party-intro"><PixelIcon name="battle" size={64} /><h2>Bring 2-8 players.</h2><p>New rooms are public. Enable Private room in the lobby for invite-only play. Share a room link, get ready, then race the same challenges together.</p><p>One open hosted party per player. Creating again returns you to it. One attempt each round. Highest total wins. The host chooses how many rounds to play. Daily tries stay untouched.</p><button className="btn btn-primary" disabled={busy} onClick={() => void run(() => createPartyRoom())}>{busy ? 'Creating...' : 'Create party'}</button></div>
+      <PartyDirectory />
     </> : !room ? <div className="me-box"><p>{error ? 'Check your connection or create a new party.' : 'Loading party...'}</p><a href="#party">New party</a></div> : <>
-      <div className="party-room-bar"><span>Room {room.token.slice(0, 6).toUpperCase()} <small>Match {room.match_no}</small></span><button className="btn btn-ghost btn-sm" onClick={() => void copyText(partyUrl(room.token)).then(ok => toast(ok ? 'Room link copied. Send it to your friends!' : 'Could not copy link.'))}>Copy invite</button><button className="btn btn-primary btn-sm" onClick={() => void sharePartyInvite(room).catch(() => toast('Could not share invite.'))}>Share invite</button></div>
+      <div className="party-room-bar"><span>Room {room.code ?? room.token.slice(0, 6).toUpperCase()} <small>Match {room.match_no}</small></span><button className="btn btn-ghost btn-sm" onClick={() => void copyText(partyUrl(room.token)).then(ok => toast(ok ? 'Room link copied. Send it to your friends!' : 'Could not copy link.'))}>Copy invite</button><button className="btn btn-primary btn-sm" onClick={() => void sharePartyInvite(room).catch(() => toast('Could not share invite.'))}>Share invite</button></div>
+      {room.code && <div className="party-code-display"><span>Room code <b>{room.code}</b></span><button className="btn btn-ghost btn-sm" onClick={()=>void copyText(room.code!).then(ok=>toast(ok?'Room code copied.':'Could not copy code.'))}>Copy code</button></div>}
+      {room.is_host && phase.kind==='lobby' && <label className="party-public-switch"><input type="checkbox" checked={!(room.is_public??true)} disabled={busy} onChange={e=>void run(()=>setPartyPublic(room.token,!e.target.checked))} /> Private room <small>{room.is_public?'Anyone can find this lobby and join.':'Private: only people with your code or invite link can find this room.'}</small></label>}
       {!room.joined ? <div className="me-box"><h2>You've been invited!</h2><label>Your nickname <input maxLength={15} value={nickname} onChange={e => setNickname(e.target.value)} autoComplete="nickname" /></label><p>{room.players.length}/8 players in this room.</p><button className="btn btn-primary" disabled={busy || room.started_at !== null || room.players.length >= 8} onClick={() => void run(() => joinNamed(room))}>{room.started_at ? 'Match in progress' : 'Join party'}</button>{room.started_at && <p>Wait here for the host to start a rematch lobby.</p>}</div> : null}
       {phase.kind === 'lobby' ? <div className="me-box party-lobby"><h2>Get the squad ready</h2><ul className="party-players">{room.players.map((player, index) => <li key={index}><span>{player.name}{player.is_me ? ' (you)' : ''}{player.is_host ? ' - host' : ''}</span><b className={player.ready ? 'ready' : ''}>{player.ready ? 'Ready' : 'Waiting'}</b>{room.is_host && !player.is_me && player.player_id && <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void removePlayer(room, player.player_id)}>Remove</button>}</li>)}</ul>
         {room.is_host ? <PartyGamePicker games={selectedGames} disabled={busy} onChange={games => void run(() => setPartyGames(room.token, games))} /> : <p className="party-games-summary">Games: {selectedGames.map(mode => GAME_LABELS[mode]).join(' + ')}</p>}
         <div className="party-round-settings">
           {room.is_host ? <label htmlFor="party-round-count">Rounds
             <select id="party-round-count" aria-label="Rounds" value={roundCount} disabled={busy} onChange={event => void run(() => setPartyRoundCount(room.token, Number(event.target.value)))}>
-              {PARTY_ROUND_COUNTS.map(count => <option key={count} value={count}>{count} rounds</option>)}
+              {invalidRoundCount && <option value={roundCount} disabled>{roundCount} rounds — choose up to {maxRounds}</option>}
+              {allowedRounds.map(count => <option key={count} value={count}>{count} rounds</option>)}
             </select>
           </label> : <span>{roundCount} rounds selected by the host</span>}
           <small>Up to {roundCount * 100} points. Changing games or rounds resets everyone's Ready status.</small>
+          {selectedGames.includes('brake') && <small>Up to {maxRounds} rounds with these games. Each car objective appears once.</small>}
+          {invalidRoundCount && <p role="alert">The host needs to select {maxRounds} rounds or fewer.</p>}
         </div>
-        {room.joined && <div className="r-actions"><button className="btn btn-primary" disabled={busy} onClick={() => void run(() => readyPartyRoom(room.token, !me?.ready))}>{me?.ready ? 'Not ready' : "I'm ready"}</button>{room.is_host && <button className="btn btn-pink" disabled={busy || !ready} onClick={() => void run(() => startPartyRoom(room.token))}>Start {roundCount} rounds</button>}</div>}
+        {room.joined && <div className="r-actions"><button className="btn btn-primary" disabled={busy || invalidRoundCount} onClick={() => void run(() => readyPartyRoom(room.token, !me?.ready))}>{me?.ready ? 'Not ready' : "I'm ready"}</button>{room.is_host && <button className="btn btn-pink" disabled={busy || !ready || invalidRoundCount} onClick={() => void run(() => startPartyRoom(room.token))}>Start {roundCount} rounds</button>}</div>}
         <p className="me-fine">{room.players.length < 2 ? 'Invite at least one friend to start.' : !ready ? 'Everyone must be ready before the host starts.' : 'All ready. Host can start!'} The clock starts together, not on your first touch. Reloading an active round forfeits that attempt.</p>
       </div> : phase.kind === 'countdown' ? <div className="me-box party-countdown"><p>Round 1 - {partyRoundLabel(0, gameVersion, selectedGames)}</p><strong>{Math.max(1, Math.ceil(phase.secondsLeft))}</strong><p>Get ready. Everyone starts together.</p></div> : <div className={`party-match-layout party-phase-${phase.kind}`}>
         {phase.kind !== 'finished' && <div className="party-round-heading"><PixelIcon name={rule.mode} size={36} /><span>Round {phase.round + 1}/{roundCount} - {partyRoundLabel(phase.round, gameVersion, selectedGames)}<small>{rule.level} - {rule.seconds}s</small></span></div>}

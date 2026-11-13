@@ -1,6 +1,7 @@
+import { levelBrakePassCm, levelBrakeScoreScale } from '../lib/levels';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { brakeParams, createBrakeGame } from './brakeGame';
-import { brakeStopResult, dailyBrakeObjective } from '../lib/brakeChallenge';
+import { brakeFeedback, brakeStopResult, dailyBrakeObjective } from '../lib/brakeChallenge';
 import { fmtResult, roastFor } from '../lib/scoring';
 import type { AttemptResult } from './types';
 
@@ -44,6 +45,14 @@ function drive(date: string, overshootM: number | null, fps = 60): AttemptResult
 }
 
 describe('daily driving objectives', () => {
+  it('explains which way to adjust braking for each result', () => {
+    expect(brakeFeedback(0, { crashed: true }).title).toBe('Too late!');
+    expect(brakeFeedback(0, { objective: 'stop-line', fail: true, offsetCm: 0 }).title).toBe('Too late!');
+    expect(brakeFeedback(60, { objective: 'parking', offsetCm: -100 }).tip).toContain('earlier');
+    expect(brakeFeedback(60, { objective: 'parking', offsetCm: 100 }).tip).toContain('longer');
+    expect(brakeFeedback(96, { objective: 'parking', offsetCm: -8 }).title).toBe('Almost perfect!');
+    expect(brakeFeedback(100, { objective: 'parking', offsetCm: 0 }).title).toBe('Perfect stop!');
+  });
   it('runs every Party objective from a shared room seed within the round limit', () => {
     const seed = 'party:12345678-1234-4234-8234-123456789012:1:2';
     expect(brakeParams(seed)).toEqual(brakeParams(seed));
@@ -147,5 +156,24 @@ describe('missed parking bay feedback', () => {
     const short = brakeStopResult('parking', 50, 46);
     expect(roastFor('brake', { ...over, at: 0 })).toBe('Overshot the bay by 40 cm.');
     expect(roastFor('brake', { ...short, at: 0 })).toBe('Stopped 1.5 m short of the bay.');
+  });
+});
+
+describe('more forgiving Car level scoring', () => {
+  it('passes safe stops at the advertised distance for every level', () => {
+    for (let level=1; level<=5; level++) {
+      const gap=levelBrakePassCm(level);
+      const scale=levelBrakeScoreScale(level);
+      for (const objective of ['wall','stop-line','parking'] as const) {
+        expect(brakeStopResult(objective,50,50-gap/100,4,scale).score).toBe(85);
+        expect(brakeStopResult(objective,50,50-(gap+2)/100,4,scale).score).toBeLessThan(85);
+      }
+      expect(brakeStopResult('stop-line',50,50.1,4,scale).score).toBe(0);
+      expect(brakeStopResult('parking',50,60,4,scale).detail.fail).toBe(true);
+    }
+  });
+  it('keeps the default scoring unchanged',()=>{
+    expect(brakeStopResult('wall',50,49).score).toBeCloseTo(60.65,2);
+    expect(brakeStopResult('wall',50,48.5,4,levelBrakeScoreScale(1)).score).toBe(85);
   });
 });

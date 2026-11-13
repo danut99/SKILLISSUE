@@ -1725,3 +1725,168 @@ revoke all on function public.get_level_leaderboard(text,boolean) from public,an
 grant execute on function public.get_level_leaderboard(text,boolean) to anon,authenticated;
 commit;
 
+begin;
+
+-- Three distinct driving objectives per match. Existing running matches retain
+-- their recorded schedule, while lobbies and rematches use the new limits.
+create or replace function public.enforce_party_car_round_limit()
+returns trigger language plpgsql set search_path = '' as $$
+declare maximum integer;
+begin
+  if 'brake' = any(new.selected_games) then
+    maximum := 3 * cardinality(new.selected_games);
+    if new.started_at is null then
+      new.round_count := least(new.round_count, maximum);
+    elsif tg_op = 'UPDATE' and old.started_at is null and new.round_count > maximum then
+      raise exception 'bad_round_count';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists party_car_round_limit on public.party_rooms;
+create trigger party_car_round_limit
+  before insert or update of selected_games, round_count, started_at on public.party_rooms
+  for each row execute function public.enforce_party_car_round_limit();
+
+with adjusted as (
+  update public.party_rooms
+    set round_count = 3 * cardinality(selected_games)
+  where started_at is null and 'brake' = any(selected_games)
+    and round_count > 3 * cardinality(selected_games)
+  returning id
+)
+update public.party_members set ready = false where room_id in (select id from adjusted);
+
+revoke all on function public.enforce_party_car_round_limit() from public, anon, authenticated;
+commit;
+
+
+begin;
+alter table public.party_rooms add column if not exists room_code text not null default upper(substr(replace(gen_random_uuid()::text,'-',''),1,8));
+create unique index if not exists party_rooms_code_idx on public.party_rooms(room_code);
+alter table public.party_rooms add column if not exists is_public boolean not null default true;
+alter table public.party_rooms add column if not exists listed_seen_at timestamptz;
+create or replace function public.party_room_payload(p_room uuid)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'code',room.room_code,'is_public',room.is_public,
+    'selected_games', coalesce((select selected_games from public.party_match_settings where room_id = room.id and match_no = room.match_no), room.selected_games),
+    'game_version', coalesce((select game_version from public.party_match_settings where room_id = room.id and match_no = room.match_no), case when room.started_at is null then 2 else 1 end),
+    'round_count', room.round_count, 'token', room.id, 'match_no', room.match_no, 'started_at', room.started_at,
+    'expires_at', room.expires_at, 'server_now', clock_timestamp(),
+    'is_host', room.host_id = auth.uid(),
+    'joined', exists(select 1 from public.party_members m where m.room_id = room.id and m.user_id = auth.uid() and m.active),
+    'players', coalesce((select jsonb_agg(jsonb_build_object(
+      'name', p.nickname, 'player_id', m.user_id, 'is_me', m.user_id = auth.uid(), 'is_host', m.user_id = room.host_id, 'ready', m.ready,
+      'results', coalesce((select jsonb_agg(jsonb_build_object(
+        'round', r.round_no, 'detail', case when r.user_id = auth.uid() or clock_timestamp() >= room.started_at + make_interval(secs => public.party_round_offset(r.round_no) + public.party_round_duration(r.round_no)) then r.detail else null end, 'score', case when r.user_id = auth.uid() or
+          clock_timestamp() >= room.started_at + make_interval(secs => public.party_round_offset(r.round_no) + public.party_round_duration(r.round_no))
+          then r.score else null end
+      ) order by r.round_no) from public.party_results r where r.room_id = room.id and r.match_no = room.match_no and r.user_id = m.user_id), '[]'::jsonb)
+    ) order by m.joined_at, m.user_id) from public.party_members m join public.profiles p on p.id = m.user_id where m.room_id = room.id and m.active), '[]'::jsonb)
+  ) from public.party_rooms room where room.id = p_room;
+$$;
+create or replace function public.get_party_room(p_room uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare room public.party_rooms;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ select * into room from public.party_rooms where id=p_room;
+ if not found or room.expires_at<=now() then raise exception 'invalid_room'; end if;
+ if room.host_id=auth.uid() then update public.party_rooms set listed_seen_at=clock_timestamp() where id=p_room; end if;
+ return public.party_room_payload(p_room);
+end $$;
+create or replace function public.set_party_public(p_room uuid,p_public boolean)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare room public.party_rooms;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ select * into room from public.party_rooms where id=p_room for update;
+ if not found or room.expires_at<=now() then raise exception 'invalid_room'; end if;
+ if room.host_id<>auth.uid() then raise exception 'host_only'; end if;
+ update public.party_rooms set is_public=coalesce(p_public,false),listed_seen_at=clock_timestamp() where id=p_room;
+ return public.party_room_payload(p_room);
+end $$;
+create or replace function public.find_party_code(p_code text)
+returns uuid language plpgsql stable security definer set search_path = '' as $$
+declare found_id uuid;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ if p_code is null or upper(trim(p_code)) !~ '^[A-F0-9]{8}$' then raise exception 'invalid_room_code'; end if;
+ select id into found_id from public.party_rooms where room_code=upper(trim(p_code)) and expires_at>now();
+ if found_id is null then raise exception 'invalid_room_code'; end if;
+ return found_id;
+end $$;
+create or replace function public.list_public_parties()
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ return coalesce((select jsonb_agg(to_jsonb(lobby)) from (
+ select r.id as token,r.room_code as code,p.nickname as host,r.round_count,r.selected_games,
+  (select count(*) from public.party_members m where m.room_id=r.id and m.active) as players
+ from public.party_rooms r join public.profiles p on p.id=r.host_id
+ where r.is_public and r.started_at is null and r.expires_at>now() and r.listed_seen_at>now()-interval '90 seconds'
+ and (select count(*) from public.party_members m where m.room_id=r.id and m.active) between 1 and 7
+ order by r.created_at desc limit 30
+ ) lobby),'[]'::jsonb);
+end $$;
+revoke all on function public.party_room_payload(uuid),public.get_party_room(uuid),public.set_party_public(uuid,boolean),public.find_party_code(text),public.list_public_parties() from public,anon,authenticated;
+grant execute on function public.get_party_room(uuid),public.set_party_public(uuid,boolean),public.find_party_code(text),public.list_public_parties() to authenticated;
+commit;
+
+-- New rooms are listed by default; existing room visibility is preserved.
+begin;
+alter table public.party_rooms alter column is_public set default true;
+alter table public.party_rooms alter column listed_seen_at set default now();
+commit;
+
+begin;
+
+-- Stop concurrent clicks/tabs from creating multiple rooms for one host.
+create or replace function public.create_party_room()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare uid uuid := auth.uid(); existing_id uuid; new_room_id uuid;
+begin
+ if uid is null then raise exception 'not_authenticated'; end if;
+ if not exists(select 1 from public.profiles where id=uid) then raise exception 'profile_required'; end if;
+ perform pg_advisory_xact_lock(hashtext(uid::text || ':party:create'));
+ select r.id into existing_id from public.party_rooms r
+ where r.host_id=uid and r.expires_at>now()
+   and exists(select 1 from public.party_members m where m.room_id=r.id and m.user_id=uid and m.active)
+ order by (r.started_at is not null) desc, r.created_at desc limit 1 for update;
+ if existing_id is not null then
+  update public.party_rooms set listed_seen_at=clock_timestamp() where id=existing_id;
+  return public.party_room_payload(existing_id) || jsonb_build_object('reused_room',true);
+ end if;
+ insert into public.party_rooms(host_id) values(uid) returning id into new_room_id;
+ insert into public.party_members(room_id,user_id) values(new_room_id,uid);
+ return public.party_room_payload(new_room_id) || jsonb_build_object('reused_room',false);
+end $$;
+
+-- Close only redundant waiting rooms where nobody else has joined.
+-- Keep any room with another active player or a match/history intact.
+with candidates as (
+ select r.id,r.host_id,r.created_at,
+  row_number() over(partition by r.host_id order by r.created_at desc,r.id) as position
+ from public.party_rooms r
+ where r.expires_at>now() and r.started_at is null and r.match_no=1
+ and exists(select 1 from public.party_members m where m.room_id=r.id and m.user_id=r.host_id and m.active)
+ and not exists(select 1 from public.party_members m where m.room_id=r.id and m.user_id<>r.host_id and m.active)
+ and not exists(select 1 from public.party_results a where a.room_id=r.id)
+)
+update public.party_rooms set expires_at=now(),is_public=false
+ where id in(select id from candidates where position>1);
+
+-- Legacy creation endpoint must not reset a reused room's game configuration.
+create or replace function public.create_party_room_with_games(p_games text[])
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare created jsonb;
+begin
+ created := public.create_party_room();
+ if coalesce((created->>'reused_room')::boolean,false) then return created; end if;
+ return public.set_party_games((created->>'token')::uuid,p_games);
+end $$;
+revoke all on function public.create_party_room(),public.create_party_room_with_games(text[]) from public,anon,authenticated;
+grant execute on function public.create_party_room(),public.create_party_room_with_games(text[]) to authenticated;
+commit;
