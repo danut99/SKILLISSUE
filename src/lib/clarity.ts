@@ -12,8 +12,8 @@ type ConsentState = 'granted' | 'denied';
 
 /**
  * Loads Microsoft Clarity (https://clarity.microsoft.com) in production builds when
- * a project id is configured (see CLARITY_PROJECT_ID in config.ts). Starts cookieless (consent denied) until
- * setClarityConsent('granted') is called, e.g. from a future cookie banner.
+ * a project id is configured (see CLARITY_PROJECT_ID in config.ts). Analytics cookies are allowed from the
+ * start so Clarity keeps one stable user per device. Call setClarityConsent('denied') to opt a player out.
  */
 export function initClarity(projectId = CLARITY_PROJECT_ID): void {
   if (!projectId || import.meta.env.DEV || typeof window === 'undefined' || window.clarity) return;
@@ -28,7 +28,7 @@ export function initClarity(projectId = CLARITY_PROJECT_ID): void {
   script.src = `https://www.clarity.ms/tag/${encodeURIComponent(projectId)}`;
   document.head.appendChild(script);
 
-  setClarityConsent('denied');
+  setClarityConsent('granted');
 }
 
 export function setClarityConsent(state: ConsentState): void {

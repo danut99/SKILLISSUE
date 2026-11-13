@@ -43,7 +43,8 @@ export function PrivacyPage() {
       <p>
         We use Microsoft Clarity to see how people play (clicks, taps, scrolling and anonymized session replays) so we can fix
         bugs and improve the game. Sessions are linked to your random player id and your public nickname, and we log game
-        events such as page visits, starting a game and your score range. Text you type is masked. See the{' '}
+        events such as page visits, starting a game and your score range. Clarity sets analytics cookies so it can recognize
+        your device on your next visit. Text you type is masked. See the{' '}
         <a href="https://privacy.microsoft.com/privacystatement" target="_blank" rel="noreferrer">Microsoft privacy statement</a>.
       </p>
 
