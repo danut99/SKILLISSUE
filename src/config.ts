@@ -16,14 +16,14 @@ export const CLARITY_PROJECT_ID: string = import.meta.env.VITE_CLARITY_PROJECT_I
 
 export const GAME_NAME = 'SKILL ISSUE';
 export const LAUNCH_DATE = '2026-11-12';
-export const BASE_TRIES = 3;
+export const BASE_TRIES = 5;
 /** "Watch an ad → +1 try". Off for now; flip to true once a real rewarded-ad network is wired in. */
 export const REWARDED_ADS = false;
 
 export const MODES = ['draw', 'cut', 'brake'] as const;
 export type Mode = (typeof MODES)[number];
 export type BoardMode = Mode | 'overall';
-export type LeaderboardPeriod = 'daily' | 'all-time';
+export type LeaderboardPeriod = 'daily' | 'all-time' | 'levels';
 
 export interface ModeInfo {
   emoji: string;

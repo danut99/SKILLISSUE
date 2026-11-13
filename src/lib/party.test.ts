@@ -3,15 +3,16 @@ const mocks = vi.hoisted(() => ({ rpc: vi.fn(), online: vi.fn(() => true), nickn
 vi.mock('./auth', () => ({ isOnline: mocks.online, whenAuthReady: vi.fn(async () => {}) }));
 vi.mock('./leaderboard', () => ({ ensureNickname: mocks.nickname }));
 vi.mock('./supabase', () => ({ getSupabase: vi.fn(async () => ({ rpc: mocks.rpc })) }));
-import { PARTY_DURATION, PARTY_ROUNDS, createPartyRoom, getPartyMatch, joinPartyRoom, partyPhase, partyRound, partyRoundOffset, partyStandings, partyUrl, readPartyToken, readyPartyRoom, setPartyRoundCount, startPartyRoom, submitPartyResult, type PartyPlayer } from './party';
+import { PARTY_DURATION, PARTY_ROUNDS, createPartyRoom, getPartyMatch, joinPartyRoom, partyPhase, partyRound, partyRoundOffset, partyStandings, partyUrl, readPartyToken, readyPartyRoom, setPartyGames, setPartyRoundCount, startPartyRoom, submitPartyResult, type PartyPlayer } from './party';
+import { MODES } from '../config';
 
 const token = '12345678-1234-4234-8234-123456789012';
 const start = Date.parse('2026-11-12T12:00:00Z');
 const date = new Date(start).toISOString();
 beforeEach(() => { vi.clearAllMocks(); mocks.online.mockReturnValue(true); mocks.rpc.mockResolvedValue({ data: { token }, error: null }); });
 describe('six-round party schedule', () => {
-  it('alternates only Draw and Cut, using the same sixteen-second limit for every shape', () => {
-    expect(PARTY_ROUNDS.map(r => r.mode)).toEqual(['draw', 'cut', 'draw', 'cut', 'draw', 'cut']);
+  it('rotates Draw, Cut and Brake with the same sixteen-second limit', () => {
+    expect(PARTY_ROUNDS.map(r => r.mode)).toEqual(['draw', 'cut', 'brake', 'draw', 'cut', 'brake']);
     expect(PARTY_ROUNDS.map(r => r.seconds)).toEqual([16, 16, 16, 16, 16, 16]);
     expect(PARTY_DURATION).toBe(132);
     expect(PARTY_ROUNDS.map((_, index) => partyRoundOffset(index))).toEqual([0, 22, 44, 66, 88, 110]);
@@ -32,6 +33,18 @@ describe('six-round party schedule', () => {
     expect(partyPhase(date, start + 50000)).toMatchObject({ round: 2, kind: 'playing', secondsLeft: 10 });
     expect(partyPhase(date, start + 140000).kind).toBe('finished');
   });
+  it('reveals early on the shared server schedule and preserves the full reveal', () => {
+    // Everyone finishes round two eight seconds into its sixteen-second window.
+    const finishedAt = start + 22000 + 8000;
+    const shortenedStart = new Date(start - 8000).toISOString();
+    expect(partyPhase(shortenedStart, finishedAt)).toMatchObject({ kind: 'reveal', round: 1, secondsLeft: 6 });
+    expect(partyPhase(shortenedStart, finishedAt + 5999)).toMatchObject({ kind: 'reveal', round: 1 });
+    expect(partyPhase(shortenedStart, finishedAt + 6000)).toMatchObject({ kind: 'playing', round: 2, secondsLeft: 16 });
+    // The final round still shows results before the podium and rematch unlock.
+    const lastFinishedAt = start + 110000 + 8000;
+    expect(partyPhase(shortenedStart, lastFinishedAt)).toMatchObject({ kind: 'reveal', round: 5, secondsLeft: 6 });
+    expect(partyPhase(shortenedStart, lastFinishedAt + 6000)).toMatchObject({ kind: 'finished', round: 5 });
+  });
   it('finishes at the selected round count and continues past the default six rounds', () => {
     for (const count of [2, 3, 6, 8, 12]) {
       const end = start + count * 22000;
@@ -39,8 +52,8 @@ describe('six-round party schedule', () => {
       expect(partyPhase(date, end, count)).toMatchObject({ kind: 'finished', round: count - 1, end });
     }
     expect(partyPhase(date, start + 132000, 12)).toMatchObject({ kind: 'playing', round: 6 });
-    expect(partyRound(6)).toMatchObject({ mode: 'draw', shape: 'diamond', seconds: 16 });
-    expect(partyRound(11)).toMatchObject({ mode: 'cut', complexity: 5, seconds: 16 });
+    expect(partyRound(6)).toMatchObject({ mode: 'draw', shape: 'triangle', seconds: 16 });
+    expect(partyRound(11)).toMatchObject({ mode: 'brake', complexity: 3, seconds: 16 });
   });
   it('only totals revealed rounds, counts missing results as zero, and shares tied places', () => {
     const make = (name: string, scores: number[]): PartyPlayer => ({ name, is_me: false, is_host: false, ready: true, results: scores.map((score, round) => ({ round, score })) });
@@ -48,6 +61,21 @@ describe('six-round party schedule', () => {
     expect(partyStandings(players, -1).every(p => p.total === 0)).toBe(true);
     expect(partyStandings(players, 0).map(p => [p.name, p.total, p.rank])).toEqual([['Alex', 80, 1], ['Danik', 80, 1], ['Mia', 70, 3]]);
     expect(partyStandings(players, 1)[0].total).toBe(179);
+  });
+  it('preserves legacy match rules and rotates car objectives for new matches', () => {
+    expect(Array.from({length:6}, (_, r) => partyRound(r, 1).mode)).toEqual(['draw', 'cut', 'draw', 'cut', 'draw', 'cut']);
+    expect(partyRound(6, 1)).toMatchObject({mode:'draw',shape:'diamond'});
+    expect([2,5,8,11].map(r => partyRound(r).objective)).toEqual(['wall','parking','stop-line','wall']);
+  });
+  it('cycles only the selected games for all seven possible combinations', () => {
+    for (let mask = 1; mask < 8; mask++) {
+      const games = MODES.filter((_, index) => mask & (1 << index));
+      const rounds = Array.from({length:12}, (_, index) => partyRound(index, 2, games));
+      expect(rounds.map(round => round.mode)).toEqual(Array.from({length:12}, (_, index) => games[index % games.length]));
+      expect(rounds.every(round => round.seconds === 16)).toBe(true);
+      expect(rounds[games.length].complexity).toBe(1);
+    }
+    expect(partyRound(2, 1, ['brake']).mode).toBe('draw');
   });
   it('roundtrips room invite links under a subpath', () => {
     const url = partyUrl(token, 'https://example.com/game/#draw');
@@ -57,6 +85,12 @@ describe('six-round party schedule', () => {
   });
 });
 describe('party RPCs', () => {
+  it('creates with a game selection atomically and lets the host update it', async () => {
+    await createPartyRoom(['brake']);
+    expect(mocks.rpc).toHaveBeenLastCalledWith('create_party_room_with_games', { p_games: ['brake'] });
+    await setPartyGames(token, ['brake', 'draw']);
+    expect(mocks.rpc).toHaveBeenLastCalledWith('set_party_games', { p_room: token, p_games: ['draw', 'brake'] });
+  });
   it('sends the host round selection to the server', async () => {
     await setPartyRoundCount(token, 12);
     expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith('set_party_round_count', { p_room: token, p_round_count: 12 });

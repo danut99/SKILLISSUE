@@ -1,3 +1,4 @@
+import { LEVEL_TRIES, levelCount, loadLevels, useLevels } from '../lib/levels';
 import { GuestProgressPrompt } from './GuestProgressPrompt';
 import { track } from '../lib/clarity';
 import { useAuth } from '../lib/auth';
@@ -26,7 +27,7 @@ const TAGLINES = [
   "your grandma brakes better than you.",
   "100% is possible. not for you, but possible.",
   "go on. prove it's not a skill issue.",
-  "3 tries. 0 excuses. infinite shame.",
+  "5 tries. 0 excuses. infinite shame.",
   "the blob believes in you. we don't.",
   "everyone on earth gets the same test. most fail.",
 ];
@@ -37,6 +38,14 @@ interface Props {
 }
 
 export function Home({ date, onPlay }: Props) {
+  const [gameModes, setGameModes] = useState<Record<string, 'daily' | 'level'>>({});
+  const levelOwner = useAuth(s => s.userId);
+  const authStatus = useAuth(s => s.status);
+  const levelState = useLevels();
+  const levelRows = levelState.owner === levelOwner ? levelState.rows : [];
+  useEffect(() => {
+    if (authStatus === 'anon' || authStatus === 'linked') void loadLevels(levelOwner).catch(() => {});
+  }, [levelOwner, authStatus, date]);
   useEffect(() => { preloadPixelCars(); }, []);
   const [line, setLine] = useState(() => Math.floor(Math.random() * TAGLINES.length));
   const [paused, setPaused] = useState(false);
@@ -46,7 +55,6 @@ export function Home({ date, onPlay }: Props) {
     const id = setInterval(() => setLine((i) => (i + 1) % TAGLINES.length), 4000);
     return () => clearInterval(id);
   }, [line, paused]);
-  const authStatus = useAuth(s => s.status);
   const days = usePlayer((s) => s.days);
   const streak = usePlayer((s) => s.streak);
   const lastDay = usePlayer((s) => s.lastDay);
@@ -83,7 +91,7 @@ export function Home({ date, onPlay }: Props) {
           <summary>&#9656; how to play</summary>
           <ul>
             <li>3 stupid tests a day. same for everyone on earth.</li>
-            <li>3 tries each. only your best counts.</li>
+            <li>5 tries each. only your best counts.</li>
             <li>draw today's shape in one stroke. cut today's shape 50/50. nail today's driving objective.</li>
             <li>out of tries? come back tomorrow. or cope.</li>
             <li>every try is saved to the global top 10 under a random silly name. change it anytime.</li>
@@ -120,16 +128,21 @@ export function Home({ date, onPlay }: Props) {
       <GuestProgressPrompt date={date} />
       <div className="cards">
       {MODES.map((m, i) => {
+        const levelMode = gameModes[m] === 'level';
+        const level = levelRows.find(row => row.mode === m) ?? { level: 1, used: 0, records: [] };
         const md = modeDay(days, date, m);
         const best = bestAttempt(md);
         const info = MODE_INFO[m];
         const dots = emojiRow(md) + '⬜'.repeat(Math.max(0, maxTries(md) - md.tries.length));
         return (
+          <div className="game-mode-card" key={m}>
+          <div className="game-mode-switch" role="group" aria-label={`${info.title} mode`}>
+            <span>Mode:</span><button aria-pressed={!levelMode} onClick={() => setGameModes(s => ({...s, [m]: 'daily'}))}>Daily</button><button aria-pressed={levelMode} onClick={() => setGameModes(s => ({...s, [m]: 'level'}))}>Level</button>
+          </div>
           <motion.button
-            key={m}
             className="game-card px-box"
             style={{ ['--accent' as string]: info.color }}
-            onClick={() => { track(`home_card_${m}`); onPlay(m); }}
+            onClick={() => { track(`home_card_${m}`); if (levelMode) location.hash = `levels/${m}`; else onPlay(m); }}
             initial={{ opacity: 0, x: i % 2 ? 30 : -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.08 * i }}
@@ -140,11 +153,12 @@ export function Home({ date, onPlay }: Props) {
             <div className="gc-emoji"><PixelIcon name={m} size={64} /></div>
             <div className="gc-body">
               <div className="gc-title">{info.title}</div>
-              <div className="gc-tag">{m === 'draw' ? `Today's ${dailyDrawShape(date)}. One stroke. No excuses.` : info.tagline}</div>
-              <div className="gc-tries">{dots}</div>
+              <div className="gc-tag">{levelMode ? `Reach 85+. ${LEVEL_TRIES} tries per level. Pass to advance.` : m === 'draw' ? `Today's ${dailyDrawShape(date)}. One stroke. No excuses.` : info.tagline}</div>
+              <div className="gc-tries">{levelMode ? level.level > levelCount(m) ? 'All levels cleared' : `Level ${level.level} / ${levelCount(m)} ? ${Math.max(0,LEVEL_TRIES-level.used)} tries left` : dots}</div>
+              {levelMode && <div className="gc-level-stars">? {(level.records ?? []).reduce((sum, r) => sum + r.stars, 0)} / {levelCount(m) * 3}</div>}
             </div>
             <div className={`gc-cta ${best ? 'played' : ''}`}>
-              {best ? (
+              {levelMode ? (level.level > levelCount(m) ? 'Ladder cleared' : level.used >= LEVEL_TRIES ? 'Come back tomorrow' : `Play level ${level.level}`) : best ? (
                 <>
                   <small>best</small> {fmtResult(m, best)}
                 </>
@@ -153,6 +167,7 @@ export function Home({ date, onPlay }: Props) {
               )}
             </div>
           </motion.button>
+          </div>
         );
       })}
       </div>

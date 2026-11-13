@@ -14,6 +14,9 @@ const FILES: Record<ExistingIconName, string> = {
 };
 
 const MENU_ICONS = {
+  'crown-gold': { color: '#ffd23f', path: 'M2 5h3v3h3V5h2V2h4v3h2v3h3V5h3v5h-2v7H4v-7H2z M4 19h16v3H4z', detail: 'M7 12h3v3H7z M14 12h3v3h-3z' },
+  'crown-silver': { color: '#c9d8eb', path: 'M2 5h3v3h3V5h2V2h4v3h2v3h3V5h3v5h-2v7H4v-7H2z M4 19h16v3H4z', detail: 'M7 12h3v3H7z M14 12h3v3h-3z' },
+  'crown-bronze': { color: '#d99260', path: 'M2 5h3v3h3V5h2V2h4v3h2v3h3V5h3v5h-2v7H4v-7H2z M4 19h16v3H4z', detail: 'M7 12h3v3H7z M14 12h3v3h-3z' },
   profile: { color: '#4de3ff', path: 'M8 2h8v2h2v8h-2v2H8v-2H6V4h2z M4 16h16v2h2v6H2v-6h2z' },
   faq: { color: '#ffd23f', path: 'M6 2h12v2h2v8h-2v2h-4v4h-4v-8h6V6H8v2H4V4h2z M10 20h4v4h-4z' },
   privacy: { color: '#5dff9d', path: 'M8 2h8v2h2v6h4v14H2V10h4V4h2z M10 4v2H8v4h8V6h-2V4z', detail: 'M10 14h4v4h-1v3h-2v-3h-1z' },
@@ -30,7 +33,7 @@ export type PixelIconName = ExistingIconName | keyof typeof MENU_ICONS;
 export function PixelIcon({ name, size = 24 }: { name: PixelIconName; size?: number }) {
   if (name in MENU_ICONS) {
     const icon = MENU_ICONS[name as keyof typeof MENU_ICONS];
-    return <svg className="pixel-icon" width={size} height={size} viewBox="-4 -4 32 32" aria-hidden="true" shapeRendering="crispEdges">
+    return <svg className="pixel-icon" width={size} height={size} viewBox={name.startsWith('crown-') ? '2 2 20 20' : '-4 -4 32 32'} aria-hidden="true" shapeRendering="crispEdges">
       <path fill={icon.color} d={icon.path} />
       {'detail' in icon && <path fill="#101d33" d={icon.detail} />}
     </svg>;

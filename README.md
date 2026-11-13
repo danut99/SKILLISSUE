@@ -1,6 +1,6 @@
 # SKILL ISSUE 🫠
 
-> 3 stupid daily tests. 3 tries each. Same challenge for everyone on Earth today.
+> 3 stupid daily tests. 5 tries each. Same challenge for everyone on Earth today.
 
 A viral, TikTok-friendly daily mini-game site: **🎯 Draw** a perfect circle, **🔪 Cut** a blob 50/50, **🚗 BRAKE!** before the wall.
 No login needed to play. Global daily leaderboard. Every try can be saved as a vertical video clip for TikTok.
@@ -32,7 +32,7 @@ To enable the real global leaderboard and accounts, follow §7.
 | Original idea | "Symmetry Check": draw a circle + cut a polygon 50/50 | Precision games are proven (neal.fun circle, Cutle, Eyeballing Game) |
 | Problem | The mechanics already exist (Cutle, Bisecto, Hunch Daily, neal.fun) and "49.8%" is not fun to *watch* | TikTok needs a visible, dramatic fail |
 | Added | 🚗 **BRAKE!** (stop as close to the wall as possible) | Instantly readable, real tension, funny crashes. Similar BRAKEPOINT exists only on game portals with levels and no daily/social layer |
-| Format | **3 games on one site** (like NYT Games), **3 tries/day each**, best counts | Scarcity = frustration = come back tomorrow. More chances to be #1 at something |
+| Format | **3 games on one site** (like NYT Games), **5 tries/day each**, best counts | Scarcity = frustration = come back tomorrow. More chances to be #1 at something |
 | Differentiators | Daily seed for everyone, global Top 10 per game + "Grand Master", taunting roasts/badges, **video clip export**, rewarded ad for +1 try | The idea isn't new; the *format* is what makes it viral (Wordle lesson) |
 | Name | **SKILL ISSUE** | Stupid, funny, TikTok slang |
 | Stack | React + Vite + TypeScript (switched from a single vanilla HTML file) | Easier to grow, test and maintain |
@@ -70,7 +70,7 @@ Daily content comes from a **UTC-date-seeded PRNG** (`xmur3` + `mulberry32`) →
 - **Score**: `100 × e^(−gapCm / 200)` (1 cm ≈ 99.5, 10 cm ≈ 95, 1 m ≈ 61).
 
 ### Shared rules
-- **3 tries per game per day**, best counts. +1 try per game via rewarded ad.
+- **5 tries per game per day**, best counts. +1 try per game via rewarded ad.
 - Overall score = sum of best scores (0–300) → "Grand Master" leaderboard.
 - Emoji per try: 🟩 ≥ 95, 🟨 ≥ 80, 🟥 below, 💥 fail/crash.
 - Badges & roasts in `src/lib/scoring.ts` (e.g. "Laser-Guided Robot 🤖", "Blindfolded Potato 🥔", "Insurance Fraud 💥").
@@ -162,7 +162,7 @@ Everything is stored in **this browser's `localStorage`** (`skillissue:v1`, `ski
 | Login needed | no | no | one tap (optional) |
 | Real global leaderboard | ❌ | ✅ | ✅ |
 | Reserved nickname | ❌ | ✅ | ✅ |
-| 3 tries enforced by server | ❌ | ✅ | ✅ |
+| 5 tries enforced by server | ❌ | ✅ | ✅ |
 | Survives clearing browser data | ❌ | ❌ | ✅ |
 | Continue on another device | ❌ | ❌ | ✅ |
 
@@ -207,6 +207,8 @@ The migration adds `friends` and `friend_invites`, with row-level security and a
 The `#friends` page shows the Top 10 friends plus your own rank, for overall or an individual game. Rankings include you and your direct friends, with Daily and All-time views.
 
 ### All-time leaderboard database update
+
+For level rankings on an existing database, run [`supabase/migrations/20261114080000_level_leaderboard.sql`](supabase/migrations/20261114080000_level_leaderboard.sql) after the level records migrations. This adds the Levels tab for global and friends rankings. Players are ordered by total stars, levels cleared, then the sum of their best level scores. Overall covers all three games, including the five-level car ladder. Fresh databases include the function in `schema.sql`.
 
 For an existing database, run [`supabase/migrations/20261112010000_all_time_leaderboard.sql`](supabase/migrations/20261112010000_all_time_leaderboard.sql) in the Supabase SQL Editor after the friends migration. Fresh databases include this function in `schema.sql`.
 
@@ -289,7 +291,7 @@ Run `supabase/migrations/20261112020000_score_challenges.sql` in Supabase SQL Ed
 - New links use `#cut/duel/<token>` (or draw/brake). Opening previews the challenge; Accept challenge records the recipient's consent.
 - Daily scores automatically supply accepted players' results. Acceptance is idempotent and uses the existing daily attempts, without granting extra tries.
 - Your challenges appears in Friends and on the homepage. It polls every 15 seconds while visible and refreshes on focus and score updates.
-- **Past-day challenges** (`supabase/migrations/20261113000000_past_challenge_play.sql`): a link from an earlier day can still be accepted and played on that day's puzzle (3 tries, shared with any normal tries from that day). `record_challenge_attempt` saves the score under the challenge's `play_date`, so it never shows on today's daily board but counts in the all-time board and the challenge result. These replays don't count toward streaks. Expired banners link to "Play today's challenges".
+- **Past-day challenges** (`supabase/migrations/20261113000000_past_challenge_play.sql`): a link from an earlier day can still be accepted and played on that day's puzzle (5 tries, shared with any normal tries from that day). `record_challenge_attempt` saves the score under the challenge's `play_date`, so it never shows on today's daily board but counts in the all-time board and the challenge result. These replays don't count toward streaks. Expired banners link to "Play today's challenges".
 - Anonymous sessions work; email linking preserves ownership. Older `/beat?` links remain local comparisons and cannot be retroactively tracked.
 - Tables deny direct API access; authenticated RPCs enforce ownership and participant visibility. Link previews expose the sender's nickname and target score, and no other recipients.
 - To verify against a live project: send a link from browser A; open it in a separate browser B; accept; check A's list; play in B; check both scores and winner in A. Repeat acceptance (no duplicates), open a past-day link (accept → that day's puzzle, score missing from today's daily board, present in all-time), and confirm a third account cannot list A's challenges.
@@ -320,3 +322,44 @@ Live verification after applying SQL: use two separate browser sessions; join, r
 
 
 Party timer update: after the party rooms migration, run `supabase/migrations/20261112040000_party_equal_round_times.sql` to use equal 16-second rounds. Apply between matches, then start a fresh match. The shared match schedule is 132 seconds plus the five-second initial countdown.
+
+
+## Level mode (Draw, Cut, Car)
+
+Apply `supabase/migrations/20261114000000_skill_levels.sql` in Supabase SQL Editor. The homepage cards offer Mode: Daily / Level. Level progress is separate from daily attempts and leaderboard scores; an online guest or linked account is required.
+
+Each game has five levels. Every level grants three attempts. A score of 85+ advances immediately and grants three fresh attempts. Three unsuccessful attempts lock that level until 00:00 UTC, when its tries reset without losing cleared levels. Completing level 5 clears that game's ladder.
+
+Draw progresses through circle, square, triangle, diamond, and hexagon. Cut adds vertices; shapes are seeded by level. Car uses seeded driving objectives and increases speed by level. Draw and Cut retain their existing daily-style 8s / 5s timers. Starting reserves a try on the server; refreshing or leaving forfeits it. Scores are client-calculated, as in daily play. Finish requests are idempotent and expire after two minutes; concurrent starts invalidate earlier unfinished attempts.
+
+Live verification after SQL: fail three attempts, verify lock after reload; pass at 85+, verify next level immediately has three tries; verify Draw/Cut/Car progress independently; verify daily tries do not change; retry a finish request and confirm no double advance; verify email-linked account restores progress on another device; test UTC rollover and final ladder completion.
+
+
+Party car rounds: apply supabase/migrations/20261114030000_party_brake_rounds.sql
+after the Party social/round-count migrations. New matches rotate Draw, Cut, Brake,
+with a shared room/match/round seed and 16 seconds per round. Car objectives cycle
+through wall stops, parking, and stop lines. Party attempts never consume daily
+tries. Existing matches retain their version-one Draw/Cut rotation, including
+history; new rematches use version two. Apply the early-reveal migration as well
+to skip unused play time once everyone has submitted.
+
+
+Party game selection: apply supabase/migrations/20261114040000_party_game_selection.sql
+after Party car rounds. Hosts can choose any nonempty subset of Draw/Cut/Brake
+before creating a room and in the lobby. The server validates and normalizes the
+selection, resets Ready status when it changes, and snapshots it when the match
+starts. Guests, gameplay, previews, and historical match labels use that snapshot.
+
+Level pass threshold update: run `supabase/migrations/20261114050000_level_pass_85.sql` to lower the passing score to 85 for Draw, Cut, and Car. Existing progress is preserved.
+
+
+### Level stars and replays
+
+Apply `supabase/migrations/20261114060000_level_stars_replays.sql` after the 85-point threshold migration. Scores of 85+, 90+, and 95+ earn one, two, and three stars. The best score/stars for each level are preserved; replays never lower them or move the highest unlocked level backward. The level picker supports replaying cleared levels even after completing the ladder.
+
+Each individual level has three starts per UTC day, including the original clear and subsequent replays. Passing opens a new level with its own fresh budget; replaying does not reset an existing budget. A refresh or abandoned start still consumes a try. The migration backfills historical best scores and today's used starts. Daily competition attempts remain separate.
+
+Live checks: clear at 85 then continue immediately; replay the cleared level at 95 and verify three stars; replay below 85 and verify those stars and the unlocked level stay; exhaust the replay budget and verify another unlocked level remains playable; reload and verify persistence; retry finish requests and verify no double advancement; test locked-level requests and UTC budget resets.
+
+
+Level attempt update: run `supabase/migrations/20261114070000_five_level_attempts.sql` after the stars/replays migration. Each level now allows five attempts per UTC day, including replays. Existing used attempts, stars, and progress are preserved; players who used three attempts today receive two more.

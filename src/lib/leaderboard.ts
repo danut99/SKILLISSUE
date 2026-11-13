@@ -15,7 +15,7 @@ create table if not exists public.profiles (
 -- reserved nicknames: one owner per name (case-insensitive)
 create unique index if not exists profiles_nickname_key on public.profiles (lower(nickname));
 
--- every single try (enforces 3/day/mode on the server, enables cross-device resume)
+-- every single try (enforces 5/day/mode on the server, enables cross-device resume)
 create table if not exists public.attempts (
   id         bigint generated always as identity primary key,
   user_id    uuid not null references auth.users (id) on delete cascade,
@@ -72,7 +72,7 @@ begin
   if p_score is null or p_score < 0 or p_score > 100 then raise exception 'bad_score'; end if;
   perform pg_advisory_xact_lock(hashtext(uid::text || d::text || p_mode));
   select count(*) into used from attempts where user_id = uid and play_date = d and mode = p_mode;
-  select 3 + count(*) into allowed from bonuses where user_id = uid and play_date = d and mode = p_mode;
+  select 5 + count(*) into allowed from bonuses where user_id = uid and play_date = d and mode = p_mode;
   if used >= allowed then raise exception 'no_tries_left'; end if;
 
   insert into attempts (user_id, play_date, mode, score, detail)
@@ -399,4 +399,14 @@ export async function fetchAllTimeBoard(date: string, mode: BoardMode): Promise<
     return { rows, myRank: rows.find(row => row.is_me)?.rank ?? null, source: 'global' };
   }
   return localAllTimeBoard(date, mode);
+}
+
+export async function fetchLevelBoard(mode: BoardMode, friendsOnly = false): Promise<Board> {
+  await whenAuthReady();
+  const sb = await getSupabase();
+  if (!sb || !isOnline()) throw new Error('Connect online to view level rankings.');
+  const { data, error } = await sb.rpc('get_level_leaderboard', { p_mode: mode, p_friends_only: friendsOnly });
+  if (error || !Array.isArray(data)) throw new Error('Level rankings are temporarily unavailable.');
+  const rows = (data as BoardRow[]).map(row => ({ ...row, rank: Number(row.rank), score: Number(row.score), detail: row.detail ?? {} }));
+  return { rows, myRank: rows.find(row => row.is_me)?.rank ?? null, source: friendsOnly ? 'friends' : 'global' };
 }

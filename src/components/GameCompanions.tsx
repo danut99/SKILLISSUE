@@ -29,7 +29,7 @@ export function GameCompanions({ mode, date, score }: { mode: Mode; date: string
       }} />
     <p className="floating-companion-bubble" role="status">
       <b>{NAMES[name]}</b>{current.text}
-      {score === undefined && <span className="companion-rules">3 tries. Best one counts. Same challenge for everyone today.</span>}
+      {score === undefined && <span className="companion-rules">5 tries. Best one counts. Same challenge for everyone today.</span>}
     </p>
   </div>;
 }

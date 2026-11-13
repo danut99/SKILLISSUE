@@ -5,6 +5,9 @@ import { addDays } from './daily';
 
 /** Extra info per attempt — also stored as jsonb in the leaderboard. */
 export interface Detail {
+  stars?: number;
+  completed?: number;
+  best_score?: number;
   /** Aggregate leaderboard metadata. */
   days?: number;
   games?: number;

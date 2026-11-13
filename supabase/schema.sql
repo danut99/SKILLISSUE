@@ -8,7 +8,7 @@ create table if not exists public.profiles (
 -- reserved nicknames: one owner per name (case-insensitive)
 create unique index if not exists profiles_nickname_key on public.profiles (lower(nickname));
 
--- every single try (enforces 3/day/mode on the server, enables cross-device resume)
+-- every single try (enforces 5/day/mode on the server, enables cross-device resume)
 create table if not exists public.attempts (
   id         bigint generated always as identity primary key,
   user_id    uuid not null references auth.users (id) on delete cascade,
@@ -65,7 +65,7 @@ begin
   if p_score is null or p_score < 0 or p_score > 100 then raise exception 'bad_score'; end if;
   perform pg_advisory_xact_lock(hashtext(uid::text || d::text || p_mode));
   select count(*) into used from attempts where user_id = uid and play_date = d and mode = p_mode;
-  select 3 + count(*) into allowed from bonuses where user_id = uid and play_date = d and mode = p_mode;
+  select 5 + count(*) into allowed from bonuses where user_id = uid and play_date = d and mode = p_mode;
   if used >= allowed then raise exception 'no_tries_left'; end if;
 
   insert into attempts (user_id, play_date, mode, score, detail)
@@ -387,7 +387,7 @@ returns jsonb language sql stable security definer set search_path = '' as $$
       select jsonb_agg(jsonb_build_object(
         'nickname', rp.nickname, 'accepted_at', r.accepted_at,
         'is_me', r.user_id = auth.uid(), 'score', s.score, 'detail', s.detail,
-        'attempts_remaining', greatest(0, 3 +
+        'attempts_remaining', greatest(0, 5 +
           (select count(*) from public.bonuses b where b.user_id = r.user_id and b.mode = c.mode and b.play_date = c.play_date) -
           (select count(*) from public.attempts a where a.user_id = r.user_id and a.mode = c.mode and a.play_date = c.play_date))
       ) order by r.accepted_at)
@@ -1069,7 +1069,7 @@ begin
   return public.score_challenge_payload(p_token);
 end $$;
 
--- Record one try on an accepted challenge's day (3 tries per mode per day, shared
+-- Record one try on an accepted challenge's day (5 tries per mode per day, shared
 -- with any normal tries from that day). Mode and date come from the challenge.
 create or replace function public.record_challenge_attempt(p_token uuid, p_score numeric, p_detail jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -1090,7 +1090,7 @@ begin
   perform pg_advisory_xact_lock(hashtext(uid::text || challenge.play_date::text || challenge.mode));
   select count(*) into used from public.attempts
     where user_id = uid and play_date = challenge.play_date and mode = challenge.mode;
-  select 3 + count(*) into allowed from public.bonuses
+  select 5 + count(*) into allowed from public.bonuses
     where user_id = uid and play_date = challenge.play_date and mode = challenge.mode;
   if used >= allowed then raise exception 'no_tries_left'; end if;
 
@@ -1128,5 +1128,600 @@ $$;
 
 revoke all on function public.record_challenge_attempt(uuid, numeric, jsonb) from public, anon, authenticated;
 grant execute on function public.record_challenge_attempt(uuid, numeric, jsonb) to authenticated;
+-- Remove only empty anonymous accounts, hourly, after at least one hour.
+-- Run as postgres in Supabase SQL Editor after the preceding migrations.
+begin;
+
+create extension if not exists pg_cron with schema pg_catalog;
+
+-- Invoker permissions are intentional: only the database administrator runs this.
+create or replace function public.cleanup_empty_anonymous_accounts()
+returns bigint
+language plpgsql
+set search_path = ''
+as $$
+declare
+  removed bigint;
+begin
+  delete from auth.users u
+  where u.is_anonymous is true
+    and u.created_at < now() - interval '1 hour'
+    and coalesce(u.last_sign_in_at, u.created_at) < now() - interval '1 hour'
+    -- Preserve linked accounts and email confirmations still in progress.
+    and coalesce(u.email, '') = ''
+    and coalesce(u.email_change, '') = ''
+    and coalesce(u.phone, '') = ''
+    and not exists (
+      select 1 from auth.identities i
+      where i.user_id = u.id and i.provider <> 'anonymous'
+    )
+    -- A single saved try is enough to keep a guest, permanently.
+    and not exists (select 1 from public.attempts a where a.user_id = u.id)
+    and not exists (select 1 from public.daily_scores s where s.user_id = u.id)
+    and not exists (select 1 from public.bonuses b where b.user_id = u.id)
+    -- Also preserve social activity and Party history, even without a score.
+    and not exists (select 1 from public.friends f where f.user_id = u.id or f.friend_id = u.id)
+    and not exists (select 1 from public.friend_invites i where i.user_id = u.id)
+    and not exists (select 1 from public.score_challenges c where c.creator_id = u.id)
+    and not exists (select 1 from public.score_challenge_players p where p.user_id = u.id)
+    and not exists (select 1 from public.party_rooms r where r.host_id = u.id)
+    and not exists (select 1 from public.party_members m where m.user_id = u.id)
+    and not exists (select 1 from public.party_results r where r.user_id = u.id)
+    and not exists (select 1 from public.party_match_players p where p.user_id = u.id);
+
+  get diagnostics removed = row_count;
+  return removed;
+end;
+$$;
+
+revoke all on function public.cleanup_empty_anonymous_accounts() from public, anon, authenticated;
+
+-- Reusing the job name updates its schedule rather than creating duplicate jobs.
+select cron.schedule(
+  'cleanup-empty-anonymous-accounts',
+  '17 * * * *',
+  'select public.cleanup_empty_anonymous_accounts();'
+);
 
 commit;
+
+begin;
+create table if not exists public.skill_levels (
+ user_id uuid not null references public.profiles(id) on delete cascade,
+ mode text not null check(mode in ('draw','cut','brake')),
+ level integer not null default 1 check(level between 1 and 6),
+ attempt_day date not null default (now() at time zone 'utc')::date,
+ used integer not null default 0 check(used between 0 and 3),
+ primary key(user_id,mode)
+);
+create table if not exists public.skill_level_attempts (
+ id uuid primary key default gen_random_uuid(),
+ user_id uuid not null references public.profiles(id) on delete cascade,
+ mode text not null,
+ level integer not null,
+ created_at timestamptz not null default now(),
+ score numeric,
+ finished boolean not null default false
+);
+alter table public.skill_levels enable row level security;
+alter table public.skill_level_attempts enable row level security;
+revoke all on public.skill_levels,public.skill_level_attempts from public,anon,authenticated;
+
+create or replace function public.get_skill_levels()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ return coalesce((select jsonb_agg(jsonb_build_object('mode',mode,'level',level,'used',case when attempt_day = (now() at time zone 'utc')::date then used else 0 end)) from public.skill_levels where user_id=auth.uid()),'[]'::jsonb);
+end $$;
+
+create or replace function public.start_skill_level(p_mode text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare progress public.skill_levels; attempt_id uuid; d date := (now() at time zone 'utc')::date;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ if p_mode is null or p_mode not in ('draw','cut','brake') then raise exception 'bad_mode'; end if;
+ perform pg_advisory_xact_lock(hashtext(auth.uid()::text || ':level:' || p_mode));
+ insert into public.skill_levels(user_id,mode) values(auth.uid(),p_mode) on conflict do nothing;
+ select * into progress from public.skill_levels where user_id=auth.uid() and mode=p_mode for update;
+ if progress.level > 5 then raise exception 'ladder_complete'; end if;
+ if progress.attempt_day <> d then progress.used := 0; end if;
+ if progress.used >= 3 then raise exception 'no_level_tries'; end if;
+ -- A new start forfeits an unfinished attempt, preventing parallel replays.
+ update public.skill_level_attempts set finished=true where user_id=auth.uid() and mode=p_mode and not finished;
+ update public.skill_levels set used=progress.used+1,attempt_day=d where user_id=auth.uid() and mode=p_mode;
+ insert into public.skill_level_attempts(user_id,mode,level) values(auth.uid(),p_mode,progress.level) returning id into attempt_id;
+ return jsonb_build_object('token',attempt_id,'mode',p_mode,'level',progress.level,'used',progress.used+1);
+end $$;
+
+create or replace function public.finish_skill_level(p_token uuid,p_score numeric)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare attempt public.skill_level_attempts; progress public.skill_levels;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ select * into attempt from public.skill_level_attempts where id=p_token and user_id=auth.uid();
+ if not found then raise exception 'invalid_attempt'; end if;
+ perform pg_advisory_xact_lock(hashtext(auth.uid()::text || ':level:' || attempt.mode));
+ select * into attempt from public.skill_level_attempts where id=p_token for update;
+ select * into progress from public.skill_levels where user_id=auth.uid() and mode=attempt.mode for update;
+ if not attempt.finished then
+   if p_score is null or p_score::text in ('NaN','Infinity','-Infinity') or p_score<0 or p_score>100 then raise exception 'bad_score'; end if;
+   if attempt.created_at + interval '2 minutes' < now() then raise exception 'attempt_expired'; end if;
+   update public.skill_level_attempts set score=round(p_score,2),finished=true where id=p_token;
+   if p_score>=90 and progress.level=attempt.level then
+     update public.skill_levels set level=level+1,used=0,attempt_day=(now() at time zone 'utc')::date where user_id=auth.uid() and mode=attempt.mode;
+   end if;
+ end if;
+ return public.get_skill_levels();
+end $$;
+revoke all on function public.get_skill_levels(),public.start_skill_level(text),public.finish_skill_level(uuid,numeric) from public,anon,authenticated;
+grant execute on function public.get_skill_levels(),public.start_skill_level(text),public.finish_skill_level(uuid,numeric) to authenticated;
+commit;
+
+begin;
+alter table public.skill_levels drop constraint if exists skill_levels_level_check;
+alter table public.skill_levels add constraint skill_levels_level_check
+ check(level between 1 and case when mode = 'brake' then 6 else 11 end);
+-- Existing Draw/Cut level 6 represents five cleared levels; it now unlocks level 6.
+create or replace function public.start_skill_level(p_mode text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare progress public.skill_levels; attempt_id uuid; d date := (now() at time zone 'utc')::date;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ if p_mode is null or p_mode not in ('draw','cut','brake') then raise exception 'bad_mode'; end if;
+ perform pg_advisory_xact_lock(hashtext(auth.uid()::text || ':level:' || p_mode));
+ insert into public.skill_levels(user_id,mode) values(auth.uid(),p_mode) on conflict do nothing;
+ select * into progress from public.skill_levels where user_id=auth.uid() and mode=p_mode for update;
+ if progress.level > (case when p_mode = 'brake' then 5 else 10 end) then raise exception 'ladder_complete'; end if;
+ if progress.attempt_day <> d then progress.used := 0; end if;
+ if progress.used >= 3 then raise exception 'no_level_tries'; end if;
+ -- A new start forfeits an unfinished attempt, preventing parallel replays.
+ update public.skill_level_attempts set finished=true where user_id=auth.uid() and mode=p_mode and not finished;
+ update public.skill_levels set used=progress.used+1,attempt_day=d where user_id=auth.uid() and mode=p_mode;
+ insert into public.skill_level_attempts(user_id,mode,level) values(auth.uid(),p_mode,progress.level) returning id into attempt_id;
+ return jsonb_build_object('token',attempt_id,'mode',p_mode,'level',progress.level,'used',progress.used+1);
+end $$;
+revoke all on function public.start_skill_level(text) from public,anon,authenticated;
+grant execute on function public.start_skill_level(text) to authenticated;
+commit;
+
+-- Reveal immediately once every player has submitted; keep six seconds to compare.
+-- Run after the Party social and round-count migrations.
+begin;
+
+create or replace function public.submit_party_result(p_room uuid, p_match integer, p_round integer, p_score numeric, p_detail jsonb default '{}'::jsonb)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare room public.party_rooms; round_start timestamptz; round_end timestamptz; completed_at timestamptz;
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  select * into room from public.party_rooms where id = p_room for update;
+  if not found or room.expires_at <= now() then raise exception 'invalid_room'; end if;
+  if not exists(select 1 from public.party_members where room_id = p_room and user_id = auth.uid() and active) then raise exception 'not_joined'; end if;
+  if room.started_at is null or p_match is distinct from room.match_no then raise exception 'wrong_match'; end if;
+  if p_round is null or p_round < 0 or p_round >= room.round_count then raise exception 'bad_round'; end if;
+  -- Idempotent retry of an already received result never changes the score.
+  if exists(select 1 from public.party_results where room_id = p_room and match_no = p_match and user_id = auth.uid() and round_no = p_round) then return public.party_room_payload(p_room); end if;
+  round_start := room.started_at + make_interval(secs => public.party_round_offset(p_round));
+  round_end := round_start + make_interval(secs => public.party_round_duration(p_round));
+  if clock_timestamp() < round_start or clock_timestamp() > round_end + interval '2 seconds' then raise exception 'round_closed'; end if;
+  if p_score is null or p_score::text in ('NaN', 'Infinity', '-Infinity') or p_score < 0 or p_score > 100 then raise exception 'bad_score'; end if;
+  if octet_length(coalesce(p_detail, '{}'::jsonb)::text) > 24000 then raise exception 'bad_detail'; end if;
+  insert into public.party_results(room_id, match_no, user_id, round_no, score, detail)
+    values(p_room, p_match, auth.uid(), p_round, round(p_score, 2), coalesce(p_detail, '{}'::jsonb));
+  -- The room row lock serializes submissions. Only the last new result can
+  -- shorten this round; duplicate retries above never advance the clock twice.
+  completed_at := clock_timestamp();
+  if completed_at < round_end
+    and exists(select 1 from public.party_members m where m.room_id = p_room and m.active)
+    and not exists (
+      select 1 from public.party_members m
+      where m.room_id = p_room and m.active
+        and not exists (
+          select 1 from public.party_results r
+          where r.room_id = p_room and r.match_no = p_match
+            and r.round_no = p_round and r.user_id = m.user_id
+        )
+    )
+  then
+    -- Move the shared schedule forward by the unused play time. Existing
+    -- reveal, next-round, rematch and score-visibility rules use this same clock.
+    -- Keep the full six-second reveal so everyone can compare attempts.
+    update public.party_rooms
+      set started_at = started_at - (round_end - completed_at)
+      where id = p_room;
+  end if;
+  return public.party_room_payload(p_room);
+end $$;
+
+-- CREATE OR REPLACE preserves the existing authenticated-only RPC permissions.
+commit;
+
+-- New matches rotate Draw / Cut / Brake; keep existing matches and history unchanged.
+begin;
+alter table public.party_match_settings
+  add column if not exists game_version integer not null default 1
+    check (game_version in (1, 2));
+
+create or replace function public.party_room_payload(p_room uuid)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'game_version', coalesce((select game_version from public.party_match_settings where room_id = room.id and match_no = room.match_no), case when room.started_at is null then 2 else 1 end),
+    'round_count', room.round_count, 'token', room.id, 'match_no', room.match_no, 'started_at', room.started_at,
+    'expires_at', room.expires_at, 'server_now', clock_timestamp(),
+    'is_host', room.host_id = auth.uid(),
+    'joined', exists(select 1 from public.party_members m where m.room_id = room.id and m.user_id = auth.uid() and m.active),
+    'players', coalesce((select jsonb_agg(jsonb_build_object(
+      'name', p.nickname, 'player_id', m.user_id, 'is_me', m.user_id = auth.uid(), 'is_host', m.user_id = room.host_id, 'ready', m.ready,
+      'results', coalesce((select jsonb_agg(jsonb_build_object(
+        'round', r.round_no, 'detail', case when r.user_id = auth.uid() or clock_timestamp() >= room.started_at + make_interval(secs => public.party_round_offset(r.round_no) + public.party_round_duration(r.round_no)) then r.detail else null end, 'score', case when r.user_id = auth.uid() or
+          clock_timestamp() >= room.started_at + make_interval(secs => public.party_round_offset(r.round_no) + public.party_round_duration(r.round_no))
+          then r.score else null end
+      ) order by r.round_no) from public.party_results r where r.room_id = room.id and r.match_no = room.match_no and r.user_id = m.user_id), '[]'::jsonb)
+    ) order by m.joined_at, m.user_id) from public.party_members m join public.profiles p on p.id = m.user_id where m.room_id = room.id and m.active), '[]'::jsonb)
+  ) from public.party_rooms room where room.id = p_room;
+$$;
+
+create or replace function public.start_party_room(p_room uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare room public.party_rooms;
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  select * into room from public.party_rooms where id = p_room for update;
+  if not found or room.expires_at <= now() then raise exception 'invalid_room'; end if;
+  if room.host_id <> auth.uid() then raise exception 'host_only'; end if;
+  if room.started_at is not null then return public.party_room_payload(p_room); end if;
+  if (select count(*) from public.party_members where room_id = p_room and active) < 2 then raise exception 'need_players'; end if;
+  if exists(select 1 from public.party_members where room_id = p_room and active and not ready) then raise exception 'not_ready'; end if;
+  insert into public.party_match_settings (room_id, match_no, round_count, game_version)
+    values (p_room, room.match_no, room.round_count, 2) on conflict do nothing;
+  insert into public.party_match_players (room_id, match_no, user_id)
+    select p_room, room.match_no, user_id from public.party_members where room_id = p_room and active
+    on conflict do nothing;
+  update public.party_rooms set started_at = clock_timestamp() + interval '5 seconds' where id = p_room;
+  return public.party_room_payload(p_room);
+end $$;
+
+create or replace function public.get_party_match(p_room uuid, p_match integer)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare room public.party_rooms;
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  select * into room from public.party_rooms where id = p_room;
+  if not found or room.expires_at <= now() then raise exception 'invalid_room'; end if;
+  if not exists(select 1 from public.party_members where room_id = p_room and user_id = auth.uid()) then raise exception 'not_joined'; end if;
+  if p_match is null or p_match < 1 or p_match >= room.match_no then raise exception 'match_not_finished'; end if;
+  return jsonb_build_object(
+    'match_no', p_match,
+    'game_version', coalesce((select game_version from public.party_match_settings where room_id = p_room and match_no = p_match), 1),
+    'round_count', coalesce((select round_count from public.party_match_settings where room_id = p_room and match_no = p_match), 6),
+    'roster_complete', exists(select 1 from public.party_match_players where room_id = p_room and match_no = p_match),
+    'players', coalesce((select jsonb_agg(jsonb_build_object(
+      'name', p.nickname, 'is_me', m.user_id = auth.uid(), 'is_host', m.user_id = room.host_id, 'ready', false,
+      'results', coalesce((select jsonb_agg(jsonb_build_object('round', r.round_no, 'score', r.score) order by r.round_no)
+        from public.party_results r where r.room_id = p_room and r.match_no = p_match and r.user_id = m.user_id), '[]'::jsonb)
+    ) order by m.joined_at, m.user_id)
+      from public.party_members m join public.profiles p on p.id = m.user_id
+      where m.room_id = p_room and (
+        exists(select 1 from public.party_match_players mp where mp.room_id = p_room and mp.match_no = p_match and mp.user_id = m.user_id)
+        or exists(select 1 from public.party_results r where r.room_id = p_room and r.match_no = p_match and r.user_id = m.user_id)
+      )), '[]'::jsonb)
+  );
+end $$;
+
+-- Existing RPC permissions are preserved by CREATE OR REPLACE.
+commit;
+
+-- Host chooses any one, two, or all three games.
+-- Includes the car-round version column if that migration was not run yet.
+begin;
+alter table public.party_match_settings
+  add column if not exists game_version integer not null default 1
+    check (game_version in (1, 2));
+
+alter table public.party_rooms
+  add column if not exists selected_games text[] not null default array['draw','cut','brake']::text[]
+  check (cardinality(selected_games) between 1 and 3
+    and selected_games <@ array['draw','cut','brake']::text[]
+    and array_position(selected_games, null) is null);
+-- Nullable for legacy matches; those retain their version-one/two rules.
+alter table public.party_match_settings
+  add column if not exists selected_games text[];
+
+create or replace function public.party_room_payload(p_room uuid)
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'selected_games', coalesce((select selected_games from public.party_match_settings where room_id = room.id and match_no = room.match_no), room.selected_games),
+    'game_version', coalesce((select game_version from public.party_match_settings where room_id = room.id and match_no = room.match_no), case when room.started_at is null then 2 else 1 end),
+    'round_count', room.round_count, 'token', room.id, 'match_no', room.match_no, 'started_at', room.started_at,
+    'expires_at', room.expires_at, 'server_now', clock_timestamp(),
+    'is_host', room.host_id = auth.uid(),
+    'joined', exists(select 1 from public.party_members m where m.room_id = room.id and m.user_id = auth.uid() and m.active),
+    'players', coalesce((select jsonb_agg(jsonb_build_object(
+      'name', p.nickname, 'player_id', m.user_id, 'is_me', m.user_id = auth.uid(), 'is_host', m.user_id = room.host_id, 'ready', m.ready,
+      'results', coalesce((select jsonb_agg(jsonb_build_object(
+        'round', r.round_no, 'detail', case when r.user_id = auth.uid() or clock_timestamp() >= room.started_at + make_interval(secs => public.party_round_offset(r.round_no) + public.party_round_duration(r.round_no)) then r.detail else null end, 'score', case when r.user_id = auth.uid() or
+          clock_timestamp() >= room.started_at + make_interval(secs => public.party_round_offset(r.round_no) + public.party_round_duration(r.round_no))
+          then r.score else null end
+      ) order by r.round_no) from public.party_results r where r.room_id = room.id and r.match_no = room.match_no and r.user_id = m.user_id), '[]'::jsonb)
+    ) order by m.joined_at, m.user_id) from public.party_members m join public.profiles p on p.id = m.user_id where m.room_id = room.id and m.active), '[]'::jsonb)
+  ) from public.party_rooms room where room.id = p_room;
+$$;
+
+create or replace function public.start_party_room(p_room uuid)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare room public.party_rooms;
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  select * into room from public.party_rooms where id = p_room for update;
+  if not found or room.expires_at <= now() then raise exception 'invalid_room'; end if;
+  if room.host_id <> auth.uid() then raise exception 'host_only'; end if;
+  if room.started_at is not null then return public.party_room_payload(p_room); end if;
+  if (select count(*) from public.party_members where room_id = p_room and active) < 2 then raise exception 'need_players'; end if;
+  if exists(select 1 from public.party_members where room_id = p_room and active and not ready) then raise exception 'not_ready'; end if;
+  insert into public.party_match_settings (room_id, match_no, round_count, game_version, selected_games)
+    values (p_room, room.match_no, room.round_count, 2, room.selected_games) on conflict do nothing;
+  insert into public.party_match_players (room_id, match_no, user_id)
+    select p_room, room.match_no, user_id from public.party_members where room_id = p_room and active
+    on conflict do nothing;
+  update public.party_rooms set started_at = clock_timestamp() + interval '5 seconds' where id = p_room;
+  return public.party_room_payload(p_room);
+end $$;
+
+create or replace function public.get_party_match(p_room uuid, p_match integer)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare room public.party_rooms;
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  select * into room from public.party_rooms where id = p_room;
+  if not found or room.expires_at <= now() then raise exception 'invalid_room'; end if;
+  if not exists(select 1 from public.party_members where room_id = p_room and user_id = auth.uid()) then raise exception 'not_joined'; end if;
+  if p_match is null or p_match < 1 or p_match >= room.match_no then raise exception 'match_not_finished'; end if;
+  return jsonb_build_object(
+    'match_no', p_match,
+    'selected_games', coalesce((select selected_games from public.party_match_settings where room_id = p_room and match_no = p_match), array['draw','cut','brake']::text[]),
+    'game_version', coalesce((select game_version from public.party_match_settings where room_id = p_room and match_no = p_match), 1),
+    'round_count', coalesce((select round_count from public.party_match_settings where room_id = p_room and match_no = p_match), 6),
+    'roster_complete', exists(select 1 from public.party_match_players where room_id = p_room and match_no = p_match),
+    'players', coalesce((select jsonb_agg(jsonb_build_object(
+      'name', p.nickname, 'is_me', m.user_id = auth.uid(), 'is_host', m.user_id = room.host_id, 'ready', false,
+      'results', coalesce((select jsonb_agg(jsonb_build_object('round', r.round_no, 'score', r.score) order by r.round_no)
+        from public.party_results r where r.room_id = p_room and r.match_no = p_match and r.user_id = m.user_id), '[]'::jsonb)
+    ) order by m.joined_at, m.user_id)
+      from public.party_members m join public.profiles p on p.id = m.user_id
+      where m.room_id = p_room and (
+        exists(select 1 from public.party_match_players mp where mp.room_id = p_room and mp.match_no = p_match and mp.user_id = m.user_id)
+        or exists(select 1 from public.party_results r where r.room_id = p_room and r.match_no = p_match and r.user_id = m.user_id)
+      )), '[]'::jsonb)
+  );
+end $$;
+
+create or replace function public.set_party_games(p_room uuid, p_games text[])
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare room public.party_rooms; chosen text[];
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  select * into room from public.party_rooms where id = p_room for update;
+  if not found or room.expires_at <= now() then raise exception 'invalid_room'; end if;
+  if room.host_id <> auth.uid() then raise exception 'host_only'; end if;
+  if room.started_at is not null then raise exception 'already_started'; end if;
+  if p_games is null or array_ndims(p_games) is distinct from 1
+    or cardinality(p_games) not between 1 and 3
+    or array_position(p_games, null) is not null
+    or not (p_games <@ array['draw','cut','brake']::text[]) then
+    raise exception 'bad_party_games';
+  end if;
+  -- Canonical order avoids changing the rotation when selecting the same set.
+  select array_agg(mode order by position) into chosen
+    from unnest(array['draw','cut','brake']::text[]) with ordinality as games(mode, position)
+    where mode = any(p_games);
+  if cardinality(chosen) <> cardinality(p_games) then raise exception 'bad_party_games'; end if;
+  if room.selected_games is distinct from chosen then
+    update public.party_rooms set selected_games = chosen where id = p_room;
+    update public.party_members set ready = false where room_id = p_room;
+  end if;
+  return public.party_room_payload(p_room);
+end $$;
+
+-- Creation and configuration happen in one transaction: a failure leaves no room.
+create or replace function public.create_party_room_with_games(p_games text[])
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare created jsonb;
+begin
+  created := public.create_party_room();
+  return public.set_party_games((created->>'token')::uuid, p_games);
+end $$;
+
+revoke all on function public.set_party_games(uuid,text[]), public.create_party_room_with_games(text[]) from public, anon, authenticated;
+grant execute on function public.set_party_games(uuid,text[]), public.create_party_room_with_games(text[]) to authenticated;
+commit;
+
+-- Lower the Level mode pass threshold for all three games.
+begin;
+create or replace function public.finish_skill_level(p_token uuid,p_score numeric)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare attempt public.skill_level_attempts; progress public.skill_levels;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ select * into attempt from public.skill_level_attempts where id=p_token and user_id=auth.uid();
+ if not found then raise exception 'invalid_attempt'; end if;
+ perform pg_advisory_xact_lock(hashtext(auth.uid()::text || ':level:' || attempt.mode));
+ select * into attempt from public.skill_level_attempts where id=p_token for update;
+ select * into progress from public.skill_levels where user_id=auth.uid() and mode=attempt.mode for update;
+ if not attempt.finished then
+   if p_score is null or p_score::text in ('NaN','Infinity','-Infinity') or p_score<0 or p_score>100 then raise exception 'bad_score'; end if;
+   if attempt.created_at + interval '2 minutes' < now() then raise exception 'attempt_expired'; end if;
+   update public.skill_level_attempts set score=round(p_score,2),finished=true where id=p_token;
+   if p_score>=85 and progress.level=attempt.level then
+     update public.skill_levels set level=level+1,used=0,attempt_day=(now() at time zone 'utc')::date where user_id=auth.uid() and mode=attempt.mode;
+   end if;
+ end if;
+ return public.get_skill_levels();
+end $$;
+revoke all on function public.finish_skill_level(uuid,numeric) from public,anon,authenticated;
+grant execute on function public.finish_skill_level(uuid,numeric) to authenticated;
+commit;
+
+begin;
+
+-- Best result and daily budget belong to each individual level, including replays.
+create table if not exists public.skill_level_records (
+ user_id uuid not null references public.profiles(id) on delete cascade,
+ mode text not null check(mode in ('draw','cut','brake')),
+ level integer not null check(level between 1 and 10),
+ best_score numeric not null default 0 check(best_score between 0 and 100),
+ attempt_day date not null default (now() at time zone 'utc')::date,
+ used integer not null default 0 check(used between 0 and 3),
+ primary key(user_id,mode,level)
+);
+alter table public.skill_level_records enable row level security;
+revoke all on public.skill_level_records from public,anon,authenticated;
+-- Recover existing stars and today's consumed attempts, including abandoned starts.
+insert into public.skill_level_records(user_id,mode,level,best_score,attempt_day,used)
+ select user_id,mode,level,coalesce(max(score),0),(now() at time zone 'utc')::date,
+ least(3,count(*) filter(where (created_at at time zone 'utc')::date=(now() at time zone 'utc')::date))
+ from public.skill_level_attempts group by user_id,mode,level
+ on conflict do nothing;
+
+create or replace function public.get_skill_levels()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ return coalesce((select jsonb_agg(jsonb_build_object(
+  'mode',s.mode,'level',s.level,'used',case when s.attempt_day=(now() at time zone 'utc')::date then s.used else 0 end,
+  'records',coalesce((select jsonb_agg(jsonb_build_object(
+    'level',r.level,'best_score',r.best_score,
+    'stars',case when r.best_score>=95 then 3 when r.best_score>=90 then 2 when r.best_score>=85 then 1 else 0 end,
+    'used',case when r.attempt_day=(now() at time zone 'utc')::date then r.used else 0 end
+  ) order by r.level) from public.skill_level_records r where r.user_id=s.user_id and r.mode=s.mode),'[]'::jsonb)
+ )) from public.skill_levels s where s.user_id=auth.uid()),'[]'::jsonb);
+end $$;
+
+-- Replace the single-argument endpoint with an optional selected-level endpoint.
+drop function if exists public.start_skill_level(text);
+create or replace function public.start_skill_level(p_mode text,p_level integer default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare progress public.skill_levels; level_record public.skill_level_records;
+ attempt_id uuid; chosen integer; d date := (now() at time zone 'utc')::date; cap integer;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ if p_mode is null or p_mode not in ('draw','cut','brake') then raise exception 'bad_mode'; end if;
+ cap := case when p_mode='brake' then 5 else 10 end;
+ perform pg_advisory_xact_lock(hashtext(auth.uid()::text || ':level:' || p_mode));
+ insert into public.skill_levels(user_id,mode) values(auth.uid(),p_mode) on conflict do nothing;
+ select * into progress from public.skill_levels where user_id=auth.uid() and mode=p_mode for update;
+ chosen := coalesce(p_level,progress.level);
+ if chosen<1 or chosen>cap or chosen>progress.level then raise exception 'level_locked'; end if;
+ insert into public.skill_level_records(user_id,mode,level) values(auth.uid(),p_mode,chosen) on conflict do nothing;
+ select * into level_record from public.skill_level_records where user_id=auth.uid() and mode=p_mode and level=chosen for update;
+ if level_record.attempt_day<>d then level_record.used:=0; end if;
+ if level_record.used>=3 then raise exception 'no_level_tries'; end if;
+ update public.skill_level_attempts set finished=true where user_id=auth.uid() and mode=p_mode and not finished;
+ update public.skill_level_records set used=level_record.used+1,attempt_day=d where user_id=auth.uid() and mode=p_mode and level=chosen;
+ if chosen=progress.level then
+  update public.skill_levels set used=level_record.used+1,attempt_day=d where user_id=auth.uid() and mode=p_mode;
+ end if;
+ insert into public.skill_level_attempts(user_id,mode,level) values(auth.uid(),p_mode,chosen) returning id into attempt_id;
+ return jsonb_build_object('token',attempt_id,'mode',p_mode,'level',chosen,'used',level_record.used+1);
+end $$;
+
+create or replace function public.finish_skill_level(p_token uuid,p_score numeric)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare attempt public.skill_level_attempts; progress public.skill_levels;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ select * into attempt from public.skill_level_attempts where id=p_token and user_id=auth.uid();
+ if not found then raise exception 'invalid_attempt'; end if;
+ perform pg_advisory_xact_lock(hashtext(auth.uid()::text || ':level:' || attempt.mode));
+ select * into attempt from public.skill_level_attempts where id=p_token for update;
+ select * into progress from public.skill_levels where user_id=auth.uid() and mode=attempt.mode for update;
+ if not attempt.finished then
+  if p_score is null or p_score::text in ('NaN','Infinity','-Infinity') or p_score<0 or p_score>100 then raise exception 'bad_score'; end if;
+  if attempt.created_at+interval '2 minutes'<now() then raise exception 'attempt_expired'; end if;
+  update public.skill_level_attempts set score=round(p_score,2),finished=true where id=p_token;
+  insert into public.skill_level_records(user_id,mode,level,best_score) values(auth.uid(),attempt.mode,attempt.level,round(p_score,2))
+   on conflict(user_id,mode,level) do update set best_score=greatest(public.skill_level_records.best_score,excluded.best_score);
+  if p_score>=85 and progress.level=attempt.level then
+   update public.skill_levels set level=level+1,used=0,attempt_day=(now() at time zone 'utc')::date where user_id=auth.uid() and mode=attempt.mode;
+  end if;
+ end if;
+ return public.get_skill_levels();
+end $$;
+revoke all on function public.get_skill_levels(),public.start_skill_level(text,integer),public.finish_skill_level(uuid,numeric) from public,anon,authenticated;
+grant execute on function public.get_skill_levels(),public.start_skill_level(text,integer),public.finish_skill_level(uuid,numeric) to authenticated;
+commit;
+
+-- Five daily attempts per individual level, including replays.
+begin;
+alter table public.skill_levels drop constraint if exists skill_levels_used_check;
+alter table public.skill_levels add constraint skill_levels_used_check check(used between 0 and 5);
+alter table public.skill_level_records drop constraint if exists skill_level_records_used_check;
+alter table public.skill_level_records add constraint skill_level_records_used_check check(used between 0 and 5);
+create or replace function public.start_skill_level(p_mode text,p_level integer default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare progress public.skill_levels; level_record public.skill_level_records;
+ attempt_id uuid; chosen integer; d date := (now() at time zone 'utc')::date; cap integer;
+begin
+ if auth.uid() is null then raise exception 'not_authenticated'; end if;
+ if p_mode is null or p_mode not in ('draw','cut','brake') then raise exception 'bad_mode'; end if;
+ cap := case when p_mode='brake' then 5 else 10 end;
+ perform pg_advisory_xact_lock(hashtext(auth.uid()::text || ':level:' || p_mode));
+ insert into public.skill_levels(user_id,mode) values(auth.uid(),p_mode) on conflict do nothing;
+ select * into progress from public.skill_levels where user_id=auth.uid() and mode=p_mode for update;
+ chosen := coalesce(p_level,progress.level);
+ if chosen<1 or chosen>cap or chosen>progress.level then raise exception 'level_locked'; end if;
+ insert into public.skill_level_records(user_id,mode,level) values(auth.uid(),p_mode,chosen) on conflict do nothing;
+ select * into level_record from public.skill_level_records where user_id=auth.uid() and mode=p_mode and level=chosen for update;
+ if level_record.attempt_day<>d then level_record.used:=0; end if;
+ if level_record.used>=5 then raise exception 'no_level_tries'; end if;
+ update public.skill_level_attempts set finished=true where user_id=auth.uid() and mode=p_mode and not finished;
+ update public.skill_level_records set used=level_record.used+1,attempt_day=d where user_id=auth.uid() and mode=p_mode and level=chosen;
+ if chosen=progress.level then
+  update public.skill_levels set used=level_record.used+1,attempt_day=d where user_id=auth.uid() and mode=p_mode;
+ end if;
+ insert into public.skill_level_attempts(user_id,mode,level) values(auth.uid(),p_mode,chosen) returning id into attempt_id;
+ return jsonb_build_object('token',attempt_id,'mode',p_mode,'level',chosen,'used',level_record.used+1);
+end $$;
+revoke all on function public.start_skill_level(text,integer) from public,anon,authenticated;
+grant execute on function public.start_skill_level(text,integer) to authenticated;
+commit;
+begin;
+
+create or replace function public.get_level_leaderboard(p_mode text, p_friends_only boolean default false)
+returns table(rank bigint, nickname text, score numeric, detail jsonb, is_me boolean)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if p_mode is null or p_mode not in ('draw','cut','brake','overall') then
+    raise exception 'bad_mode';
+  end if;
+  if p_friends_only and auth.uid() is null then
+    raise exception 'not_authenticated';
+  end if;
+  return query
+    with totals as (
+      select r.user_id, p.nickname,
+        sum(case when r.best_score>=95 then 3 when r.best_score>=90 then 2 when r.best_score>=85 then 1 else 0 end)::numeric as stars,
+        count(*) filter(where r.best_score>=85) as completed,
+        sum(r.best_score) as best_score
+      from public.skill_level_records r join public.profiles p on p.id=r.user_id
+      where (p_mode='overall' or r.mode=p_mode)
+        and r.level between 1 and case when r.mode='brake' then 5 else 10 end
+        and (not coalesce(p_friends_only,false) or r.user_id=auth.uid() or exists (
+          select 1 from public.friends f
+          where (f.user_id=auth.uid() and f.friend_id=r.user_id)
+             or (f.friend_id=auth.uid() and f.user_id=r.user_id)
+        ))
+      group by r.user_id,p.nickname
+    ), ranked as (
+      select row_number() over(order by t.stars desc,t.completed desc,t.best_score desc,t.user_id) as rank,
+        t.nickname,t.stars as score,
+        jsonb_build_object('stars',t.stars,'completed',t.completed,'best_score',t.best_score) as detail,
+        coalesce(t.user_id=auth.uid(),false) as is_me
+      from totals t
+    )
+    select r.rank,r.nickname,r.score,r.detail,r.is_me from ranked r
+    where r.rank<=10 or r.is_me order by r.rank;
+end $$;
+
+revoke all on function public.get_level_leaderboard(text,boolean) from public,anon,authenticated;
+grant execute on function public.get_level_leaderboard(text,boolean) to anon,authenticated;
+commit;
+

@@ -1,7 +1,7 @@
 import { partyStandings, partyUrl, type PartyRoom } from './party';
 export async function sharePartyInvite(room: PartyRoom) {
   const url = partyUrl(room.token);
-  if (navigator.share) { try { await navigator.share({ title: 'Join my Skill Issue party', text: 'Draw. Cut. Prove your friends are worse.', url }); return; } catch (e) { if ((e as Error).name === 'AbortError') return; } }
+  if (navigator.share) { try { await navigator.share({ title: 'Join my Skill Issue party', text: 'Draw. Cut. Brake. Prove your friends are worse.', url }); return; } catch (e) { if ((e as Error).name === 'AbortError') return; } }
   await navigator.clipboard.writeText(url);
 }
 export async function sharePartyPodium(room: PartyRoom) {

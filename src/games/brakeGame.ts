@@ -6,7 +6,7 @@ import { carSprite } from '../lib/pixelAssets';
 import { rngFor } from '../lib/daily';
 import { clamp, easeInOut, lerp } from '../lib/geometry';
 import { fmtCm, fmtResult } from '../lib/scoring';
-import { BRAKE_GOALS, dailyBrakeObjective, brakeStopResult, PARKING_TOLERANCE_M } from '../lib/brakeChallenge';
+import { BRAKE_GOALS, dailyBrakeObjective, brakeStopResult, PARKING_TOLERANCE_M, type BrakeObjective } from '../lib/brakeChallenge';
 export { brakeScore } from '../lib/brakeChallenge';
 import { rect, text } from './canvas';
 import { C, H, W, eventTime, type Game, type GameApi } from './types';
@@ -47,8 +47,16 @@ const ROAD_L = 80;
 const ROAD_R = 280;
 const COUNT_MS = 1650;
 
-export function createBrakeGame(api: GameApi, saved?: Attempt): Game {
+export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speedMultiplier?: number; objective?: BrakeObjective }): Game {
   const P = brakeParams(api.date);
+  if (options?.objective) P.objective = options.objective;
+  if (options?.speedMultiplier) {
+    const approach = P.D - P.stopDist;
+    P.kmh = Math.round(P.kmh * options.speedMultiplier);
+    P.v = P.kmh / 3.6;
+    P.stopDist = P.v * P.v / (2 * P.decel);
+    P.D = P.stopDist + approach;
+  }
   const goal = BRAKE_GOALS[P.objective];
   const basePpm = clamp(430 / (P.stopDist + 12), 3.2, 22);
   // The sprite is a fixed CAR_H px; at the (unzoomed) parking camera that is this many meters.
@@ -462,6 +470,7 @@ export function createBrakeGame(api: GameApi, saved?: Attempt): Game {
       if (state === 'stopped' || state === 'crashed' || state === 'failed') {
         const detail = result?.detail ?? { crashed: state === 'crashed', objective: P.objective };
         drawResultCompanion(c, score, 'brake', fmtResult('brake', { score, detail }), detail);
+        text(c, `SCORE ${score.toFixed(1)} / 100`, W / 2, 65, { size: 30, color: score >= 85 ? C.green : C.yellow, outline: 5 });
       }
     },
     destroy() {

@@ -19,7 +19,7 @@ export function PartyMatchHistory({ token, currentMatch }: { token: string; curr
 
   const current = result?.match === selected ? result : null;
   const roundCount = current?.data?.round_count ?? 6;
-  const rounds = Array.from({ length: roundCount }, (_, index) => partyRound(index));
+  const rounds = Array.from({ length: roundCount }, (_, index) => partyRound(index, current?.data?.game_version ?? 1, current?.data?.selected_games));
   const standings = partyStandings(current?.data?.players ?? [], roundCount - 1);
   return <section className="me-box party-history">
     <button className="btn btn-ghost" aria-expanded={open} aria-controls="party-history-results" onClick={() => setOpen(value => !value)}>

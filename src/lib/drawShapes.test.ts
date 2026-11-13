@@ -37,3 +37,16 @@ describe('daily drawing targets', () => {
     expect(shapeAccuracy(open, center, true, 'square').score).toBeLessThan(shapeAccuracy(open, center, false, 'square').score);
   });
 });
+
+it('scores accurate outlines for the five additional level shapes', () => {
+  for (const shape of ['pentagon','octagon','oval','star','flower'] as const) {
+    const center = {x:180,y:332.8};
+    const points=Array.from({length:361},(_,i)=>{
+      const angle=i/360*Math.PI*2;
+      const radius=shapeRadius(shape,angle)*120;
+      expect(Number.isFinite(radius)&&radius>0).toBe(true);
+      return {x:center.x+Math.cos(angle)*radius,y:center.y+Math.sin(angle)*radius};
+    });
+    expect(shapeAccuracy(points,center,true,shape).score).toBeGreaterThan(99);
+  }
+});

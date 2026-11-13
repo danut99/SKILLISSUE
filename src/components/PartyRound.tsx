@@ -1,5 +1,7 @@
+import type { Mode } from '../config';
 import { useEffect, useRef, useState } from 'react';
 import { createDrawGame } from '../games/drawGame';
+import { createBrakeGame } from '../games/brakeGame';
 import { createCutGame } from '../games/cutGame';
 import { banner, paper, text } from '../games/canvas';
 import { C, W, type AttemptResult, type Game, type GameApi } from '../games/types';
@@ -17,12 +19,13 @@ function write(key: string, data: SavedRound) {
   try { localStorage.setItem(key, JSON.stringify(data)); } catch { /* current tab still protects against replay */ }
 }
 
-export function PartyRound({ token, match, round, roundCount, userId, end, offset, receivedScore, onRefresh, reveal, secondsLeft, finishedPlayers, totalPlayers }: {
-  roundCount: number;
+export function PartyRound({ token, match, round, roundCount, gameVersion, selectedGames, userId, end, offset, receivedScore, onRefresh, reveal, secondsLeft, finishedPlayers, totalPlayers }: {
+  roundCount: number; gameVersion: number; selectedGames?: Mode[];
   token: string; match: number; round: number; userId: string; end: number; offset: number;
   receivedScore: number | null | undefined; onRefresh: () => void;
   reveal: boolean; secondsLeft: number; finishedPlayers: number; totalPlayers: number;
 }) {
+  const gamesKey = selectedGames?.join(',') ?? '';
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const gameRef = useRef<Game | null>(null);
   const clockOffset = useRef(offset);
@@ -33,7 +36,7 @@ export function PartyRound({ token, match, round, roundCount, userId, end, offse
   useEffect(() => { clockOffset.current = offset; }, [offset]);
 
   useEffect(() => {
-    const rule = partyRound(round);
+    const rule = partyRound(round, gameVersion, gamesKey ? gamesKey.split(',') as Mode[] : undefined);
     let finished = false;
     let finalResult: AttemptResult | null = null;
     let game: Game | null = null;
@@ -64,12 +67,13 @@ export function PartyRound({ token, match, round, roundCount, userId, end, offse
     const timedOut = () => finish({ score: 0, detail: { fail: true, timedOut: true }, display: 'TIME UP' });
     const check = () => { if (!finished && now() >= end) timedOut(); return !finished; };
     const api: GameApi = { date: `party:${token}:${match}:${round}`, finish, startClip: () => {}, cancelClip: () => {}, toast };
-    game = rule.mode === 'draw' ? createDrawGame(api, { shape: rule.shape }) : createCutGame(api, { complexity: rule.complexity });
+    game = rule.mode === 'draw' ? createDrawGame(api, { shape: rule.shape }) : rule.mode === 'cut' ? createCutGame(api, { complexity: rule.complexity }) : createBrakeGame(api, undefined, { objective: rule.objective });
     const activeGame = game;
     gameRef.current = {
       down(p, e) { if (check()) activeGame.down?.(p, e); },
       move(p, e) { if (check()) activeGame.move?.(p, e); },
       up(p, e) { if (check()) activeGame.up?.(p, e); },
+      key(e) { if (check()) activeGame.key?.(e); },
       update(time) { if (check()) activeGame.update?.(time); },
       render(c, time) {
         activeGame.render(c, time);
@@ -85,7 +89,7 @@ export function PartyRound({ token, match, round, roundCount, userId, end, offse
     };
     const timer = setInterval(check, 50);
     return () => { cancelAnimationFrame(startFrame); clearInterval(timer); finished = true; activeGame.destroy?.(); gameRef.current = null; };
-  }, [token, match, round, key, end, initialScore]);
+  }, [token, match, round, gameVersion, gamesKey, key, end, initialScore]);
 
   useEffect(() => {
     if (!result) return;
@@ -122,7 +126,7 @@ export function PartyRound({ token, match, round, roundCount, userId, end, offse
         <b>{score.toFixed(1)} <small>pts</small></b>
         <span className={savingError ? 'party-sync-error' : ''}>{savingError ? sync : saved ? 'Score saved' : 'Saving your score...'}</span>
         <div className="party-waiting-label">{reveal ? 'Results revealed' : 'Waiting for players'}{!reveal && <span className="waiting-dots" aria-hidden="true">...</span>}</div>
-        <small>{reveal ? `${round === roundCount - 1 ? 'Final podium' : 'Next round'} in ${Math.max(0, Math.ceil(secondsLeft))}s` : `${finishedPlayers}/${totalPlayers} finished - results in ${Math.max(0, Math.ceil(secondsLeft))}s`}</small>
+        <small>{reveal ? `${round === roundCount - 1 ? 'Final podium' : 'Next round'} in ${Math.max(0, Math.ceil(secondsLeft))}s` : `${finishedPlayers}/${totalPlayers} finished - reveals when all finish or in ${Math.max(0, Math.ceil(secondsLeft))}s`}</small>
       </div>}
     </div>
   </div>;

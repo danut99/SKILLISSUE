@@ -44,6 +44,28 @@ function drive(date: string, overshootM: number | null, fps = 60): AttemptResult
 }
 
 describe('daily driving objectives', () => {
+  it('runs every Party objective from a shared room seed within the round limit', () => {
+    const seed = 'party:12345678-1234-4234-8234-123456789012:1:2';
+    expect(brakeParams(seed)).toEqual(brakeParams(seed));
+    for (const objective of ['wall', 'parking', 'stop-line'] as const) {
+      const finish = vi.fn();
+      let clock = 1000;
+      vi.spyOn(performance, 'now').mockImplementation(() => clock);
+      const game = createBrakeGame({ date: seed, finish, startClip: vi.fn(), cancelClip: vi.fn(), toast: vi.fn() }, undefined, { objective });
+      const params = brakeParams(seed);
+      const press = () => game.key!({ code: 'Space', timeStamp: clock, preventDefault: vi.fn() } as unknown as KeyboardEvent);
+      press();
+      const brakeAt = 1000 + 1650 + (params.D - params.stopDist - .01) / params.v * 1000;
+      let braked = false;
+      for (clock = 1016; clock < 17000 && !finish.mock.calls.length; clock += 16) {
+        game.update!(clock);
+        if (!braked && clock >= brakeAt) { press(); braked = true; }
+      }
+      expect(finish).toHaveBeenCalledOnce();
+      expect(finish.mock.calls[0][0].detail.objective).toBe(objective);
+      game.destroy!();
+    }
+  });
   it('changes the objective every day and gives everyone the same objective', () => {
     expect(dailyBrakeObjective('2026-11-12')).toBe('wall');
     expect(dailyBrakeObjective('2026-11-13')).toBe('parking');

@@ -1,23 +1,28 @@
 import { isOnline, whenAuthReady } from './auth';
 import { ensureNickname } from './leaderboard';
 import { getSupabase } from './supabase';
+import { MODES, type Mode } from '../config';
 import type { Detail } from './store';
 import type { AttemptResult } from '../games/types';
 
-export const PARTY_ROUNDS = [
-  { mode: 'draw', shape: 'circle', seconds: 16, level: 'Warm-up', complexity: 0 },
-  { mode: 'cut', shape: 'circle', seconds: 16, level: 'Steady hands', complexity: 0 },
-  { mode: 'draw', shape: 'square', seconds: 16, level: 'Corners count', complexity: 0 },
-  { mode: 'cut', shape: 'circle', seconds: 16, level: 'Under pressure', complexity: 1 },
-  { mode: 'draw', shape: 'triangle', seconds: 16, level: 'No hesitation', complexity: 0 },
-  { mode: 'cut', shape: 'circle', seconds: 16, level: 'Final chaos', complexity: 2 },
-] as const;
 export const PARTY_REVEAL_SECONDS = 6;
 export const PARTY_ROUND_COUNTS = Array.from({ length: 11 }, (_, index) => index + 2);
-export const partyRound = (round: number) => {
+export const partyModes = (selected?: readonly Mode[]) => {
+  const modes = MODES.filter(mode => selected?.includes(mode));
+  return modes.length ? modes : [...MODES];
+};
+export const partyRound = (round: number, version = 2, selected?: readonly Mode[]) => {
+  const modes = partyModes(selected);
   const shapes = ['circle', 'square', 'triangle', 'diamond', 'hexagon', 'triangle'] as const;
-  const tier = Math.min(5, Math.floor(round / 2));
-  return { mode: round % 2 === 0 ? 'draw' as const : 'cut' as const, shape: shapes[tier], seconds: 16, level: ['Warm-up', 'Corners count', 'Tricky angles', 'Sharp turns', 'Many sides', 'Final chaos'][tier], complexity: tier };
+  const tier = Math.min(5, Math.floor(round / (version >= 2 ? modes.length : 2)));
+  const mode = version >= 2 ? modes[round % modes.length] : round % 2 === 0 ? 'draw' as const : 'cut' as const;
+  return { mode, shape: shapes[tier], seconds: 16, level: ['Warm-up', 'Corners count', 'Tricky angles', 'Sharp turns', 'Many sides', 'Final chaos'][tier], complexity: tier,
+    objective: (['wall', 'parking', 'stop-line'] as const)[tier % 3] };
+};
+export const PARTY_ROUNDS = Array.from({ length: 6 }, (_, index) => partyRound(index));
+export const partyRoundLabel = (round: number, version = 2, selected?: readonly Mode[]) => {
+  const rule = partyRound(round, version, selected);
+  return rule.mode === 'draw' ? `Draw a ${rule.shape}` : rule.mode === 'cut' ? 'Cut 50/50' : rule.objective === 'parking' ? 'Park the car' : rule.objective === 'stop-line' ? 'Stop at the line' : 'Brake before the wall';
 };
 export const PARTY_DURATION = PARTY_ROUNDS.reduce((n, r) => n + r.seconds + PARTY_REVEAL_SECONDS, 0);
 export interface PartyPlayer {
@@ -25,11 +30,15 @@ export interface PartyPlayer {
   results: { round: number; score: number | null; detail?: Detail | null }[];
 }
 export interface PartyRoom {
+  game_version?: number;
+  selected_games?: Mode[];
   round_count?: number;
   token: string; match_no: number; started_at: string | null; expires_at: string;
   server_now: string; is_host: boolean; joined: boolean; players: PartyPlayer[];
 }
 export interface PartyMatch {
+  game_version?: number;
+  selected_games?: Mode[];
   round_count?: number;
   match_no: number;
   roster_complete: boolean;
@@ -71,6 +80,7 @@ const ERRORS: Record<string, string> = {
   room_limit: 'You already have 10 active rooms. Reuse one of your invite links.',
   removed_player: 'The host removed you from this room.',
   match_in_progress: 'Players can leave or be removed in the lobby or after the match.',
+  bad_party_games: 'Choose one, two, or all three games.',
   bad_round_count: 'Choose between 2 and 12 rounds.',
 };
 async function rpc<T>(name: string, args = {}): Promise<T> {
@@ -84,7 +94,8 @@ async function rpc<T>(name: string, args = {}): Promise<T> {
   }
   return data as T;
 }
-export async function createPartyRoom() { await whenAuthReady(); await ensureNickname(); return rpc<PartyRoom>('create_party_room'); }
+export async function createPartyRoom(games?: readonly Mode[]) { await whenAuthReady(); await ensureNickname(); return games ? rpc<PartyRoom>('create_party_room_with_games', { p_games: partyModes(games) }) : rpc<PartyRoom>('create_party_room'); }
+export const setPartyGames = (token: string, games: readonly Mode[]) => rpc<PartyRoom>('set_party_games', { p_room: token, p_games: partyModes(games) });
 export const getPartyRoom = (token: string) => rpc<PartyRoom>('get_party_room', { p_room: token });
 export const getPartyMatch = (token: string, match: number) => rpc<PartyMatch>('get_party_match', { p_room: token, p_match: match });
 export async function joinPartyRoom(token: string) { await whenAuthReady(); await ensureNickname(); return rpc<PartyRoom>('join_party_room', { p_room: token }); }

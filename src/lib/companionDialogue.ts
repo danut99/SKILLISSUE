@@ -9,7 +9,7 @@ export const GAME_INTROS: Record<Mode, CompanionLine[]> = {
   draw: [
     { speaker: 'demon', text: "A perfect shape? Your last one looked like a potato." },
     { speaker: 'angel', text: "Ignore him. One smooth stroke around the dot. You've got this." },
-    { speaker: 'demon', text: "Three tries. Plenty of time to invent a new shape." },
+    { speaker: 'demon', text: "Five tries. Plenty of time to invent a new shape." },
     { speaker: 'angel', text: "Follow today's outline and close the loop. Let's draw!" },
   ],
   cut: [

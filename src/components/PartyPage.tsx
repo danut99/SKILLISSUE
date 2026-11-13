@@ -1,3 +1,4 @@
+import { MODES, type Mode } from '../config';
 import { PartyGallery } from './PartyGallery';
 import { sharePartyInvite, sharePartyPodium } from '../lib/partyShare';
 import { claimNickname } from '../lib/leaderboard';
@@ -6,12 +7,20 @@ import { leavePartyRoom } from '../lib/party';
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { copyText } from '../lib/scoring';
-import { PARTY_ROUNDS, PARTY_ROUND_COUNTS, partyRound, setPartyRoundCount, createPartyRoom, getPartyRoom, joinPartyRoom, partyPhase, partyStandings, partyUrl, readPartyToken, readyPartyRoom, rematchPartyRoom, startPartyRoom, type PartyRoom } from '../lib/party';
+import { PARTY_ROUND_COUNTS, partyRound, partyRoundLabel, partyModes, setPartyGames, setPartyRoundCount, createPartyRoom, getPartyRoom, joinPartyRoom, partyPhase, partyStandings, partyUrl, readPartyToken, readyPartyRoom, rematchPartyRoom, startPartyRoom, type PartyRoom } from '../lib/party';
 import { toast } from '../lib/ui';
 import { PixelIcon } from './PixelIcon';
 import { PartyRound } from './PartyRound';
 import { PartyMatchHistory } from './PartyMatchHistory';
 
+const GAME_LABELS = { draw: 'Draw', cut: 'Cut', brake: 'Brake' };
+function PartyGamePicker({ games, disabled, onChange }: { games: readonly Mode[]; disabled: boolean; onChange: (games: Mode[]) => void }) {
+  return <fieldset className="party-game-picker" disabled={disabled}><legend>Games</legend>
+    <div>{MODES.map(mode => <button type="button" className={`btn btn-ghost btn-sm ${games.includes(mode) ? 'selected' : ''}`} key={mode} aria-pressed={games.includes(mode)} disabled={games.length === 1 && games.includes(mode)}
+      onClick={() => onChange(partyModes(games.includes(mode) ? games.filter(game => game !== mode) : [...games, mode]))}><PixelIcon name={mode} size={24} />{GAME_LABELS[mode]}</button>)}</div>
+    <small>{games.length === 3 ? 'Mix: all three games.' : games.map(mode => GAME_LABELS[mode]).join(' + ')} Pick one, two, or all three.</small>
+  </fieldset>;
+}
 export function PartyPage() {
   const { status, userId } = useAuth();
   const [token, setToken] = useState(() => readPartyToken(location.hash));
@@ -19,6 +28,7 @@ export function PartyPage() {
   const [nickname, setNickname] = useState(usePlayer.getState().nickname);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [creationGames, setCreationGames] = useState<Mode[]>([...MODES]);
   const [clock, setClock] = useState(Date.now);
   const online = status === 'anon' || status === 'linked';
   useEffect(() => {
@@ -84,42 +94,44 @@ export function PartyPage() {
   const phase = partyPhase(room?.started_at ?? null, now, roundCount);
   const me = room?.players.find(p => p.is_me);
   const ready = !!room && room.players.length >= 2 && room.players.every(p => p.ready);
-  const rule = partyRound(phase.round);
+  const gameVersion = room?.game_version ?? 1;
+  const selectedGames = partyModes(room?.selected_games);
+  const rule = partyRound(phase.round, gameVersion, selectedGames);
   const standings = partyStandings(room?.players ?? [], phase.kind === 'playing' ? phase.round - 1 : phase.kind === 'finished' ? roundCount - 1 : phase.kind === 'reveal' ? phase.round : -1);
   const winners = standings.filter(p => p.rank === 1);
   return <section className="screen party-page">
-    <header className="me-hero"><h1>Party Mode</h1><p className="me-sub">Draw. Cut. Host picks 2-12 rounds. 16 seconds each.</p></header>
+    <header className="me-hero"><h1>Party Mode</h1><p className="me-sub">Draw. Cut. Brake. Host picks 2-12 rounds. 16 seconds each.</p></header>
     {error && <div className="party-error" role="alert">{error}</div>}
     {!online ? <div className="me-box">{status === 'connecting' ? 'Connecting...' : 'Connect online to play with friends.'}</div> : !token ? <>
-      <div className="me-box party-intro"><PixelIcon name="battle" size={64} /><h2>Bring 2-8 players.</h2><p>Share a room link, get ready, then race the same challenges together.</p><p>One attempt each round. Highest total wins. The host chooses how many rounds to play. Daily tries stay untouched.</p><button className="btn btn-primary" disabled={busy} onClick={() => void run(createPartyRoom)}>{busy ? 'Creating...' : 'Create party'}</button></div>
-      <ol className="party-round-plan">{PARTY_ROUNDS.map((r, index) => <li key={index}><PixelIcon name={r.mode} size={28} /><span>Round {index + 1}<small>{r.level}</small></span><b>{r.seconds}s</b></li>)}</ol>
+      <div className="me-box party-intro"><PixelIcon name="battle" size={64} /><h2>Bring 2-8 players.</h2><p>Share a room link, get ready, then race the same challenges together.</p><p>One attempt each round. Highest total wins. The host chooses how many rounds to play. Daily tries stay untouched.</p><PartyGamePicker games={creationGames} disabled={busy} onChange={setCreationGames} /><button className="btn btn-primary" disabled={busy} onClick={() => void run(() => createPartyRoom(creationGames))}>{busy ? 'Creating...' : 'Create party'}</button></div>
+      <ol className="party-round-plan">{Array.from({length:6}, (_, index) => partyRound(index, 2, creationGames)).map((r, index) => <li key={index}><PixelIcon name={r.mode} size={28} /><span>Round {index + 1}<small>{GAME_LABELS[r.mode]}</small></span><b>{r.seconds}s</b></li>)}</ol>
     </> : !room ? <div className="me-box"><p>{error ? 'Check your connection or create a new party.' : 'Loading party...'}</p><a href="#party">New party</a></div> : <>
       <div className="party-room-bar"><span>Room {room.token.slice(0, 6).toUpperCase()} <small>Match {room.match_no}</small></span><button className="btn btn-ghost btn-sm" onClick={() => void copyText(partyUrl(room.token)).then(ok => toast(ok ? 'Room link copied. Send it to your friends!' : 'Could not copy link.'))}>Copy invite</button><button className="btn btn-primary btn-sm" onClick={() => void sharePartyInvite(room).catch(() => toast('Could not share invite.'))}>Share invite</button></div>
       {!room.joined ? <div className="me-box"><h2>You've been invited!</h2><label>Your nickname <input maxLength={15} value={nickname} onChange={e => setNickname(e.target.value)} autoComplete="nickname" /></label><p>{room.players.length}/8 players in this room.</p><button className="btn btn-primary" disabled={busy || room.started_at !== null || room.players.length >= 8} onClick={() => void run(() => joinNamed(room))}>{room.started_at ? 'Match in progress' : 'Join party'}</button>{room.started_at && <p>Wait here for the host to start a rematch lobby.</p>}</div> : null}
       {phase.kind === 'lobby' ? <div className="me-box party-lobby"><h2>Get the squad ready</h2><ul className="party-players">{room.players.map((player, index) => <li key={index}><span>{player.name}{player.is_me ? ' (you)' : ''}{player.is_host ? ' - host' : ''}</span><b className={player.ready ? 'ready' : ''}>{player.ready ? 'Ready' : 'Waiting'}</b>{room.is_host && !player.is_me && player.player_id && <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void removePlayer(room, player.player_id)}>Remove</button>}</li>)}</ul>
+        {room.is_host ? <PartyGamePicker games={selectedGames} disabled={busy} onChange={games => void run(() => setPartyGames(room.token, games))} /> : <p className="party-games-summary">Games: {selectedGames.map(mode => GAME_LABELS[mode]).join(' + ')}</p>}
         <div className="party-round-settings">
           {room.is_host ? <label htmlFor="party-round-count">Rounds
             <select id="party-round-count" aria-label="Rounds" value={roundCount} disabled={busy} onChange={event => void run(() => setPartyRoundCount(room.token, Number(event.target.value)))}>
               {PARTY_ROUND_COUNTS.map(count => <option key={count} value={count}>{count} rounds</option>)}
             </select>
           </label> : <span>{roundCount} rounds selected by the host</span>}
-          <small>Up to {roundCount * 100} points. Changing rounds resets everyone's Ready status.</small>
+          <small>Up to {roundCount * 100} points. Changing games or rounds resets everyone's Ready status.</small>
         </div>
         {room.joined && <div className="r-actions"><button className="btn btn-primary" disabled={busy} onClick={() => void run(() => readyPartyRoom(room.token, !me?.ready))}>{me?.ready ? 'Not ready' : "I'm ready"}</button>{room.is_host && <button className="btn btn-pink" disabled={busy || !ready} onClick={() => void run(() => startPartyRoom(room.token))}>Start {roundCount} rounds</button>}</div>}
         <p className="me-fine">{room.players.length < 2 ? 'Invite at least one friend to start.' : !ready ? 'Everyone must be ready before the host starts.' : 'All ready. Host can start!'} The clock starts together, not on your first touch. Reloading an active round forfeits that attempt.</p>
-      </div> : phase.kind === 'countdown' ? <div className="me-box party-countdown"><p>Round 1 - Draw a circle</p><strong>{Math.max(1, Math.ceil(phase.secondsLeft))}</strong><p>Get ready. Everyone starts together.</p></div> : <div className="party-match-layout">
+      </div> : phase.kind === 'countdown' ? <div className="me-box party-countdown"><p>Round 1 - {partyRoundLabel(0, gameVersion, selectedGames)}</p><strong>{Math.max(1, Math.ceil(phase.secondsLeft))}</strong><p>Get ready. Everyone starts together.</p></div> : <div className={`party-match-layout party-phase-${phase.kind}`}>
+        {phase.kind !== 'finished' && <div className="party-round-heading"><PixelIcon name={rule.mode} size={36} /><span>Round {phase.round + 1}/{roundCount} - {partyRoundLabel(phase.round, gameVersion, selectedGames)}<small>{rule.level} - {rule.seconds}s</small></span></div>}
         <div>
-          <div className="party-round-heading"><PixelIcon name={rule.mode} size={36} /><span>Round {phase.round + 1}/{roundCount} - {rule.mode === 'draw' ? `Draw a ${rule.shape}` : 'Cut 50/50'}<small>{rule.level} - {rule.seconds}s</small></span></div>
           {phase.kind === 'finished' ? <div className="me-box party-podium"><PixelIcon name="trophy" size={72} /><h2>{winners.length > 1 ? 'Shared glory!' : `${winners[0]?.name ?? 'Nobody'} wins!`}</h2><p>{winners.map(p => p.name).join(' & ')} - {standings[0]?.total.toFixed(1) ?? 0}/{roundCount * 100}</p><p className="me-fine">Play another match with the same players and invite link. Everyone readies up again.</p>{room.is_host ? <button className="btn btn-primary party-restart" disabled={busy} onClick={() => void run(() => rematchPartyRoom(room.token))}>{busy ? 'Restarting...' : 'Play again'} <span aria-hidden="true">&#8635;</span></button> : <p>Waiting for the host to restart the game.</p>}<button className="btn btn-ghost party-restart" onClick={() => void sharePartyPodium(room).catch(() => toast('Could not share results.'))}>Share podium</button></div> : <>
-            {room.joined && userId && <PartyRound key={`${token}:${room.match_no}:${phase.round}:${userId}`} token={room.token} match={room.match_no} round={phase.round} roundCount={roundCount} userId={userId} end={phase.end} offset={state?.offset ?? 0} receivedScore={me?.results.find(r => r.round === phase.round)?.score} onRefresh={refresh} reveal={phase.kind === 'reveal'} secondsLeft={phase.secondsLeft} finishedPlayers={room.players.filter(p => p.results.some(r => r.round === phase.round)).length} totalPlayers={room.players.length} />}
-            {phase.kind === 'reveal' && <PartyGallery room={room} round={phase.round} />}
-            {phase.kind === 'reveal' && phase.round + 1 < roundCount && <p className="party-next-preview">Next: {partyRound(phase.round + 1).mode === 'draw' ? `Draw a ${partyRound(phase.round + 1).shape}` : `Cut - complexity ${partyRound(phase.round + 1).complexity + 1}`} / 16s</p>}
+            {room.joined && userId && <PartyRound key={`${token}:${room.match_no}:${phase.round}:${userId}`} token={room.token} match={room.match_no} round={phase.round} roundCount={roundCount} gameVersion={gameVersion} selectedGames={selectedGames} userId={userId} end={phase.end} offset={state?.offset ?? 0} receivedScore={me?.results.find(r => r.round === phase.round)?.score} onRefresh={refresh} reveal={phase.kind === 'reveal'} secondsLeft={phase.secondsLeft} finishedPlayers={room.players.filter(p => p.results.some(r => r.round === phase.round)).length} totalPlayers={room.players.length} />}
+            {phase.kind === 'reveal' && phase.round + 1 < roundCount && <p className="party-next-preview">Next: {partyRoundLabel(phase.round + 1, gameVersion, selectedGames)} / 16s</p>}
             {phase.kind === 'reveal' && <div className="party-reveal" role="status">Round over! {phase.round === roundCount - 1 ? 'Final podium' : 'Next round'} in {Math.ceil(phase.secondsLeft)}s</div>}
           </>}
         </div>
-        <aside className="card party-scoreboard"><h3>{phase.kind === 'finished' ? 'Final standings' : 'Party standings'}</h3><ol>{standings.map(player => <li className={player.is_me ? 'is-me' : ''} key={player.order}><span>#{player.rank} {player.name}{player.is_me ? ' (you)' : ''}<small>{phase.kind === 'playing' ? player.results.some(r => r.round === phase.round) ? 'Finished this round' : 'Playing...' : phase.kind === 'reveal' && !player.results.some(r => r.round === phase.round) ? 'No result received - 0 pts' : ''}</small></span><b>{player.total.toFixed(1)}</b></li>)}</ol><p className="me-fine">{roundCount} scores added together. Missed rounds score 0. Ties share a place.</p></aside>
+        <aside className="card party-scoreboard"><h3>{phase.kind === 'finished' ? 'Final standings' : 'Party standings'}</h3>{phase.kind !== 'reveal' ? <ol>{standings.map(player => <li className={player.is_me ? 'is-me' : ''} key={player.order}><span>#{player.rank} {player.name}{player.is_me ? ' (you)' : ''}{phase.kind === 'playing' && <small>{player.results.some(r => r.round === phase.round) ? 'Finished this round' : 'Playing...'}</small>}</span><b className="party-match-total">Total: {player.total.toFixed(1)}</b></li>)}</ol> : <><p className="party-results-hint">{phase.kind === 'reveal' ? `Round ${phase.round + 1} results / Next in ${Math.ceil(phase.secondsLeft)}s` : 'Explore each round. Tap an attempt to enlarge.'}</p><PartyGallery room={room} round={phase.round} compact /></>}<p className="me-fine">{roundCount} scores added together. Missed rounds score 0. Ties share a place.</p></aside>
       </div>}
-      {phase.kind === 'finished' && <PartyGallery room={room} round={0} final />}
+      {phase.kind === 'finished' && <PartyGallery key={`${room.token}:${room.match_no}`} room={room} round={0} final />}
       {room.joined && room.match_no > 1 && <PartyMatchHistory key={`${room.token}:${userId}:${room.match_no}`} token={room.token} currentMatch={room.match_no} />}
       <p className="me-fine">{room.joined && (phase.kind === 'lobby' || phase.kind === 'finished') ? <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void removePlayer(room)}>Leave party</button> : <a href="#party">Back to Party</a>} - Your invite link works for 24 hours.</p>
     </>}

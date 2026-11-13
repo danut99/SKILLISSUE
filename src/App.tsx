@@ -1,3 +1,4 @@
+import { LevelScreen } from './components/LevelScreen';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { LINKS, MODES, type Mode } from './config';
@@ -17,13 +18,13 @@ import { C } from './games/types';
 import { sfx } from './lib/audio';
 import { todayUTC } from './lib/daily';
 import { usePlayer } from './lib/store';
-import { whenAuthReady } from './lib/auth';
+import { whenAuthReady, useAuth } from './lib/auth';
 import { toast, useUi } from './lib/ui';
 import { tag, track } from './lib/clarity';
 
 const PartyPage = lazy(() => import('./components/PartyPage').then(module => ({ default: module.PartyPage })));
 
-const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party'] as const;
+const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party', 'levels'] as const;
 const ChallengePreview = import.meta.env.DEV
   ? lazy(() => import('./components/ChallengesPage').then(module => ({ default: module.ChallengesPage })))
   : null;
@@ -38,6 +39,7 @@ const parseHash = (): Route => {
 };
 
 export default function App() {
+  const levelIdentity = useAuth(s => s.userId);
   const [mode, setMode] = useState<Route>(parseHash);
   const [inviteToken, setInviteToken] = useState(readFriendInvite);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -153,6 +155,8 @@ export default function App() {
           <FaqPage />
         ) : mode === 'me' ? (
           <MePage date={date} onPlay={navigate} />
+        ) : mode === 'levels' ? (
+          <LevelScreen key={`${location.hash}:${date}:${levelIdentity}`} mode={location.hash.split('/')[1] === 'cut' ? 'cut' : location.hash.split('/')[1] === 'brake' ? 'brake' : 'draw'} date={date} />
         ) : mode === 'party' ? (
           <Suspense fallback={<p>Loading party...</p>}><PartyPage /></Suspense>
         ) : mode === 'friends' ? (
