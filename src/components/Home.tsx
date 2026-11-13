@@ -82,11 +82,19 @@ export function Home({ date, onPlay }: Props) {
           onMouseLeave={() => setPaused(false)}
           title="click for another insult"
         >
-          <img className="taunt-demon" src={pixelArtUrl('demon-192.png')} width="40" height="40" alt="" aria-hidden="true" />
-          <motion.span key={line} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} style={{ display: 'inline-block' }}>
+          <img className="taunt-demon" src={pixelArtUrl('demon-192.png')} width="56" height="56" alt="" aria-hidden="true" />
+          <motion.span className="taunt-speech" key={line} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} style={{ display: 'inline-block' }}>
             {TAGLINES[line]}
           </motion.span>
         </button>
+
+        <div className="meta">
+          <span className="pill hero-progress"><span className="hero-stat-label">TODAY #{dayNumber(date)}</span> {MODES.filter(m => modeDay(days, date, m).tries.length > 0).length}/3 played</span>
+          {liveStreak > 0 && <span className="pill">🔥 {liveStreak} day streak</span>}
+          <span className="pill">
+            <span className="hero-stat-label">NEXT RESET</span> <Countdown />
+          </span>
+        </div>
         <details className="how2" id="how" open={location.hash === '#how'}>
           <summary>&#9656; how to play</summary>
           <ul>
@@ -113,13 +121,6 @@ export function Home({ date, onPlay }: Props) {
             </a>
           </div>
         </details>
-        <div className="meta">
-          <span className="pill hero-progress"><span className="hero-stat-label">TODAY #{dayNumber(date)}</span> {MODES.filter(m => modeDay(days, date, m).tries.length > 0).length}/3 played</span>
-          {liveStreak > 0 && <span className="pill">🔥 {liveStreak} day streak</span>}
-          <span className="pill">
-            <span className="hero-stat-label">NEXT RESET</span> <Countdown />
-          </span>
-        </div>
       </header>
 
       <div className="with-board">
@@ -172,15 +173,17 @@ export function Home({ date, onPlay }: Props) {
       })}
       </div>
 
-      <section className="card px-box home-party" aria-labelledby="home-party-title">
-        <div>
-          <span className="pill home-party-testing">In testing</span>
-          <h2 id="home-party-title">Who's the skill issue in your group?</h2>
-          <p>Invite your friends. Pick your rounds. One winner.</p>
-          <PartyStats />
-          <small>Party mode is still in testing. You may run into bugs.</small>
+      <section className="card px-box home-party party-promo" aria-labelledby="home-party-title">
+        <div className="party-promo-main">
+          <div className="party-promo-copy">
+            <div className="party-promo-heading"><h2 id="home-party-title">PARTY MODE</h2><span className="party-beta">Beta</span></div>
+            <p className="party-promo-hook">Who's the skill issue in your group?</p>
+            <p className="party-promo-details">2&ndash;8 players &middot; Draw, Cut &amp; Car &middot; Play together</p>
+          </div>
+          <div className="party-promo-icons" aria-hidden="true"><PixelIcon name="draw" size={42} /><PixelIcon name="cut" size={42} /><PixelIcon name="brake" size={42} /></div>
+          <a className="btn btn-primary party-promo-link" href="#party">Play with friends <span aria-hidden="true">&#8594;</span></a>
         </div>
-        <a className="btn btn-primary" href="#party">Try Party mode <span aria-hidden="true">&#8594;</span></a>
+        <div className="party-promo-footer"><PartyStats /><small>In testing &mdash; you may run into bugs.</small></div>
       </section>
 
       {playedAny && (

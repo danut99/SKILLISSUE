@@ -1,3 +1,4 @@
+import { DailyGamesPrompt } from './DailyGamesPrompt';
 import { useEffect, useState } from 'react';
 import type { Mode } from '../config';
 import type { PastChallenge } from './GameScreen';
@@ -69,6 +70,7 @@ export function TrackedChallengeBanner({ token, mode, date, onPastChallenge }: {
     {!data.is_owner && !data.accepted &&
       <button className="btn btn-primary" disabled={busy} onClick={() => void accept()}>{busy ? 'Accepting...' : expired ? `Accept & play ${data.play_date}` : 'Accept challenge'}</button>}
     <small className="challenge-source challenge-attribution">{data.is_owner && data.participants.length > 0 ? 'Your shared target is fixed. Results update as players finish their daily attempts.' : data.accepted ? player?.attempts_remaining === 0 ? 'Final result for that day.' : 'Best scores so far. Your result updates after scores sync.' : data.is_owner ? 'Send this link to a friend.' : 'Accept to share your daily best with the sender.'}</small>
+    {player?.score != null && <DailyGamesPrompt />}
     <a className="challenge-manage" href="#friends">View challenge responses</a>
     {expired && <a className="challenge-today" href="#">Play today's challenges →</a>}
   </div>;

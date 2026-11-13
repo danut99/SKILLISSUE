@@ -111,11 +111,12 @@ export default function App() {
 
   return (
     <MotionConfig reducedMotion={settings.lowPower ? 'always' : 'user'}>
-      <header className="topbar">
+      <header className={`topbar ${mode === null ? 'topbar-home' : ''}`}>
         <button className="corner-btn px-box" onClick={() => { track('menu_open'); setMenuOpen(true); }} aria-label="Open menu">
           ☰
         </button>
         {mode !== null ? (
+          <div className="header-home-nav">
           <a
             className="mini-logo"
             href="#"
@@ -127,8 +128,10 @@ export default function App() {
           >
             SKILL<span>ISSUE</span>
           </a>
+          <a className="header-daily-link" href="#" onClick={e=>{e.preventDefault();navigate(null);}}><span aria-hidden="true">&#8592;</span> Daily games</a>
+          </div>
         ) : (
-          <span />
+          <h1 className="logo home-header-logo"><span className="logo-skill">SKILL</span><span className="logo-issue">ISSUE</span></h1>
         )}
         <div className="topbar-right">
           <a className="corner-btn px-box header-feedback" href={LINKS.feedback} onClick={() => track('feedback_click')} aria-label="Send feedback by email" title="Send feedback">

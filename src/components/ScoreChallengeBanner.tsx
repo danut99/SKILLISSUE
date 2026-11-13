@@ -1,3 +1,4 @@
+import { DailyGamesPrompt } from './DailyGamesPrompt';
 import { readTrackedToken } from '../lib/trackedChallenges';
 import { TrackedChallengeBanner } from './TrackedChallengeBanner';
 import { useEffect, useState } from 'react';
@@ -34,6 +35,7 @@ export function ScoreChallengeBanner({ mode, date, onPastChallenge }: { mode: Mo
     </div>
     <p className={`challenge-outcome ${winner === 'you' ? 'won' : ''}`} role="status">{winner !== null && winner !== 'tie' && <span aria-hidden="true">&#127942; </span>}{outcome}</p>
     {best && triesLeft(md) > 0 && <small className="challenge-source">Best scores so far. {triesLeft(md)} {triesLeft(md) === 1 ? 'try' : 'tries'} left to improve yours.</small>}
+    {best && <DailyGamesPrompt />}
     <small className="challenge-source challenge-attribution">Untracked link - only you can see this comparison</small>
   </div>;
 }

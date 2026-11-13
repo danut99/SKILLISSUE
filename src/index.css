@@ -908,7 +908,7 @@ body.low-power .logo2, body.low-power .scene-car, body.low-power .blob, body.low
 
 
 .hero .tagline.taunt { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; margin: 8px auto; }
-.taunt-demon { width: 40px; height: 40px; flex: 0 0 40px; object-fit: contain; image-rendering: pixelated; }
+.taunt-demon { width: 56px; height: 56px; flex: 0 0 56px; object-fit: contain; image-rendering: pixelated; }
 .hero .tagline.taunt > span { min-width: 0; }
 
 /* Compact header and a continuous sponsor strip. */
@@ -1275,3 +1275,166 @@ body.low-power .waiting-dots { animation: none; }
 .public-party-list small { display:block; color:var(--muted); font-size:16px; }
 .public-party-list code { display:block; font-family:var(--font); color:var(--yellow); font-size:18px; margin-top:5px; }
 @media(max-width:540px) { .party-code-form { flex-wrap:wrap; } .party-code-form input { width:100%; flex-basis:100%; } .public-party-list li { flex-wrap:wrap; } }
+
+/* Party invitation: one clear headline and a full-card link target. */
+.home-party.party-promo { position:relative; display:block; padding:20px; border-color:var(--pink); background:linear-gradient(110deg,#14243c,var(--panel) 65%); }
+.party-promo-main { display:flex; align-items:center; gap:20px; }
+.party-promo-copy { flex:1; min-width:0; }
+.party-promo-heading { display:flex; align-items:center; gap:12px; }
+.home-party .party-promo-heading h2 { margin:0; color:var(--cyan); font-size:36px; letter-spacing:2px; }
+.party-beta { color:var(--yellow); border:1px solid var(--line); padding:2px 7px; font-size:16px; }
+.home-party .party-promo-hook { margin:8px 0; font-size:25px; }
+.home-party .party-promo-details { font-size:19px; color:var(--muted); margin:0; }
+.party-promo-icons { display:flex; align-items:center; gap:6px; }
+.party-promo-link { flex-shrink:0; text-transform:none; text-decoration:none; text-align:center; }
+.party-promo-link::after { content:''; position:absolute; inset:0; }
+.party-promo:has(.party-promo-link:hover),.party-promo:has(.party-promo-link:focus-visible) { border-color:var(--cyan); }
+.party-promo:has(.party-promo-link:focus-visible) { outline:2px solid var(--cyan); outline-offset:4px; }
+.party-promo-footer { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px 20px; margin-top:16px; padding-top:12px; border-top:1px solid var(--line); }
+.party-promo-footer .home-party-stats { margin:0; font-size:16px; }
+.party-promo-footer .home-party-stats b { font-size:19px; }
+.home-party .party-promo-footer small { font-size:15px; }
+@media(max-width:1100px) { .party-promo-icons { display:none; } }
+@media(max-width:600px) {
+ .party-promo-main { flex-wrap:wrap; gap:16px; }
+ .party-promo-copy { flex-basis:100%; }
+ .party-promo-link { width:100%; }
+ .home-party .party-promo-heading h2 { font-size:32px; }
+ .home-party .party-promo-hook { font-size:23px; }
+}
+
+/* Party entry: compact arcade cards, with a separate room directory. */
+.party-entry-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; margin:24px 0; }
+.party-entry-grid > .me-box { margin:0; min-width:0; padding:24px; border:2px solid var(--line); background:var(--panel); box-shadow:5px 5px 0 #000; }
+.party-entry-card { display:flex; flex-direction:column; align-items:stretch; text-align:left; }
+.party-entry-grid .party-create-card { border-top-color:var(--cyan); background:linear-gradient(135deg,#142b40,var(--panel) 75%); }
+.party-entry-grid .party-join-card { border-top-color:var(--pink); }
+.party-entry-eyebrow { color:var(--muted); font-size:14px; letter-spacing:2px; margin-bottom:12px; }
+.party-entry-grid h2 { font-size:32px; line-height:1; font-weight:normal; margin:0 0 12px; color:var(--text); text-shadow:none; }
+.party-create-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.party-entry-icons { display:flex; gap:5px; }
+.party-entry-description { font-size:21px; color:var(--muted); margin:0 0 18px; line-height:1.25; }
+.party-entry-badges { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
+.party-entry-badges span { padding:4px 8px; border:1px solid #294764; color:var(--cyan); background:#050a1455; font-size:16px; }
+.party-create-button { margin-top:auto; display:flex; align-items:center; justify-content:center; gap:20px; text-transform:none; min-height:48px; }
+.party-entry-card .me-fine { font-size:16px; line-height:1.3; margin:12px 0 0; }
+.party-join-card > label { font-size:16px; color:var(--muted); margin-top:auto; }
+.party-entry-grid .party-code-form { display:flex; flex-wrap:nowrap; gap:10px; }
+.party-entry-grid .party-code-form input { width:auto; flex:1; min-width:0; background:var(--bg); border:2px solid var(--line); color:var(--text); font:26px var(--font); letter-spacing:3px; padding:10px; }
+.party-code-form input::placeholder { color:#526986; }
+.party-code-form input:focus-visible { outline:2px solid var(--pink); outline-offset:2px; }
+.party-code-form .btn { text-transform:none; font-size:22px; white-space:nowrap; }
+.party-entry-grid .party-public-rooms { grid-column:1/-1; padding:20px 24px; }
+.party-directory-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.party-directory-heading h2 { margin-bottom:6px; font-size:28px; }
+.party-directory-heading .me-fine { margin:0; font-size:17px; }
+.party-live-label { display:flex; align-items:center; gap:7px; color:var(--cyan); font-size:14px; letter-spacing:2px; }
+.party-live-label > span { width:6px; height:6px; background:var(--cyan); }
+.party-empty-rooms { text-align:center; padding:28px 16px 10px; }
+.party-empty-rooms .pixel-icon { display:block; margin:0 auto 12px; }
+.party-empty-rooms b { display:block; color:var(--text); font-weight:normal; font-size:23px; }
+.party-empty-rooms p { color:var(--muted); font-size:18px; max-width:420px; margin:8px auto; }
+@media(max-width:700px) {
+ .party-entry-grid { grid-template-columns:1fr; gap:14px; margin-top:16px; }
+ .party-entry-grid > .me-box { padding:20px; }
+ .party-entry-grid h2 { font-size:29px; }
+ .party-entry-grid .party-code-form { flex-wrap:wrap; }
+ .party-entry-grid .party-code-form input { flex-basis:100%; }
+ .party-code-form .btn { width:100%; }
+}
+
+.header-home-nav { display:flex; align-items:center; justify-content:center; gap:18px; min-width:0; }
+.header-daily-link { color:var(--cyan); text-decoration:none; font-size:18px; white-space:nowrap; padding:6px 9px; border:1px solid var(--line); background:#101d3377; }
+.header-daily-link:hover,.header-daily-link:focus-visible { border-color:var(--cyan); background:var(--panel); }
+.daily-games-prompt { display:block; text-decoration:none; text-align:center; margin-top:16px; padding:12px; border:1px solid var(--line); background:#4de3ff08; }
+.daily-games-prompt > span { display:block; color:var(--muted); font-size:16px; margin-bottom:4px; }
+.daily-games-prompt b { color:var(--cyan); font-weight:normal; font-size:22px; }
+.daily-games-prompt:hover { border-color:var(--cyan); }
+@media(max-width:800px) {
+ .header-home-nav { flex-direction:column; gap:4px; }
+ .header-home-nav .mini-logo { font-size:clamp(17px,4vw,28px); letter-spacing:0; }
+ .header-daily-link { font-size:16px; padding:3px 6px; }
+}
+
+/* Mobile navigation: readable logo above a separate, quiet home link. */
+@media(max-width:800px) {
+ .topbar { grid-template-columns:44px minmax(0,1fr) auto; column-gap:8px; row-gap:0; }
+ .header-home-nav { display:contents; }
+ .header-home-nav .mini-logo { grid-column:2; grid-row:1; display:flex; flex-direction:row; align-items:center; justify-content:center; font-size:27px; line-height:1; letter-spacing:0; white-space:nowrap; min-height:44px; }
+ .topbar-right { grid-column:3; grid-row:1; }
+ .header-daily-link { grid-column:1/-1; grid-row:2; justify-self:start; padding:8px 0 5px; margin-top:5px; border:0; background:none; font-size:19px; }
+ .header-daily-link:hover,.header-daily-link:focus-visible { background:none; text-decoration:underline; }
+}
+@media(max-width:600px) {
+ .topbar .header-feedback { display:none; }
+ .topbar-right { gap:5px; }
+ .header-home-nav .mini-logo { font-size:25px; }
+}
+@media(max-width:350px) {
+ .topbar { column-gap:5px; }
+ .topbar-right { gap:3px; }
+ .header-home-nav .mini-logo { font-size:21px; }
+}
+
+/* On desktop, the homepage wordmark shares the controls' header row. */
+.home-header-logo { display:none; }
+@media(min-width:900px) {
+ .topbar-home { position:relative; min-height:100px; padding-top:12px; padding-bottom:12px; }
+ .topbar-home > .home-header-logo { display:block; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) rotate(-2deg); font-size:82px; line-height:.9; letter-spacing:1px; white-space:nowrap; }
+ .topbar-home > .topbar-right { grid-column:3; }
+ .home .hero > .logo { display:none; }
+ .home .hero { margin-top:0; padding-top:0; }
+}
+.topbar-home > .topbar-right { grid-column: 3; }
+
+.hero .tagline.taunt { position: relative; top: -6px; }
+
+/* Homepage demon speaks in the same pixel bubble as game companions. */
+.hero .tagline.taunt { gap:12px; max-width:620px; width:fit-content; padding:0 8px; text-align:left; }
+.taunt-speech { position:relative; padding:10px 14px; border:2px solid var(--pink); background:#050a14ed; box-shadow:3px 3px 0 #000; font-size:22px; line-height:1.2; color:var(--text); }
+.taunt-speech::before { content:''; position:absolute; top:50%; left:-8px; width:12px; height:12px; background:var(--bg); border-left:2px solid var(--pink); border-bottom:2px solid var(--pink); transform:translateY(-50%) rotate(45deg); }
+.tagline.taunt:hover .taunt-speech { background:var(--panel); }
+.tagline.taunt:focus-visible { outline:2px solid var(--cyan); outline-offset:6px; }
+@media(max-width:540px) { .taunt-speech { padding:9px 11px; font-size:19px; } }
+
+/* Desktop hero: roast left, help and daily status right. */
+@media(min-width:900px) {
+ .home .hero { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); grid-template-areas:"roast help" "roast status"; align-items:center; column-gap:28px; row-gap:8px; padding-bottom:18px; }
+ .home .hero .tagline.taunt { grid-area:roast; justify-self:center; margin:0; top:0; max-width:100%; }
+ .home .hero .how2 { grid-area:help; width:100%; margin:0; }
+ .home .hero .meta { grid-area:status; justify-self:center; margin:0; max-width:100%; }
+ .home .hero .how2[open] { align-self:start; }
+}
+@media(min-width:900px) and (max-width:1150px) {
+ .home .hero { column-gap:16px; }
+ .home .hero .meta .pill { flex-direction:column; gap:5px; padding:8px 10px; font-size:18px; }
+ .home .hero .meta .hero-stat-label { font-size:12px; }
+ .home .hero .taunt-speech { font-size:20px; }
+}
+
+/* Frame the homepage intro as one compact arcade strip. */
+@media(min-width:900px) {
+ .home .hero { position:relative; margin:12px 0 22px; padding:16px 20px; border:1px solid var(--line); background:linear-gradient(90deg,#ff5d8f05,transparent 45%,#4de3ff05); box-shadow:4px 4px 0 #000; }
+ .home .hero::before { content:''; position:absolute; left:50%; top:12px; bottom:12px; border-left:1px dashed #29415d; pointer-events:none; }
+ .home .hero::after { content:''; position:absolute; left:-1px; top:-1px; width:18px; height:18px; border-left:2px solid var(--pink); border-top:2px solid var(--pink); pointer-events:none; }
+ .home .hero .tagline.taunt { padding:0 16px 0 0; }
+ .home .hero .how2 { padding-left:12px; }
+ .home .hero .meta { max-width:100%; }
+ .home .hero .meta .pill { padding:9px 12px; }
+}
+@media(min-width:900px) and (max-width:1150px) {
+ .home .hero { padding:14px; }
+ .home .hero .meta .pill { padding:8px; }
+}
+
+@media(min-width:900px) { .home .hero .tagline.taunt { justify-self:start; justify-content:flex-start; margin-left:0; padding-left:0; } }
+
+@media(max-width:899px) {
+ .home .hero .tagline.taunt { top:0; margin-top:24px; margin-bottom:14px; }
+ .home .hero > .logo { margin-bottom:4px; }
+}
+
+@media(min-width:900px) {
+ .home .hero { grid-template-areas:"roast status" "roast help"; }
+}
+.home .hero .how2 { margin-top:12px; }
