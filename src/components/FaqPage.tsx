@@ -36,9 +36,9 @@ const SECTIONS: { title: string; questions: [string, string][] }[] = [
   ] },
   { title: 'Account, progress & sharing', questions: [
     ['Do I need an account?', 'No. You can play as a guest and receive a random nickname. Online guest sessions can save scores, but you need that same browser session to access them. Offline/demo progress stays on your device.'],
-    ['How do I keep my progress?', 'Open My Skill Issue, enter your email, then click the confirmation link in your inbox. This saves your guest account so you can use it on other devices. No password needed. Check spam if the message is missing.'],
-    ['How do I sign in on another device?', 'Use the same email in My Skill Issue and click the new sign-in link. Your nickname, scores, streak, cars, friends, and challenges follow your account. Guest attempts made on the new device are not merged when you switch to an existing account.'],
-    ['What if I clear my browser data?', 'You may lose access to an anonymous guest session. Save your account with email first. An email-linked account can be restored by signing in again.'],
+    ['How do I keep my progress?', 'Open My Skill Issue and tap Continue with Google. This saves your guest account so you can use it on other devices. No password needed.'],
+    ['How do I sign in on another device?', 'Tap Continue with Google in My Skill Issue and pick the same Google account. Your nickname, scores, streak, cars, friends, and challenges follow your account. Guest attempts made on the new device are not merged when you switch to an existing account.'],
+    ['What if I clear my browser data?', 'You may lose access to an anonymous guest session. Save your account with Google first. A Google-linked account can be restored by signing in again.'],
     ['How do streaks and cars work?', 'Play daily to grow your streak and unlock car skins. My Skill Issue shows your stats, streak, and garage, including the streak required for each car. Pick an unlocked car there.'],
     ['Can I change my nickname?', 'Yes, from the result card. Nicknames are unique; if yours is taken, choose another.'],
     ['Share result, Save clip, or Beat my score?', 'Share result creates an image card. Save clip saves a daily attempt as a vertical video when your browser supports recording. Beat my score creates a tracked challenge link that friends can accept.'],

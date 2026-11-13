@@ -307,6 +307,8 @@ table.lb { width: 100%; border-collapse: collapse; font-size: 22px; }
 .acc-sent { color: var(--green); font-size: 22px; margin: 12px 0 0; }
 .google { background: #fff; color: #111; border-color: #000; }
 .google .g { color: #4285f4; font-weight: bold; margin-right: 6px; }
+.acc-conflict { display: grid; gap: 8px; justify-items: center; }
+.acc-conflict p { margin: 0; color: var(--yellow); font-size: 19px; }
 
 /* ---------- Corner buttons / settings ---------- */
 .mute-btn { display: none; }

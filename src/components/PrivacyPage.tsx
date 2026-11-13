@@ -24,8 +24,8 @@ export function PrivacyPage() {
         <li>Your tries and scores (with the date), your nickname, and bonus tries.</li>
         <li>Your friend connections and invite links, if you use the friends feature.</li>
         <li>
-          If you choose "save your progress": your email address, only to log you in on other
-          devices.
+          If you choose "Continue with Google": the email address of your Google account (Google shares your name and email with
+          us), only to log you in on other devices. We never see your Google password.
         </li>
       </ul>
       <p>Your nickname and daily scores are shown publicly on the leaderboards. Your id and email are never shown.</p>
