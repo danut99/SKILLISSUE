@@ -3,6 +3,7 @@ import { CAR_SKINS, MODE_INFO, MODES, type Mode } from '../config';
 import { emojiRow, fmtResult } from '../lib/scoring';
 import { bestAttempt, maxTries, modeDay, usePlayer } from '../lib/store';
 import { AccountCard } from './AccountCard';
+import { NicknameControl } from './NicknameControl';
 
 function Section({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -29,6 +30,9 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
       </header>
 
       <Section label="account">
+        <div className="me-box me-nickname">
+          <NicknameControl date={date} />
+        </div>
         <AccountCard page />
       </Section>
 

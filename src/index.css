@@ -550,6 +550,7 @@ body.low-power { background: var(--bg); }
 }
 .me-label::after { content: ''; flex: 1; border-top: 1px dashed var(--line); }
 
+.me-nickname { margin-bottom: 12px; font-size: 22px; }
 .me-box { border: 1px solid var(--line); background: rgba(16, 29, 51, 0.55); padding: 18px 20px; }
 .me-box h3 { margin: 0 0 4px; font-size: 30px; font-weight: normal; color: var(--text); }
 .me-box p { margin: 0 0 14px; color: var(--muted); font-size: 19px; }
