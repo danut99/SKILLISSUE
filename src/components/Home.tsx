@@ -154,8 +154,8 @@ export function Home({ date, onPlay }: Props) {
             <div className="gc-body">
               <div className="gc-title">{info.title}</div>
               <div className="gc-tag">{levelMode ? `Reach 85+. ${LEVEL_TRIES} tries per level. Pass to advance.` : m === 'draw' ? `Today's ${dailyDrawShape(date)}. One stroke. No excuses.` : info.tagline}</div>
-              <div className="gc-tries">{levelMode ? level.level > levelCount(m) ? 'All levels cleared' : `Level ${level.level} / ${levelCount(m)} ? ${Math.max(0,LEVEL_TRIES-level.used)} tries left` : dots}</div>
-              {levelMode && <div className="gc-level-stars">? {(level.records ?? []).reduce((sum, r) => sum + r.stars, 0)} / {levelCount(m) * 3}</div>}
+              <div className="gc-tries">{levelMode ? level.level > levelCount(m) ? 'All levels cleared' : `Level ${level.level} / ${levelCount(m)} - ${Math.max(0,LEVEL_TRIES-level.used)} tries left` : dots}</div>
+              {levelMode && <div className="gc-level-stars">&#9733; {(level.records ?? []).reduce((sum, r) => sum + r.stars, 0)} / {levelCount(m) * 3}</div>}
             </div>
             <div className={`gc-cta ${best ? 'played' : ''}`}>
               {levelMode ? (level.level > levelCount(m) ? 'Ladder cleared' : level.used >= LEVEL_TRIES ? 'Come back tomorrow' : `Play level ${level.level}`) : best ? (

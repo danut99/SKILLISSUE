@@ -70,12 +70,12 @@ export function LevelScreen({ mode, date }: { mode: LevelMode; date: string }) {
  const pickedRecord=progress.records?.find(r=>r.level===picked);
  const used=pickedRecord?.used??(picked===progress.level?progress.used:0);
  const bestStars=pickedRecord?.stars??0;
- const starText=(count:number)=>'?'.repeat(count)+'?'.repeat(3-count);
+ const starText=(count:number)=>'\u2605'.repeat(count)+'\u2606'.repeat(3-count);
  function choose(level:number){if(!canChoose||busy)return;setAttempt(null);setResult(null);setSaved(false);setSelected(level);setError('');}
  return <section className="screen level-screen">
   <a href="#">Back to games</a><h1>{MODE_INFO[mode].title} <small>Level mode</small></h1>
   <p>Score <b>85+</b> to advance. {LEVEL_TRIES} tries per level each day. Passing unlocks the next level immediately.</p>
-  <p className="level-star-guide">? 85+ &nbsp; ?? 90+ &nbsp; ??? 95+ ? Replay cleared levels to improve your best stars.</p>
+  <p className="level-star-guide">&#9733; 85+ &nbsp; &#9733;&#9733; 90+ &nbsp; &#9733;&#9733;&#9733; 95+ &middot; Replay cleared levels to improve your best stars.</p>
   {error&&<p className="party-error" role="alert">{error}</p>}
   <div className="level-picker" role="group" aria-label="Choose a level">
     {Array.from({length:totalLevels},(_,i)=>{
@@ -88,11 +88,11 @@ export function LevelScreen({ mode, date }: { mode: LevelMode; date: string }) {
   <div className="level-layout">
    <div>{attempt&&<GameCanvas gameRef={gameRef} canvasRef={canvasRef} date={date} label={`LEVEL ${shownLevel} / ${totalLevels}`} />}</div>
    <div className="card px-box level-status">
-    <h2>Level {shownLevel} / {totalLevels}{shownLevel<progress.level?' ? Cleared':''}</h2>
+    <h2>Level {shownLevel} / {totalLevels}{shownLevel<progress.level?' - Cleared':''}</h2>
     <p>{mode==='draw'?`Draw a ${LEVEL_SHAPES[shownLevel-1]}`:mode==='cut'?`Cut complexity ${shownLevel} - equal areas`:`Driving difficulty ${shownLevel} - faster each level`}</p>
     {result?<>
       <div className="level-score">{result.score.toFixed(1)} / 100</div>
-      {mode==='brake'&&<p className="level-distance">{fmtResult('brake',result)} ? 85/100 needed to pass</p>}
+      {mode==='brake'&&<p className="level-distance">{fmtResult('brake',result)} &middot; 85/100 needed to pass</p>}
       <div className="level-earned-stars" aria-label={`${starsForScore(result.score)} stars this attempt`}>{starText(starsForScore(result.score))}</div>
       <p role="status">{!saved?(busy?'Saving your result...':'Result not saved yet. Retry below.'):passed?complete?'All levels cleared! Replay any level to improve your stars.':progress.level===shownLevel+1?'Level cleared! Next level unlocked.':'Replay saved. Your best stars stay.':'Below 85. Your previous stars and unlocked levels stay saved.'}</p>
       {!saved&&!busy&&<button className="btn btn-ghost" onClick={()=>setRetrySave(n=>n+1)}>Retry saving</button>}
@@ -100,7 +100,7 @@ export function LevelScreen({ mode, date }: { mode: LevelMode; date: string }) {
     {loaded&&canChoose&&<>
       <p className="level-best-stars">Best: <span aria-label={`${bestStars} stars`}>{starText(bestStars)}</span>{pickedRecord?` ? ${pickedRecord.best_score.toFixed(1)}/100`:''}</p>
       {used<LEVEL_TRIES?<><p>{Math.max(0,LEVEL_TRIES-used)} tries left at level {picked}</p><button className="btn btn-primary" disabled={busy} onClick={()=>void begin(picked)}>{busy?'Starting...':picked<progress.level?'Replay level':attempt?'Retry level':'Start level'}</button></>:<p role="status">No tries left at level {picked}. Fresh tries in <Countdown /> (00:00 UTC). You can still play another unlocked level.</p>}
-      {passed&&!complete&&progress.level>shownLevel&&<button className="btn btn-ghost" disabled={busy} onClick={()=>choose(progress.level)}>Continue to level {progress.level} ?</button>}
+      {passed&&!complete&&progress.level>shownLevel&&<button className="btn btn-ghost" disabled={busy} onClick={()=>choose(progress.level)}>Continue to level {progress.level} &#8594;</button>}
     </>}
     <p className="me-fine">Each level has its own {LEVEL_TRIES} daily tries, including replays. Lower scores never reduce best stars. {mode==='draw'?'8 seconds per attempt.':mode==='cut'?'5 seconds per attempt.':'Tap to start, then tap or press Space to brake.'}</p>
    </div>
