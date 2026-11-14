@@ -1,6 +1,5 @@
 import { getSupabase } from './supabase';
-import { syncFromServer, useAuth } from './auth';
-import { usePlayer } from './store';
+import { applyUser, syncFromServer, useAuth } from './auth';
 
 export async function googleNonce() {
   const raw = Array.from(crypto.getRandomValues(new Uint8Array(32)), value => value.toString(16).padStart(2,'0')).join('');
@@ -22,8 +21,7 @@ export async function acceptGoogleCredential(token: string, nonce: string, owner
     throw new Error('Google sign-in could not finish. Please try Continue with Google.');
   }
   if (!data.user) throw new Error('Google sign-in did not return a player. Please try again.');
-  if (switchAccount && data.user.id !== owner) usePlayer.getState().resetPlayer();
-  useAuth.setState({ status:'linked',userId:data.user.id,email:data.user.email??null,providers:(data.user.identities??[]).map(identity=>identity.provider),conflict:null });
+  applyUser(data.user);
   await syncFromServer();
   return 'linked';
 }

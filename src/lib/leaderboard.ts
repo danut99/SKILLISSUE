@@ -354,9 +354,12 @@ export async function claimNickname(date: string, raw: string): Promise<{ ok: tr
   raw = raw.trim();
   if (!validNickname(raw)) return { ok: false, reason: 'invalid' };
   await whenAuthReady();
+  const owner = useAuth.getState().userId;
   const sb = await getSupabase();
+  if (useAuth.getState().userId !== owner) return { ok: false, reason: 'error' };
   if (sb && isOnline()) {
     const { data, error } = await sb.rpc('set_nickname', { p_nickname: raw });
+    if (useAuth.getState().userId !== owner) return { ok: false, reason: 'error' };
     if (error) return { ok: false, reason: error.message.includes('nickname_taken') ? 'taken' : error.message.includes('bad_nickname') ? 'invalid' : 'error' };
     nameClaimedFor = useAuth.getState().userId;
     return { ok: true, nickname: String(data) };

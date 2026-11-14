@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { getSupabase, isSupabaseConfigured, redirectUrl } from './supabase';
 import { usePlayer, type ServerState } from './store';
 import { toast, useUi } from './ui';
+import { bindPlayerIdentity } from './playerIdentity';
 
 /**
  * Identity model (like Krillion):
@@ -35,15 +36,23 @@ export const isOnline = () => {
   return s === 'anon' || s === 'linked';
 };
 
-function applyUser(user: User | null) {
-  if (!user) return;
+export function applyUser(user: User | null) {
+  if (!user) {
+    bindPlayerIdentity(null);
+    useAuth.setState({ status: 'connecting', userId: null, email: null, providers: [], conflict: null });
+    window.google?.accounts.id.cancel();
+    return;
+  }
+  bindPlayerIdentity(user.id);
   if (!user.is_anonymous) sessionStorage.removeItem(SWITCH_KEY);
   useAuth.setState({
     status: user.is_anonymous ? 'anon' : 'linked',
     userId: user.id,
     email: user.email ?? null,
     providers: (user.identities ?? []).map((i) => i.provider).filter((p) => p !== 'anonymous'),
+    conflict: null,
   });
+  if (!user.is_anonymous) window.google?.accounts.id.cancel();
 }
 
 const SWITCH_KEY = 'skillissue:google-switch';
@@ -68,9 +77,11 @@ function readUrlError() {
 }
 
 export async function syncFromServer() {
+  const owner = useAuth.getState().userId;
   const sb = await getSupabase();
-  if (!sb || !isOnline()) return;
+  if (!sb || !owner || !isOnline() || useAuth.getState().userId !== owner) return;
   const { data, error } = await sb.rpc('get_my_state');
+  if (useAuth.getState().userId !== owner || !isOnline()) return;
   if (error) return console.warn('get_my_state failed', error);
   usePlayer.getState().hydrate(data as ServerState);
   useUi.getState().refreshBoards();
@@ -91,7 +102,12 @@ async function init() {
     return;
   }
   readUrlError();
-  let user = (await sb.auth.getSession()).data.session?.user ?? null;
+  const restored = await sb.auth.getSession();
+  if (restored.error) {
+    useAuth.setState({ status: 'error' });
+    return; // Do not replace an account with a guest after a restore error.
+  }
+  let user = restored.data.session?.user ?? null;
   if (!user) {
     const { data, error } = await sb.auth.signInAnonymously();
     if (error) {
@@ -104,9 +120,10 @@ async function init() {
   applyUser(user);
   sb.auth.onAuthStateChange((_event, session) => {
     const prev = useAuth.getState().userId;
+    const prevStatus = useAuth.getState().status;
     applyUser(session?.user ?? null);
     // never await Supabase calls inside this callback (SDK deadlock) → defer
-    if (session?.user && session.user.id !== prev) setTimeout(() => void syncFromServer(), 0);
+    if (session?.user && (session.user.id !== prev || useAuth.getState().status !== prevStatus)) setTimeout(() => void syncFromServer(), 0);
   });
   await syncFromServer();
 }
@@ -157,8 +174,9 @@ export async function signOut() {
   if (!sb) return;
   window.google?.accounts.id.disableAutoSelect();
   sessionStorage.setItem('skillissue:one-tap-shown', '1');
-  await sb.auth.signOut();
-  usePlayer.getState().resetPlayer();
+  const { error: signOutError } = await sb.auth.signOut();
+  if (signOutError) { toast('Could not sign out. Please try again.'); return; }
+  applyUser(null);
   const { data, error } = await sb.auth.signInAnonymously();
   if (error) {
     useAuth.setState({ status: 'error' });

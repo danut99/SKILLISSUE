@@ -70,6 +70,7 @@ export function streakFrom(dates: string[], today: string): number {
 }
 
 interface PlayerState {
+  accountOwner: string | null;
   playerId: string;
   nickname: string;
   muted: boolean;
@@ -142,6 +143,7 @@ export function longestStreak(dates: string[]): number {
 export const usePlayer = create<PlayerState>()(
   persist(
     (set) => ({
+      accountOwner: null,
       playerId: uuid(),
       nickname: randomName(),
       muted: false,

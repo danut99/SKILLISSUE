@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { GOOGLE_CLIENT_ID } from '../config';
-import { useAuth } from '../lib/auth';
+import { useAuth, whenAuthReady } from '../lib/auth';
 import { acceptGoogleCredential, googleNonce, loadGoogleIdentity } from '../lib/googleOneTap';
 import { toast } from '../lib/ui';
 
@@ -11,8 +11,9 @@ export function GoogleOneTap({ eligible }: { eligible: boolean }) {
   useEffect(()=>{
     if(!eligible||status!=='anon'||!userId||!GOOGLE_CLIENT_ID||sessionStorage.getItem('skillissue:one-tap-shown'))return;
     let active=true;
-    void Promise.all([loadGoogleIdentity(),googleNonce()]).then(([google,nonce])=>{
-      if(!active)return;
+    void Promise.all([loadGoogleIdentity(),googleNonce(),whenAuthReady()]).then(([google,nonce])=>{
+      const current=useAuth.getState();
+      if(!active||current.status!=='anon'||current.userId!==userId)return;
       google.initialize({client_id:GOOGLE_CLIENT_ID,nonce:nonce.hashed,auto_select:false,use_fedcm_for_prompt:true,
         callback:response=>{
           if(!active)return;

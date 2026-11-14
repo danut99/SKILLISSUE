@@ -1,7 +1,7 @@
 import {beforeEach,describe,expect,it,vi} from 'vitest';
-const mocks=vi.hoisted(()=>({auth:{status:'anon',userId:'guest'},link:vi.fn(),signIn:vi.fn(),sync:vi.fn(),reset:vi.fn(),set:vi.fn()}));
+const mocks=vi.hoisted(()=>({auth:{status:'anon',userId:'guest'},link:vi.fn(),signIn:vi.fn(),sync:vi.fn(),reset:vi.fn(),apply:vi.fn(),set:vi.fn()}));
 vi.mock('./supabase',()=>({getSupabase:async()=>({auth:{linkIdentity:mocks.link,signInWithIdToken:mocks.signIn}})}));
-vi.mock('./auth',()=>({useAuth:{getState:()=>mocks.auth,setState:mocks.set},syncFromServer:mocks.sync}));
+vi.mock('./auth',()=>({useAuth:{getState:()=>mocks.auth,setState:mocks.set},syncFromServer:mocks.sync,applyUser:mocks.apply}));
 vi.mock('./store',()=>({usePlayer:{getState:()=>({resetPlayer:mocks.reset})}}));
 import {acceptGoogleCredential,googleNonce} from './googleOneTap';
 describe('Google One Tap identity handling',()=>{
@@ -19,7 +19,7 @@ describe('Google One Tap identity handling',()=>{
  it('switches only with explicit consent and clears guest display data',async()=>{
   mocks.signIn.mockResolvedValue({data:{user:{id:'existing'}},error:null});
   expect(await acceptGoogleCredential('token','nonce','guest',true)).toBe('linked');
-  expect(mocks.link).not.toHaveBeenCalled();expect(mocks.reset).toHaveBeenCalled();expect(mocks.sync).toHaveBeenCalled();
+  expect(mocks.link).not.toHaveBeenCalled();expect(mocks.apply).toHaveBeenCalledWith({id:'existing'});expect(mocks.sync).toHaveBeenCalled();
  });
  it('preserves the guest when an exchange fails',async()=>{
   mocks.signIn.mockResolvedValue({data:{user:null},error:{code:'invalid_credentials'}});
