@@ -75,6 +75,6 @@ export const CAR_SKINS = [
 
 /** Social / contact links shown in the menu. Replace before launch (leave '' to hide). */
 export const LINKS = {
-  tiktok: '',
+  tiktok: 'https://www.tiktok.com/@playskillissue',
   feedback: 'mailto:bocadanut99@gmail.com?subject=SKILL%20ISSUE%20feedback',
 };

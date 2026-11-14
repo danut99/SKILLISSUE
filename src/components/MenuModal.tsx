@@ -91,7 +91,7 @@ export function MenuModal({ open, route, onClose, onNavigate, onSettings }: Prop
                 <span className="ml-icon"><PixelIcon name="social" size={32} /></span>
                 <span className="ml-copy">
                   <span className="ml-label">follow on tiktok</span>
-                  <span className="ml-detail">fails, crashes &amp; daily top 10</span>
+                  <span className="ml-detail">@playskillissue &middot; fails, crashes &amp; daily top 10</span>
                 </span>
                 <span className="ml-arrow">↗</span>
               </a>

@@ -6,7 +6,7 @@ import { PartyStats } from './PartyStats';
 import { ChallengeInbox } from './ChallengeInbox';
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { MODE_INFO, MODES, type Mode } from '../config';
+import { LINKS, MODE_INFO, MODES, type Mode } from '../config';
 import { addDays, dayNumber } from '../lib/daily';
 import { emojiRow, fmtResult, overallBadge } from '../lib/scoring';
 import { bestAttempt, maxTries, modeDay, totalScore, usePlayer } from '../lib/store';
@@ -222,6 +222,7 @@ export function Home({ date, onPlay }: Props) {
 
       <p className="footer-note">
         <a href="#privacy">privacy</a> · <a href="#how">how to play</a>
+        {LINKS.tiktok && <> &middot; <a href={LINKS.tiktok} target="_blank" rel="noopener noreferrer">TikTok @playskillissue</a></>}
       </p>
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} date={date} />
     </section>

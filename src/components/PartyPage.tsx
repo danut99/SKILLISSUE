@@ -72,7 +72,7 @@ export function PartyPage() {
     if (busy) return;
     setBusy(true);
     const before = Date.now();
-    try { const room = await action(); updateRoom(room, before); if(room.reused_room) toast('Your existing party is still open. Invite someone or leave it to create a new one.'); if (room.token !== token) { location.hash = `party/${room.token}`; setToken(room.token); } }
+    try { const room = await action(); updateRoom(room, before); if(room.reused_room) toast('Reopened your empty lobby. Rooms with other players or match history stay separate.'); if (room.token !== token) { location.hash = `party/${room.token}`; setToken(room.token); } }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not update party.'); }
     finally { setBusy(false); }
   }
@@ -114,7 +114,7 @@ export function PartyPage() {
         <p className="party-entry-description">Bring your friends. Find out who's the skill issue.</p>
         <div className="party-entry-badges"><span>2&ndash;8 players</span><span>16s rounds</span><span>Pick your games</span></div>
         <button className="btn btn-primary party-create-button" disabled={busy} onClick={() => void run(() => createPartyRoom())}>{busy ? 'Creating...' : 'Create party'} <span aria-hidden="true">&#8594;</span></button>
-        <p className="me-fine">Public by default. Make it private in the lobby.<br />Already hosting? We'll reopen your room.</p>
+        <p className="me-fine">Public by default. Make it private in the lobby.<br />An unused solo lobby is reused. Played rooms stay separate.</p>
       </div>} />
     </> : !room ? <div className="me-box"><p>{error ? 'Check your connection or create a new party.' : 'Loading party...'}</p><a href="#party">New party</a></div> : <>
       <div className="party-room-bar"><span>Room {room.code ?? room.token.slice(0, 6).toUpperCase()} <small>Match {room.match_no}</small></span><button className="btn btn-ghost btn-sm" onClick={() => void copyText(partyUrl(room.token)).then(ok => toast(ok ? 'Room link copied. Send it to your friends!' : 'Could not copy link.'))}>Copy invite</button><button className="btn btn-primary btn-sm" onClick={() => void sharePartyInvite(room).catch(() => toast('Could not share invite.'))}>Share invite</button></div>
