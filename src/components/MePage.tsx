@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+import { RankCalendar } from './RankCalendar';
+import { lazy, Suspense, type ReactNode } from 'react';
+const ProgressCharts = lazy(() => import('./ProgressCharts'));
 import { CAR_SKINS, MODE_INFO, MODES, type Mode } from '../config';
 import { emojiRow, fmtResult } from '../lib/scoring';
 import { bestAttempt, maxTries, modeDay, usePlayer } from '../lib/store';
@@ -21,31 +23,26 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
   const { streak, bestStreak, daysPlayed, bestTotal, nickname, days, carSkin, setCarSkin } = usePlayer();
 
   return (
-    <section className="screen me-page">
+    <section className="screen me-page profile-page">
 
       <header className="me-hero">
         <p className="me-eyebrow">your logbook</p>
         <h1>My Skill Issue</h1>
-        <p className="me-sub">{nickname ? `Playing as ${nickname}. One history, every device.` : 'Your tests. One history. Every device.'}</p>
+        <p className="me-sub">{nickname ? `Playing as ${nickname}` : 'Your scores, progress and daily places.'}</p>
       </header>
 
+
+      <div className="profile-account-banner">
       <Section label="account">
         <div className="me-box me-nickname">
           <NicknameControl date={date} />
         </div>
         <AccountCard page />
       </Section>
-
-      <Section label="friends">
-        <div className="me-box">
-          <h3>Play with your friends.</h3>
-          <p>Invite friends and compare daily scores on your own private leaderboard.</p>
-          <a className="btn btn-primary" href="#friends">Invite friends</a>
-        </div>
-      </Section>
-
-      <Section label="on this device">
-        <dl className="me-stats">
+      </div>
+      <div className="profile-overview">
+        <div className="profile-progress-column">
+      <Suspense fallback={<p role="status">Loading progress charts...</p>}><ProgressCharts date={date}><div className="progress-lifetime"><h3 className="progress-chart-title">Overall stats</h3>        <dl className="me-stats">
           <div>
             <dt>Current streak</dt>
             <dd>{streak}</dd>
@@ -63,9 +60,11 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
             <dd>{bestTotal.toFixed(1)}</dd>
           </div>
         </dl>
-        <p className="me-note">Streaks count consecutive days with at least one try. Each new day starts at 00:00 UTC.</p>
-      </Section>
-
+        <p className="me-note">Streaks grow when you play on consecutive days.</p>
+</div></ProgressCharts></Suspense>
+        </div>
+        <div className="profile-summary-column">
+      <RankCalendar date={date} />
       <Section label="today's tests">
         <ul className="me-list">
           {MODES.map((m) => {
@@ -81,18 +80,22 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
               </li>
             );
           })}
-          <li className="dim">
-            <span>Archive →</span>
-            <span>coming soon</span>
-          </li>
-          <li className="dim">
-            <span>Practice mode →</span>
-            <span>coming soon</span>
-          </li>
         </ul>
       </Section>
 
-      <Section label="garage · brake! cars">
+
+      <Section label="friends">
+        <div className="me-box">
+          <p>Compare daily scores with your friends.</p>
+          <a className="btn btn-primary" href="#friends">Invite friends</a>
+        </div>
+      </Section>
+
+
+        </div>
+      </div>
+      <div className="profile-settings-grid">
+      <Section label="garage">
         <div className="me-garage">
           {CAR_SKINS.map((s) => {
             const unlocked = bestStreak >= s.streak;
@@ -113,6 +116,8 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
           })}
         </div>
       </Section>
+
+      </div>
     </section>
   );
 }

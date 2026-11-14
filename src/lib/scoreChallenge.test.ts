@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { challengeUrl, readScoreChallenge } from './scoreChallenge';
 
 describe('score challenge links', () => {
+  it('roundtrips Balance friend links using the same validated comparison format', () => {
+    const url = challengeUrl('https://example.com/#balance', 'balance', '2026-11-14', 'PipFan', { score: 96.5, detail: {}, at: 1 });
+    expect(readScoreChallenge(new URL(url).hash)).toMatchObject({ mode: 'balance', date: '2026-11-14', name: 'PipFan', attempt: { score: 96.5 } });
+    expect(readScoreChallenge('#balance/beat?date=2026-11-14&score=101')).toBeNull();
+  });
   it('roundtrips a cut challenge and preserves its day and score', () => {
     const url = challengeUrl('https://example.com/game/#draw', 'cut', '2026-11-12', 'A & B', { score: 98, detail: { a: 49.5, b: 50.5 }, at: 123 });
     const parsed = readScoreChallenge(new URL(url).hash);

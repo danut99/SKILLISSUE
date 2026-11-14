@@ -6,7 +6,7 @@ import { useAuth } from '../lib/auth';
 import { PartyStats } from './PartyStats';
 import { ChallengeInbox } from './ChallengeInbox';
 import { useEffect, useState } from 'react';
-import { motion } from 'motion/react';
+import { motion, useReducedMotion } from 'motion/react';
 import { LINKS, MODE_INFO, MODES, type Mode } from '../config';
 import { addDays, dayNumber } from '../lib/daily';
 import { emojiRow, fmtResult, overallBadge } from '../lib/scoring';
@@ -39,6 +39,8 @@ interface Props {
 }
 
 export function Home({ date, onPlay }: Props) {
+  const lowPower = usePlayer(s => s.settings.lowPower);
+  const reducedMotion = useReducedMotion();
   const [gameModes, setGameModes] = useState<Record<string, 'daily' | 'level'>>({});
   const levelOwner = useAuth(s => s.userId);
   const authStatus = useAuth(s => s.status);
@@ -83,7 +85,11 @@ export function Home({ date, onPlay }: Props) {
           onMouseLeave={() => setPaused(false)}
           title="click for another insult"
         >
-          <img className="taunt-demon" src={pixelArtUrl('demon-192.png')} width="56" height="56" alt="" aria-hidden="true" />
+          <img className="taunt-demon" src={pixelArtUrl(lowPower || reducedMotion ? 'demon-192.png' : 'demon-taunt.webp')} width="56" height="56" alt="" aria-hidden="true"
+            onError={e => {
+              const fallback = pixelArtUrl('demon-192.png');
+              if (!e.currentTarget.src.endsWith(fallback)) e.currentTarget.src = fallback;
+            }} />
           <motion.span className="taunt-speech" key={line} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }} style={{ display: 'inline-block' }}>
             {TAGLINES[line]}
           </motion.span>
@@ -173,6 +179,18 @@ export function Home({ date, onPlay }: Props) {
         );
       })}
       </div>
+
+      <a className="card px-box balance-promo" href="#balance">
+        <PixelIcon name="balance" size={64} />
+        <div><span className="party-beta">Playable beta</span><h2>BALANCE!</h2><p>One plank. Two creatures. Find the balance point.</p></div>
+        <span className="btn btn-primary">Try Balance! &#8594;</span>
+      </a>
+
+      <a className="card px-box balance-promo count-promo" href="#count">
+        <PixelIcon name="count" size={64} />
+        <div><span className="party-beta">New challenge</span><h2>COUNT FAST</h2><p>A quick flash. How many dots? Five rounds to prove your eyes work.</p></div>
+        <span className="btn btn-primary">Play Count Fast →</span>
+      </a>
 
       <section className="card px-box home-party party-promo" aria-labelledby="home-party-title">
         <div className="party-promo-main">

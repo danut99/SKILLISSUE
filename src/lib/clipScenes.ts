@@ -9,10 +9,13 @@ export const CLIP_GAMEPLAY_MS = 8000;
 // without making players wait six seconds for an identical still frame.
 export const CLIP_RESULT_MS = 1500;
 export const CLIP_OUTRO_MS = 1500;
-export interface ClipResult { mode: Mode; attempt: Attempt }
+export type ClipMode = Mode | 'balance';
+const CLIP_INFO = { ...MODE_INFO, balance: { title: 'Balance!', color: '#ffd23f' } };
+export interface ClipResult { mode: ClipMode; attempt: Attempt }
 /** Invite a prediction before the outcome; never spoil or invent a score. */
-export function clipHook(mode: Mode) {
+export function clipHook(mode: ClipMode) {
  return {
+  balance: { title: 'WHERE WOULD YOU PUT IT?', prompt: 'Two friends. One support. Your call.' },
   draw: { title: 'ONE STROKE. NO UNDO.', prompt: 'Could you draw it better?' },
   cut: { title: 'CALL THE SPLIT.', prompt: '50/50 or absolute robbery?' },
   brake: { title: 'WHEN WOULD YOU BRAKE?', prompt: 'One tap. No second chances.' },
@@ -27,7 +30,13 @@ function label(c:CanvasRenderingContext2D,value:string,y:number,size:number,colo
 }
 export function clipWebsite(url=typeof document!=='undefined' ? document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href ?? siteUrl() : siteUrl()) { try { const u=new URL(url);return u.host+(u.pathname==='/'?'':u.pathname.replace(/\/$/,'')); }catch{return url.replace(/^https?:\/\//,'').replace(/\/$/,'');} }
 type Roast = readonly [string, string];
-const GAME_ROASTS: Record<Mode, { great: Roast[]; good: Roast[]; bad: Roast[]; fail: Roast[] }> = {
+const GAME_ROASTS: Record<ClipMode, { great: Roast[]; good: Roast[]; bad: Roast[]; fail: Roast[] }> = {
+ balance: {
+  great: [['Gravity just hired you.', 'Balance better. Save their lunch.']],
+  good: [['The plank is holding its breath.', 'Find the sweet spot.']],
+  bad: [['Two friends. Zero trust left.', 'Balance better. Rescue lunch.']],
+  fail: [['Gravity won the argument.', 'Your turn. Keep them level.']],
+ },
  draw: {
   great: [
    ['Bro swallowed a compass.', 'Draw better. No tools.'],
@@ -107,7 +116,7 @@ const GAME_ROASTS: Record<Mode, { great: Roast[]; good: Roast[]; bad: Roast[]; f
   ],
  },
 };
-export function clipTaunt(score:number, choice=Math.random(), mode:Mode='draw', detail:Detail={}) {
+export function clipTaunt(score:number, choice=Math.random(), mode:ClipMode='draw', detail:Detail={}) {
  let pool=GAME_ROASTS[mode][score>=95?'great':score>=85?'good':score>0?'bad':'fail'];
  if(mode==='brake'&&detail.crashed) pool=[
   ['The wall won the staring contest.', 'Brake better. Spare the wall.'],
@@ -131,14 +140,14 @@ export function clipTaunt(score:number, choice=Math.random(), mode:Mode='draw', 
  const value=score.toFixed(1).replace(/\.0$/,'');
  return {joke:`${value}/100. ${pool[index][0]}`,challenge:pool[index][1]};
 }
-export function createClipPainter(source:HTMLCanvasElement, gameplayMode:Mode='draw'){
+export function createClipPainter(source:HTMLCanvasElement, gameplayMode:ClipMode='draw'){
  let resultSource=source;
  let taunt:ReturnType<typeof clipTaunt>|null=null;
  const freeze=()=>{const frozen=document.createElement('canvas');frozen.width=source.width;frozen.height=source.height;frozen.getContext('2d')!.drawImage(source,0,0);resultSource=frozen;};
  const canvas=document.createElement('canvas');canvas.width=WIDTH;canvas.height=HEIGHT;
  const c=canvas.getContext('2d')!;
  const demon=new Image();demon.src=pixelArtUrl('demon-192.png');
- void demon.decode().catch(()=>{});
+ const ready=demon.decode().catch(()=>{});
  const background=()=>{c.fillStyle='#050a14';c.fillRect(0,0,WIDTH,HEIGHT);c.strokeStyle='#122238';c.lineWidth=1;for(let x=0;x<WIDTH;x+=40){c.beginPath();c.moveTo(x,0);c.lineTo(x,HEIGHT);c.stroke();}for(let y=0;y<HEIGHT;y+=40){c.beginPath();c.moveTo(0,y);c.lineTo(WIDTH,y);c.stroke();}};
  const paint=(stage:'gameplay'|'result'|'outro',result?:ClipResult)=>{
   background();
@@ -151,7 +160,7 @@ export function createClipPainter(source:HTMLCanvasElement, gameplayMode:Mode='d
    label(c,hook.prompt,220,32,'#e8f1ff',510);
    // Larger action, with room around it for TikTok's top, right and bottom UI.
    // Keep the entire game visible: cropping can hide a driving target or timer.
-   c.strokeStyle=MODE_INFO[gameplayMode].color;c.lineWidth=3;
+   c.strokeStyle=CLIP_INFO[gameplayMode].color;c.lineWidth=3;
    c.strokeRect(151,258,418,740);
    c.drawImage(source,153,260,414,736);
    label(c,clipWebsite(),1040,30,'#4de3ff',490);
@@ -165,12 +174,12 @@ export function createClipPainter(source:HTMLCanvasElement, gameplayMode:Mode='d
   label(c,'SKILL ISSUE',215,58,'#e8f1ff');
   if(!result){c.restore();return;}
   const {mode,attempt}=result;
-  label(c,MODE_INFO[mode].title.toUpperCase(),280,32,MODE_INFO[mode].color);
+  label(c,CLIP_INFO[mode].title.toUpperCase(),280,32,CLIP_INFO[mode].color);
   // One closing card: a single result, a clean central game crop, roast,
   // challenge and centered website. Both closing phases use this same layout.
-  const primary=mode==='draw'?`${attempt.score.toFixed(1)} / 100`:fmtResult(mode,attempt);
+  const primary=mode==='draw'||mode==='balance'?`${attempt.score.toFixed(1)} / 100`:fmtResult(mode,attempt);
   label(c,primary,345,mode==='draw'?86:76,'#ffd23f');
-  if(mode!=='draw') label(c,`${attempt.score.toFixed(1)} / 100`,397,26,'#e8f1ff');
+  if(mode!=='draw'&&mode!=='balance') label(c,`${attempt.score.toFixed(1)} / 100`,397,26,'#e8f1ff');
   const sx=resultSource.width/360,sy=resultSource.height/640;
   c.save();
   // Website, preview, reaction and CTA share the same 528px column.
@@ -204,5 +213,5 @@ export function createClipPainter(source:HTMLCanvasElement, gameplayMode:Mode='d
   c.restore();
 
  };
- return {canvas,paint,freeze};
+ return {canvas,paint,freeze,ready};
 }

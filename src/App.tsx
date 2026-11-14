@@ -1,4 +1,7 @@
+import { GoogleOneTap } from './components/GoogleOneTap';
 import { LevelScreen } from './components/LevelScreen';
+import { BalancePage } from './components/BalancePage';
+import { CountPage } from './components/CountPage';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { LINKS, MODES, type Mode } from './config';
@@ -24,7 +27,7 @@ import { tag, track } from './lib/clarity';
 
 const PartyPage = lazy(() => import('./components/PartyPage').then(module => ({ default: module.PartyPage })));
 
-const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party', 'levels'] as const;
+const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party', 'levels', 'balance', 'count'] as const;
 const ChallengePreview = import.meta.env.DEV
   ? lazy(() => import('./components/ChallengesPage').then(module => ({ default: module.ChallengesPage })))
   : null;
@@ -152,6 +155,10 @@ export default function App() {
       <main id="app" key={settings.colorblind ? 'cb' : 'std'}>
         {mode === 'challenges' ? (
           ChallengePreview ? <Suspense fallback={<p>Loading preview…</p>}><ChallengePreview today={date} /></Suspense> : <Home date={date} onPlay={navigate} />
+        ) : mode === 'count' ? (
+          <CountPage date={date} />
+        ) : mode === 'balance' ? (
+          <BalancePage key={date} date={date} />
         ) : mode === 'privacy' ? (
           <PrivacyPage />
         ) : mode === 'faq' ? (
@@ -170,6 +177,7 @@ export default function App() {
           <Home date={date} onPlay={navigate} />
         )}
       </main>
+      <GoogleOneTap eligible={(mode === null || mode === 'me') && !menuOpen && !settingsOpen && !leaderboardOpen} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       {leaderboardOpen && <MobileLeaderboard key={`${mode}:${date}`} date={date}
         initialMode={mode && MODES.includes(mode as Mode) ? mode as Mode : 'overall'}

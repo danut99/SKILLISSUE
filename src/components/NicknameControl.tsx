@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { claimNickname } from '../lib/leaderboard';
 import { cleanNickname, usePlayer } from '../lib/store';
 import { toast, useUi } from '../lib/ui';
+import { NICKNAME_RULES, validNickname } from '../lib/nickname';
 
 export function NicknameControl({ date }: { date: string }) {
   const nickname = usePlayer(s => s.nickname);
@@ -14,13 +15,14 @@ export function NicknameControl({ date }: { date: string }) {
   async function submit(e: FormEvent) {
     e.preventDefault();
     const clean = cleanNickname(nick);
+    if (!validNickname(nick.trim())) return toast(NICKNAME_RULES);
     if (!clean) return toast('Pick a nickname first 🙃');
     if (clean === nickname) return setEditing(false);
     setBusy(true);
     try {
       const r = await claimNickname(date, clean);
       if (!r.ok) {
-        toast(r.reason === 'taken' ? `"${clean}" is taken 😤 pick another` : 'Leaderboard hiccup. Try again 😵');
+        toast(r.reason === 'invalid' ? NICKNAME_RULES : r.reason === 'taken' ? `"${clean}" is taken 😤 pick another` : 'Leaderboard hiccup. Try again 😵');
         return;
       }
       setNickname(r.nickname);

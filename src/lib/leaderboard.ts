@@ -99,10 +99,10 @@ end $$;
 -- Claim / rename nickname. Raises 'nickname_taken' if someone else owns it.
 create or replace function public.set_nickname(p_nickname text)
 returns text language plpgsql security definer set search_path = public as $$
-declare v text := left(btrim(regexp_replace(coalesce(p_nickname, ''), '[[:cntrl:]<>]', '', 'g')), 15);
+declare v text := btrim(coalesce(p_nickname, ''));
 begin
   if auth.uid() is null then raise exception 'not_authenticated'; end if;
-  if char_length(v) < 1 then raise exception 'bad_nickname'; end if;
+  if char_length(v) not between 1 and 15 or v !~ '^[A-Za-z0-9][A-Za-z0-9 _-]*$' then raise exception 'bad_nickname'; end if;
   begin
     insert into profiles (id, nickname) values (auth.uid(), v)
     on conflict (id) do update set nickname = excluded.nickname;
@@ -313,6 +313,8 @@ function mockSubmitAll(date: string, nickname: string) {
 // Public API — Supabase when online, demo board otherwise
 // ---------------------------------------------------------------------------
 
+import { validNickname } from './nickname';
+
 let nameClaimedFor: string | null = null;
 
 /** Online: make sure the auto-assigned name is registered (unique) before the first score shows up. */
@@ -348,12 +350,14 @@ export async function recordAttempt(date: string, mode: Mode, a: Attempt): Promi
 }
 
 /** Claim a (unique) nickname. Online scores are already recorded, so this is all "Submit Score" needs. */
-export async function claimNickname(date: string, raw: string): Promise<{ ok: true; nickname: string } | { ok: false; reason: 'taken' | 'error' }> {
+export async function claimNickname(date: string, raw: string): Promise<{ ok: true; nickname: string } | { ok: false; reason: 'taken' | 'invalid' | 'error' }> {
+  raw = raw.trim();
+  if (!validNickname(raw)) return { ok: false, reason: 'invalid' };
   await whenAuthReady();
   const sb = await getSupabase();
   if (sb && isOnline()) {
     const { data, error } = await sb.rpc('set_nickname', { p_nickname: raw });
-    if (error) return { ok: false, reason: error.message.includes('nickname_taken') ? 'taken' : 'error' };
+    if (error) return { ok: false, reason: error.message.includes('nickname_taken') ? 'taken' : error.message.includes('bad_nickname') ? 'invalid' : 'error' };
     nameClaimedFor = useAuth.getState().userId;
     return { ok: true, nickname: String(data) };
   }

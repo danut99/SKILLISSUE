@@ -1,9 +1,10 @@
 import { MODES, type Mode } from '../config';
 import type { Attempt, Detail } from './store';
 
-export interface ScoreChallenge { mode: Mode; date: string; name: string; attempt: Attempt }
+type ChallengeMode = Mode | 'balance';
+export interface ScoreChallenge { mode: ChallengeMode; date: string; name: string; attempt: Attempt }
 
-export function challengeUrl(base: string, mode: Mode, date: string, name: string, attempt: Attempt): string {
+export function challengeUrl(base: string, mode: ChallengeMode, date: string, name: string, attempt: Attempt): string {
   const url = new URL(base);
   url.search = '';
   const params = new URLSearchParams({ date, name: name.slice(0, 30), score: String(attempt.score) });
@@ -18,10 +19,10 @@ export function challengeUrl(base: string, mode: Mode, date: string, name: strin
 
 export function readScoreChallenge(hash: string): ScoreChallenge | null {
   if (hash.length > 1500) return null;
-  const match = /^#(draw|cut|brake)\/beat\?(.+)$/.exec(hash);
+  const match = /^#(draw|cut|brake|balance)\/beat\?(.+)$/.exec(hash);
   if (!match) return null;
-  const mode = match[1] as Mode;
-  if (!MODES.includes(mode)) return null;
+  const mode = match[1] as ChallengeMode;
+  if (mode !== 'balance' && !MODES.includes(mode)) return null;
   const p = new URLSearchParams(match[2]);
   const date = p.get('date') ?? '';
   const rawScore = p.get('score');

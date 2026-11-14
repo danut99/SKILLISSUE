@@ -9,7 +9,7 @@ import { PixelIcon, type PixelIconName } from './PixelIcon';
 
 const PODIUM_CROWNS: PixelIconName[] = ['crown-gold', 'crown-silver', 'crown-bronze'];
 
-function LeaderboardRank({ rank }: { rank: number }) {
+export function LeaderboardRank({ rank }: { rank: number }) {
   if (rank > 3) return <>#{rank}</>;
   return <span className={`leaderboard-crown place-${rank}`} aria-label={`Rank ${rank}`} title={`Rank ${rank}`}>
     <PixelIcon name={PODIUM_CROWNS[rank - 1]} size={18} />

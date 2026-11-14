@@ -512,7 +512,7 @@ body.low-power { background: var(--bg); }
   padding: 26px 14px 14px;
   transition: transform 0.12s ease, border-color 0.15s ease;
 }
-/* accent corner brackets ⌐ ¬ */
+/* accent corner brackets âŒ Â¬ */
 .game-card::before,
 .game-card::after {
   content: '';
@@ -646,7 +646,7 @@ body.low-power { background: var(--bg); }
   .me-hero h1 { font-size: 46px; }
 }
 
-/* ---------- Top bar: ☰ · mini logo · sound/settings (replaces "← home" buttons) ---------- */
+/* ---------- Top bar: â˜° Â· mini logo Â· sound/settings (replaces "â† home" buttons) ---------- */
 .topbar {
   display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px;
   max-width: 1320px; margin: 0 auto; padding: 10px 12px 0;
@@ -921,7 +921,7 @@ body.low-power .logo2, body.low-power .scene-car, body.low-power .blob, body.low
 
 
 .hero .tagline.taunt { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; margin: 8px auto; }
-.taunt-demon { width: 56px; height: 56px; flex: 0 0 56px; object-fit: contain; image-rendering: pixelated; }
+.taunt-demon { width: 64px; height: 64px; flex: 0 0 64px; object-fit: contain; image-rendering: pixelated; }
 .hero .tagline.taunt > span { min-width: 0; }
 
 /* Compact header and a continuous sponsor strip. */
@@ -1553,7 +1553,7 @@ body:has(.modal) { overflow: hidden; }
   .home .hero > .logo { display: none; }
   .home .hero { padding: 6px 0 12px; }
   .home .hero .tagline.taunt { margin: 4px 0 10px; gap: 10px; justify-content: flex-start; text-align: left; width: 100%; }
-  .home .taunt-demon { width: 44px; height: 44px; flex: 0 0 44px; }
+  .home .taunt-demon { width: 52px; height: 52px; flex: 0 0 52px; }
   .home .taunt-speech { padding: 8px 10px; font-size: 19px; line-height: 1.15; }
   .home .hero .meta { margin: 0; }
   .home .hero .meta .pill { padding: 8px 5px; font-size: 17px; gap: 4px; }
@@ -1633,4 +1633,245 @@ body:has(.modal) { overflow: hidden; }
   .level-screen > .responsive-section { margin: 10px 0; }
   .level-screen > h1 { font-size: 34px; margin: 12px 0; }
   .level-screen .responsive-section-body { padding: 0 10px; }
+}
+
+.balance-promo { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 18px 0; text-decoration: none; color: inherit; border-color: var(--yellow, #ffd23f); }
+.balance-promo h2 { margin: 8px 0; color: #ffd23f; }
+.balance-promo p { margin: 0; }
+.balance-promo .btn { flex-shrink: 0; }
+/* Balance uses the same pixel controls and palette as the daily games. */
+.balance-page { max-width: 980px !important; padding-bottom: 28px; }
+.balance-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin: 18px 0 24px; }
+.balance-heading h1 { margin: 0 0 4px; font-size: clamp(38px, 6vw, 58px); color: var(--yellow, #ffd23f); line-height: 1; }
+.balance-heading p { margin: 0; font-size: 21px; }
+.balance-heading .balance-day { font-size: 18px; color: var(--muted, #7d93b8); margin-bottom: 6px; }
+.balance-layout { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 320px); gap: 28px; justify-content: center; align-items: start; }
+.balance-layout .stage-wrap { width: 100%; min-width: 0; }
+.balance-side { min-width: 0; }
+.balance-controls { display: grid; gap: 14px; margin: 0; padding: 22px; border-top: 3px solid var(--yellow, #ffd23f); }
+.balance-controls h2, .balance-controls p { margin: 0; }
+.balance-controls h2 { font-size: 28px; line-height: 1.1; }
+.balance-controls p { font-size: 20px; line-height: 1.3; }
+.balance-result { display: grid; gap: 12px; }
+.balance-result-label { color: var(--muted, #7d93b8); }
+.balance-controls .balance-score { font-size: 64px; color: var(--yellow, #ffd23f); line-height: 1; }
+.balance-score span { font-size: 25px; color: var(--muted, #7d93b8); }
+.balance-controls .balanced { color: var(--green, #5dff9d); }
+.balance-controls input { width: 100%; height: 34px; margin: 0; accent-color: #ffd23f; cursor: ew-resize; }
+.balance-slider-label { font-size: 18px; color: var(--muted, #7d93b8); }
+.balance-controls .btn { width: 100%; min-height: 48px; font-size: 23px; padding: 10px 12px; }
+.balance-actions { display: grid; gap: 10px; }
+.balance-note, .balance-round-note { color: var(--muted, #7d93b8); }
+.balance-controls .balance-note { font-size: 18px; }
+.balance-help { margin-top: 18px; border-bottom: 1px solid var(--line, #1b3050); padding-bottom: 14px; font-size: 19px; }
+.balance-help summary { cursor: pointer; color: var(--cyan, #4de3ff); }
+.balance-help p { line-height: 1.35; margin: 12px 0 0; }
+.balance-round-note { font-size: 17px; line-height: 1.3; margin: 14px 0 0; }
+.balance-controls button:focus-visible { outline: 3px solid #4de3ff; outline-offset: 4px; }
+@media (max-width: 700px) {
+  .balance-heading { gap: 10px; margin: 10px 0 14px; }
+  .balance-heading p { font-size: 18px; }
+  .balance-layout { grid-template-columns: minmax(0, 360px); gap: 14px; }
+  .balance-layout .stage-wrap { width: min(100%, max(220px, calc((100svh - 300px) * 9 / 16))); }
+  .balance-controls { padding: 16px; gap: 10px; }
+  .balance-result h2 { font-size: 24px; }
+  .balance-result p { font-size: 18px; }
+  .balance-promo { flex-direction: column; align-items: stretch; }
+}
+@media (max-width: 700px) {
+  .balance-layout { display: flex; flex-direction: column; align-items: center; }
+  .balance-side { display: contents; }
+  .balance-controls { order: -1; position: sticky; top: 8px; z-index: 5; display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 12px; align-items: center; width: 100%; padding: 10px 14px; box-shadow: 4px 4px 0 #000; }
+  .balance-controls > .balance-result, .balance-slider-label { display: none; }
+  .balance-controls .balance-release { font-size: 21px; min-height: 44px; }
+  .balance-controls:has(.balance-score) { position: static; order: 1; grid-template-columns: minmax(0, 1fr); padding: 18px; }
+  .balance-controls:has(.balance-score) > .balance-result { display: grid; }
+  .balance-help { order: 2; width: 100%; margin-top: 0; }
+  .balance-round-note { order: 3; width: 100%; margin-top: 0; }
+}
+.balance-daily-progress { text-align: right; flex-shrink: 0; }
+.balance-daily-progress p { color: var(--yellow, #ffd23f); }
+.balance-daily-progress small { color: var(--muted, #7d93b8); font-size: 16px; }
+.balance-attempts { display: flex; justify-content: flex-end; gap: 6px; margin: 8px 0; }
+.balance-attempts span { width: 14px; height: 14px; border: 2px solid var(--line, #1b3050); background: var(--bg, #050a14); }
+.balance-attempts .used { background: var(--pink, #ff5d8f); }
+.balance-attempts .good { background: var(--green, #5dff9d); }
+.balance-leaderboard { margin-top: 22px; width: 100%; min-width: 0; }
+.balance-leaderboard h2 { font-size: 25px; }
+.balance-leaderboard .nickname-control { margin-top: 16px; font-size: 18px; }
+.balance-share-actions { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+.balance-save-error { color: var(--pink, #ff5d8f); grid-column: 1 / -1; }
+.balance-out { font-size: 19px; color: var(--yellow, #ffd23f); }
+@media (max-width: 700px) {
+  .balance-leaderboard { order: 4; margin-top: 8px; }
+  .balance-daily-progress p { font-size: 18px; }
+  .balance-attempts { gap: 4px; }
+  .balance-attempts span { width: 12px; height: 12px; }
+  .balance-daily-progress small { font-size: 14px; }
+}
+
+/* Profile daily leaderboard calendar. */
+.rank-calendar-controls { display:flex; flex-wrap:wrap; gap:16px; }
+.rank-calendar-controls label { display:flex; align-items:center; gap:8px; color:var(--muted); }
+.rank-calendar-controls select { min-height:44px; max-width:100%; padding:6px 10px; border:1px solid var(--line); background:var(--panel); color:var(--text); font:inherit; }
+.rank-calendar-scroll { max-width:100%; overflow-x:auto; padding:10px 4px; overscroll-behavior-x:contain; }
+.rank-calendar-scroll svg { overflow:visible; }
+.rank-calendar-scroll rect[role=button] { cursor:pointer; }
+.rank-calendar-scroll rect[aria-pressed=true], .rank-calendar-scroll rect[role=button]:focus-visible { stroke:var(--text); stroke-width:2; outline:none; }
+.rank-calendar-legend { display:flex; flex-wrap:wrap; gap:8px 14px; margin:12px 0; font-size:17px; color:var(--muted); }
+.rank-calendar-legend span::before { content:''; display:inline-block; width:10px; height:10px; background:#152238; margin-right:6px; }
+.rank-calendar-legend span:nth-child(2)::before { background:#36566f; }
+.rank-calendar-legend span:nth-child(3)::before { background:#347f99; }
+.rank-calendar-legend span:nth-child(4)::before { background:#4de3ff; }
+.rank-calendar-legend span:nth-child(5)::before { background:#ffd23f; }
+.rank-day-detail { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px 20px; border:1px solid var(--line); padding:14px; background:var(--bg); }
+.rank-day-detail b { color:var(--cyan); font-size:30px; font-weight:normal; }
+.rank-day-detail small { font-size:18px; color:var(--muted); }
+@media(max-width:600px) { .rank-calendar-controls { gap:8px; } .rank-calendar-controls label { flex:1; } .rank-day-detail { flex-direction:column; align-items:flex-start; } }
+.balance-play-panel { min-width: 0; }
+.balance-leaderboard { box-sizing: border-box; }
+@media (min-width: 1100px) {
+  .balance-page { max-width: 1180px !important; }
+  .balance-layout, .balance-heading { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 300px) minmax(0, 300px); gap: 24px; justify-content: center; }
+  .balance-side { display: contents; }
+  .balance-daily-progress { grid-column: 2; text-align: left; align-self: center; }
+  .balance-attempts { justify-content: flex-start; }
+  .balance-leaderboard { margin-top: 0; }
+}
+@media (max-width: 700px) {
+  .balance-play-panel { display: contents; }
+}
+.balance-account { margin-top: 16px; }
+.balance-account .account-card { margin: 0; padding: 16px; }
+.balance-account .acc-text { font-size: 18px; }
+.balance-challenge { margin-bottom: 22px; }
+@media (max-width: 700px) {
+  .balance-account { order: 3; width: 100%; margin-top: 0; }
+}
+
+/* The calendar library owns the horizontal scroll viewport. */
+.rank-calendar-scroll { overflow-x: hidden; }
+.rank-calendar-scroll .react-activity-calendar__scroll-container {
+  scrollbar-width: thin;
+  scrollbar-color: #36566f #101d33;
+  padding-bottom: 12px;
+  overscroll-behavior-x: contain;
+}
+.rank-calendar-scroll .react-activity-calendar__scroll-container::-webkit-scrollbar { height: 6px; }
+.rank-calendar-scroll .react-activity-calendar__scroll-container::-webkit-scrollbar-track { background: #101d33; }
+.rank-calendar-scroll .react-activity-calendar__scroll-container::-webkit-scrollbar-thumb { background: #36566f; border-radius: 3px; }
+.rank-calendar-scroll .react-activity-calendar__scroll-container::-webkit-scrollbar-thumb:hover { background: #4de3ff; }
+@media (max-width: 700px) {
+  .balance-controls .balance-score { font-size: clamp(42px, 12vw, 60px); }
+}
+@media (max-width: 420px) {
+  .balance-heading { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .balance-daily-progress { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 12px; text-align: left; }
+  .balance-attempts { margin: 0; }
+  .balance-daily-progress small { flex-basis: 100%; }
+}
+
+/* Daily score trends and per-game averages. */
+.progress-controls { display:flex; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+.progress-tabs { display:flex; gap:5px; }
+.progress-tabs button { min-height:44px; padding:6px 12px; border:1px solid var(--line); background:var(--panel); color:var(--muted); font:inherit; cursor:pointer; }
+.progress-tabs button[aria-pressed=true] { color:var(--cyan); border-color:var(--cyan); background:#4de3ff10; }
+.progress-summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border:1px solid var(--line); margin-bottom:20px; }
+.progress-summary > div { padding:12px; min-width:0; }
+.progress-summary > div + div { border-left:1px solid var(--line); }
+.progress-summary span { display:block; color:var(--muted); font-size:18px; }
+.progress-summary b { display:block; font-size:32px; color:var(--cyan); font-weight:normal; }
+.progress-summary small { font-size:18px; color:var(--muted); }
+.progress-chart-title { font-size:24px; font-weight:normal; margin:18px 0 10px; }
+.progress-chart { width:100%; min-width:0; height:230px; font-size:16px; }
+.progress-insight { border-left:3px solid var(--cyan); padding:10px 12px; background:#4de3ff08; font-size:19px; line-height:1.3; }
+.progress-bars { display:grid; gap:16px; }
+.progress-bar-row > div:first-child { display:flex; justify-content:space-between; gap:12px; font-size:21px; }
+.progress-bar-row b { font-weight:normal; }
+.progress-bar-track { height:12px; background:var(--bg); border:1px solid var(--line); margin:6px 0; }
+.progress-bar-track > span { display:block; height:100%; }
+.progress-bar-row small { font-size:16px; color:var(--muted); }
+.progress-data { margin-top:20px; }
+.progress-data summary { cursor:pointer; color:var(--cyan); min-height:44px; padding:10px 0; }
+.progress-data table { width:100%; border-collapse:collapse; font-size:18px; text-align:left; }
+.progress-data td,.progress-data th { padding:7px; border-bottom:1px solid var(--line); }
+.progress-empty { min-height:100px; padding:24px 12px; color:var(--muted); background:var(--bg); }
+@media(max-width:600px) { .progress-summary > div { padding:10px 7px; } .progress-summary b { font-size:27px; } .progress-summary span { font-size:16px; } .progress-chart { height:210px; } }
+
+.progress-lifetime { border-top:1px solid var(--line); margin-top:20px; padding-top:6px; }
+.progress-lifetime .me-stats { margin-top:12px; }
+.progress-lifetime .me-note { margin-bottom:0; }
+
+.progress-lifetime { border-top:0; border-bottom:1px solid var(--line); margin:0 0 20px; padding:0 0 16px; }
+.progress-lifetime > .progress-chart-title { margin-top:0; }
+
+/* Profile uses independent stacks, so a tall chart leaves no empty grid rows. */
+.me-page.profile-page { display:block; }
+.profile-overview, .profile-settings-grid { display:grid; gap:20px; }
+.profile-progress-column, .profile-summary-column { min-width:0; }
+.profile-summary-column { display:flex; flex-direction:column; gap:20px; }
+.profile-page .me-section { margin-top:0; min-width:0; }
+.profile-page .me-label { margin-top:0; margin-bottom:10px; }
+.profile-settings-grid { margin-top:24px; }
+.profile-page .me-hero { margin-bottom:24px; }
+.profile-page .progress-section > .me-box { padding:16px; }
+.profile-page .rank-history > .me-box { padding:16px; }
+.profile-page .me-garage { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.profile-page .me-nickname { margin-bottom:10px; }
+.profile-page .account-card { margin-top:0; }
+@media(min-width:1000px) {
+ .profile-overview { grid-template-columns:minmax(0,1.15fr) minmax(0,1fr); align-items:start; gap:24px; }
+ .profile-settings-grid { grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:24px; }
+ .profile-page .me-stats { grid-template-columns:repeat(2,minmax(0,1fr)); }
+ .profile-page .me-stats div:nth-child(2) { border-right:0; }
+ .profile-page .me-stats div:nth-child(-n+2) { border-bottom:1px solid var(--line); }
+}
+@media(max-width:999px) { .profile-overview { gap:24px; } }
+@media(min-width:1000px) {
+ .profile-page .me-stats { grid-template-columns:repeat(4,minmax(0,1fr)); }
+ .profile-page .me-stats div { padding:12px 9px; border-bottom:0 !important; }
+ .profile-page .me-stats div:not(:last-child) { border-right:1px solid var(--line); }
+ .profile-page .me-stats dd { font-size:36px; }
+ .profile-page .me-garage { grid-template-columns:repeat(3,minmax(0,1fr)); }
+ .profile-page .me-car { padding:12px 6px; }
+}
+
+.profile-account-banner { margin-bottom:24px; }
+.profile-account-banner .me-section { margin:0; }
+.profile-account-banner .me-nickname { margin-bottom:10px; }
+.profile-settings-grid { grid-template-columns:minmax(0,1fr); }
+@media(min-width:1000px) { .profile-page .profile-settings-grid .me-garage { grid-template-columns:repeat(5,minmax(0,1fr)); } }
+
+/* Count Fast: a stable flash area and large touch-friendly numeric controls. */
+.count-layout { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:32px; align-items:start; }
+.count-layout > * { min-width:0; }
+.count-play { margin-top:0; text-align:center; border-color:var(--cyan); }
+.count-round { color:var(--cyan); margin:6px 0 16px; }
+.count-field { aspect-ratio:1; width:100%; max-width:500px; margin:auto; display:grid; place-items:center; background:var(--bg); border:1px solid var(--line); color:var(--cyan); }
+.count-field svg { display:block; width:100%; height:100%; }
+.count-message { display:grid; gap:20px; padding:16px; }
+.count-message strong { font-size:clamp(44px,8vw,72px); color:var(--yellow); font-weight:normal; }
+.count-message span { font-size:22px; }
+.count-controls { margin-top:18px; min-height:100px; }
+.count-controls > .btn { margin:6px; }
+.count-controls form { display:grid; gap:10px; text-align:left; }
+.count-controls form > div { display:flex; gap:12px; }
+.count-controls input { width:100%; min-width:0; min-height:48px; padding:8px 12px; border:2px solid var(--cyan); background:var(--bg); color:var(--text); font:28px var(--font); }
+.count-controls .btn { min-height:48px; }
+.count-help { margin-top:0; }
+.count-help h2 { color:var(--cyan); font-size:28px; font-weight:normal; }
+.count-help p { font-size:20px; line-height:1.35; }
+.count-promo { border-color:var(--cyan); }
+@media(max-width:899px) { .count-layout { grid-template-columns:minmax(0,1fr); gap:16px; } .count-field { max-width:420px; } }
+
+/* New challenges have their own accents, distinct from Draw, Cut and Car. */
+.balance-promo { --challenge-accent:#7bffb2; border-color:var(--challenge-accent); }
+.count-promo { --challenge-accent:#bc9cff; }
+.balance-promo h2 { color:var(--challenge-accent); }
+.balance-promo > div { flex:1; min-width:0; }
+.balance-promo > .btn { background:var(--challenge-accent); color:var(--bg); }
+@media(max-width:600px) {
+  .balance-promo { display:grid; grid-template-columns:52px minmax(0,1fr); gap:12px; align-items:center; }
+  .balance-promo > .pixel-icon { width:52px; height:52px; }
+  .balance-promo > .btn { grid-column:1/-1; text-align:center; white-space:normal; }
 }

@@ -1,11 +1,13 @@
 import { pixelArtUrl } from '../lib/pixelAssets';
 
-type ExistingIconName = 'draw' | 'cut' | 'brake' | 'settings' | 'sound-on' | 'sound-off' | 'trophy' | 'calendar';
+type ExistingIconName = 'draw' | 'cut' | 'brake' | 'balance' | 'count' | 'settings' | 'sound-on' | 'sound-off' | 'trophy' | 'calendar';
 
 const FILES: Record<ExistingIconName, string> = {
   draw: 'icon-draw-shapes.png',
   cut: 'icon-cut-shapes.png',
   brake: 'icon-brake.png',
+  balance: 'icon-balance.png',
+  count: 'icon-count.png',
   settings: 'icon-settings.png',
   'sound-on': 'icon-sound-on.png',
   'sound-off': 'icon-sound-off.png',

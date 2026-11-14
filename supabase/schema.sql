@@ -92,10 +92,10 @@ end $$;
 -- Claim / rename nickname. Raises 'nickname_taken' if someone else owns it.
 create or replace function public.set_nickname(p_nickname text)
 returns text language plpgsql security definer set search_path = public as $$
-declare v text := left(btrim(regexp_replace(coalesce(p_nickname, ''), '[[:cntrl:]<>]', '', 'g')), 15);
+declare v text := btrim(coalesce(p_nickname, ''));
 begin
   if auth.uid() is null then raise exception 'not_authenticated'; end if;
-  if char_length(v) < 1 then raise exception 'bad_nickname'; end if;
+  if char_length(v) not between 1 and 15 or v !~ '^[A-Za-z0-9][A-Za-z0-9 _-]*$' then raise exception 'bad_nickname'; end if;
   begin
     insert into profiles (id, nickname) values (auth.uid(), v)
     on conflict (id) do update set nickname = excluded.nickname;
@@ -1921,4 +1921,270 @@ begin
 end $$;
 revoke all on function public.create_party_room() from public,anon,authenticated;
 grant execute on function public.create_party_room() to authenticated;
+commit;
+
+-- Enforce nickname rules on the server as well as in the client.
+-- Existing profiles and score ownership are preserved; invalid names must be
+-- changed by their owner. This migration does not rename players automatically.
+begin;
+
+create or replace function public.set_nickname(p_nickname text)
+returns text language plpgsql security definer set search_path = public as $$
+declare v text := btrim(coalesce(p_nickname, ''));
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  if char_length(v) not between 1 and 15 or v !~ '^[A-Za-z0-9][A-Za-z0-9 _-]*$' then
+    raise exception 'bad_nickname';
+  end if;
+  begin
+    insert into profiles (id, nickname) values (auth.uid(), v)
+    on conflict (id) do update set nickname = excluded.nickname;
+  exception when unique_violation then
+    raise exception 'nickname_taken';
+  end;
+  return v;
+end $$;
+
+-- Protect other insert/rename paths too, without rewriting existing profiles.
+create or replace function public.validate_profile_nickname()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  if new.nickname is null or char_length(new.nickname) not between 1 and 15
+    or new.nickname !~ '^[A-Za-z0-9][A-Za-z0-9 _-]*$' then
+    raise exception 'bad_nickname';
+  end if;
+  return new;
+end $$;
+
+revoke all on function public.validate_profile_nickname() from public;
+drop trigger if exists validate_profile_nickname on public.profiles;
+create trigger validate_profile_nickname
+before insert or update of nickname on public.profiles
+for each row execute function public.validate_profile_nickname();
+
+commit;
+
+
+-- BALANCE! daily attempts and career leaderboard.
+begin;
+
+create table if not exists public.balance_attempts (
+  id uuid primary key,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  play_date date not null,
+  support numeric not null check (support between 40 and 320),
+  score numeric(5,2) not null check (score between 0 and 100),
+  error numeric not null check (error between 0 and 320),
+  created_at timestamptz not null default now()
+);
+create index if not exists balance_attempts_user_day_idx on public.balance_attempts(user_id, play_date);
+alter table public.balance_attempts enable row level security;
+revoke all on public.balance_attempts from public, anon, authenticated;
+
+create or replace function public.get_balance_state()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'date', (now() at time zone 'utc')::date,
+    'attempts', coalesce((select jsonb_agg(jsonb_build_object(
+      'id', a.id, 'support', a.support, 'score', a.score, 'error', a.error,
+      'at', (extract(epoch from a.created_at) * 1000)::bigint
+    ) order by a.created_at, a.id)
+    from public.balance_attempts a where a.user_id = auth.uid()
+      and a.play_date = (now() at time zone 'utc')::date), '[]'::jsonb)
+  );
+$$;
+
+create or replace function public.record_balance_attempt(
+  p_id uuid, p_date date, p_support numeric, p_score numeric, p_error numeric
+)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  uid uuid := auth.uid();
+  d date := (now() at time zone 'utc')::date;
+begin
+  if uid is null then raise exception 'not_authenticated'; end if;
+  if p_id is null then raise exception 'bad_attempt'; end if;
+  if p_date is distinct from d then raise exception 'wrong_day'; end if;
+  if p_support is null or p_support::text in ('NaN','Infinity','-Infinity') or p_support < 40 or p_support > 320
+    or p_score is null or p_score::text in ('NaN','Infinity','-Infinity') or p_score < 0 or p_score > 100
+    or p_error is null or p_error::text in ('NaN','Infinity','-Infinity') or p_error < 0 or p_error > 320 then
+    raise exception 'bad_score';
+  end if;
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext(uid::text || d::text || ':balance'));
+  if exists(select 1 from public.balance_attempts where id = p_id and user_id = uid and play_date = d) then
+    return public.get_balance_state();
+  end if;
+  if (select count(*) from public.balance_attempts where user_id = uid and play_date = d) >= 5 then
+    raise exception 'no_tries_left';
+  end if;
+  insert into public.balance_attempts(id, user_id, play_date, support, score, error)
+    values(p_id, uid, d, p_support, p_score, p_error);
+  return public.get_balance_state();
+end $$;
+
+create or replace function public.get_balance_leaderboard()
+returns table(rank bigint, nickname text, score numeric, detail jsonb, is_me boolean)
+language sql stable security definer set search_path = '' as $$
+  with daily as (
+    select a.user_id, a.play_date, max(a.score) as score, min(a.created_at) as played_at
+    from public.balance_attempts a where a.play_date <= (now() at time zone 'utc')::date
+    group by a.user_id, a.play_date
+  ), totals as (
+    select d.user_id, sum(d.score) as score, count(*) as days, max(d.played_at) as played_at
+    from daily d group by d.user_id
+  ), ranked as (
+    select row_number() over(order by t.score desc, t.played_at asc, t.user_id) as rank,
+      p.nickname, t.score, jsonb_build_object('days', t.days) as detail,
+      coalesce(t.user_id = auth.uid(), false) as is_me
+    from totals t join public.profiles p on p.id = t.user_id
+  )
+  select r.rank, r.nickname, r.score, r.detail, r.is_me from ranked r where r.rank <= 10 or r.is_me order by r.rank;
+$$;
+
+revoke all on function public.get_balance_state(), public.record_balance_attempt(uuid,date,numeric,numeric,numeric), public.get_balance_leaderboard() from public, anon, authenticated;
+grant execute on function public.get_balance_state(), public.record_balance_attempt(uuid,date,numeric,numeric,numeric) to authenticated;
+grant execute on function public.get_balance_leaderboard() to anon, authenticated;
+
+commit;
+
+-- Profile calendar: reconstruct end-of-day ranks from on-time attempts.
+begin;
+create index if not exists attempts_history_rank_idx on public.attempts(play_date, mode, user_id, score desc, created_at);
+create or replace function public.get_my_rank_history(p_year integer)
+returns table(play_date date, mode text, rank bigint, players bigint, score numeric)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if auth.uid() is null then raise exception 'not_authenticated'; end if;
+  if p_year is null or p_year < 2026 or p_year > extract(year from now() at time zone 'utc')::integer then
+    raise exception 'invalid_year';
+  end if;
+  return query
+  with best as (
+    select distinct on (a.play_date,a.mode,a.user_id)
+      a.play_date,a.mode,a.user_id,a.score,a.created_at
+    from public.attempts a join public.profiles p on p.id=a.user_id
+    where a.play_date >= make_date(p_year,1,1) and a.play_date < make_date(p_year+1,1,1)
+      and a.play_date <= (now() at time zone 'utc')::date
+      and a.created_at < ((a.play_date+1)::timestamp at time zone 'utc')
+    order by a.play_date,a.mode,a.user_id,a.score desc,a.created_at asc,a.id asc
+  ), boards as (
+    select b.play_date,b.mode,b.user_id,b.score,b.created_at from best b
+    union all
+    select b.play_date,'overall'::text,b.user_id,sum(b.score),max(b.created_at)
+    from best b group by b.play_date,b.user_id
+  ), ranked as (
+    select b.play_date,b.mode,b.user_id,b.score,
+      row_number() over(partition by b.play_date,b.mode order by b.score desc,b.created_at asc,b.user_id) as rank,
+      count(*) over(partition by b.play_date,b.mode) as players
+    from boards b
+  )
+  select r.play_date,r.mode,r.rank,r.players,r.score from ranked r
+  where r.user_id=auth.uid() order by r.play_date,r.mode;
+end $$;
+revoke all on function public.get_my_rank_history(integer) from public,anon,authenticated;
+grant execute on function public.get_my_rank_history(integer) to authenticated;
+commit;
+
+begin;
+create table if not exists public.count_attempts (
+ id uuid primary key,
+ user_id uuid not null references auth.users(id) on delete cascade,
+ play_date date not null,
+ answers integer[],
+ score integer not null default 0 check(score between 0 and 100),
+ created_at timestamptz not null default now(),
+ finished_at timestamptz,
+ check(answers is null or cardinality(answers) = 5)
+);
+create index if not exists count_attempts_user_day_idx on public.count_attempts(user_id,play_date);
+alter table public.count_attempts enable row level security;
+revoke all on public.count_attempts from public,anon,authenticated;
+
+create or replace function public.get_count_state()
+returns jsonb language sql stable security definer set search_path = '' as $$
+ select jsonb_build_object('date',(now() at time zone 'utc')::date,'attempts',coalesce((
+ select jsonb_agg(jsonb_build_object('id',a.id,'score',a.score,'answers',a.answers,'at',(extract(epoch from a.created_at)*1000)::bigint) order by a.created_at,a.id)
+ from public.count_attempts a where a.user_id=auth.uid() and a.play_date=(now() at time zone 'utc')::date
+ ),'[]'::jsonb));
+$$;
+
+create or replace function public.start_count_attempt(p_id uuid,p_date date)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare uid uuid:=auth.uid(); d date:=(now() at time zone 'utc')::date;
+begin
+ if uid is null then raise exception 'not_authenticated'; end if;
+ if p_id is null then raise exception 'bad_attempt'; end if;
+ if p_date is distinct from d then raise exception 'wrong_day'; end if;
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext(uid::text||d::text||':count'));
+ if exists(select 1 from public.count_attempts where id=p_id and user_id=uid and play_date=d) then return public.get_count_state(); end if;
+ if (select count(*) from public.count_attempts where user_id=uid and play_date=d)>=5 then raise exception 'no_tries_left'; end if;
+ insert into public.count_attempts(id,user_id,play_date) values(p_id,uid,d);
+ return public.get_count_state();
+end $$;
+
+create or replace function public.finish_count_attempt(p_id uuid,p_date date,p_answers integer[])
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare uid uuid:=auth.uid(); d date:=(now() at time zone 'utc')::date; a public.count_attempts%rowtype; points integer:=0; answer integer; i integer:=0; target integer;
+begin
+ if uid is null then raise exception 'not_authenticated'; end if;
+ if p_date is distinct from d then raise exception 'wrong_day'; end if;
+ if p_answers is null or array_ndims(p_answers)<>1 or cardinality(p_answers)<>5 then raise exception 'bad_answers'; end if;
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext(uid::text||d::text||':count'));
+ select * into a from public.count_attempts where id=p_id and user_id=uid and play_date=d for update;
+ if not found then raise exception 'bad_attempt'; end if;
+ if a.finished_at is not null then return public.get_count_state(); end if;
+ if now()>a.created_at+interval '3 minutes' then raise exception 'attempt_expired'; end if;
+ foreach answer in array p_answers loop
+  if answer is null or answer < -1 or answer > 50 then raise exception 'bad_answers'; end if;
+  target:=7+((((d-date '1970-01-01')*17+i*7)%10+10)%10)+i;
+  if answer>=0 then points:=points+greatest(0,20-abs(answer-target)*5); end if;
+  i:=i+1;
+ end loop;
+ update public.count_attempts set answers=p_answers,score=points,finished_at=now() where id=p_id;
+ return public.get_count_state();
+end $$;
+
+create or replace function public.get_count_leaderboard()
+returns table(rank bigint,nickname text,score numeric,detail jsonb,is_me boolean)
+language sql stable security definer set search_path = '' as $$
+ with daily as (
+  select user_id,play_date,max(score) as score,min(created_at) as played_at
+  from public.count_attempts where finished_at is not null and play_date<=(now() at time zone 'utc')::date group by user_id,play_date
+ ), totals as (
+  select user_id,sum(score)::numeric as score,count(*) as days,max(played_at) as played_at from daily group by user_id
+ ), ranked as (
+  select row_number() over(order by t.score desc,t.played_at,t.user_id) as rank,p.nickname,t.score,jsonb_build_object('days',t.days) as detail,coalesce(t.user_id=auth.uid(),false) as is_me
+  from totals t join public.profiles p on p.id=t.user_id
+ ) select * from ranked r where r.rank<=10 or r.is_me order by r.rank;
+$$;
+revoke all on function public.get_count_state(),public.start_count_attempt(uuid,date),public.finish_count_attempt(uuid,date,integer[]),public.get_count_leaderboard() from public,anon,authenticated;
+grant execute on function public.get_count_state(),public.start_count_attempt(uuid,date),public.finish_count_attempt(uuid,date,integer[]) to authenticated;
+grant execute on function public.get_count_leaderboard() to anon,authenticated;
+commit;
+
+-- Gentler progression: 3-5 dots initially, adding two each round.
+-- Existing completed scores and daily attempt budgets are preserved.
+begin;
+create or replace function public.finish_count_attempt(p_id uuid,p_date date,p_answers integer[])
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare uid uuid:=auth.uid(); d date:=(now() at time zone 'utc')::date; a public.count_attempts%rowtype; points integer:=0; answer integer; i integer:=0; target integer;
+begin
+ if uid is null then raise exception 'not_authenticated'; end if;
+ if p_date is distinct from d then raise exception 'wrong_day'; end if;
+ if p_answers is null or array_ndims(p_answers)<>1 or cardinality(p_answers)<>5 then raise exception 'bad_answers'; end if;
+ perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext(uid::text||d::text||':count'));
+ select * into a from public.count_attempts where id=p_id and user_id=uid and play_date=d for update;
+ if not found then raise exception 'bad_attempt'; end if;
+ if a.finished_at is not null then return public.get_count_state(); end if;
+ if now()>a.created_at+interval '3 minutes' then raise exception 'attempt_expired'; end if;
+ foreach answer in array p_answers loop
+  if answer is null or answer < -1 or answer > 50 then raise exception 'bad_answers'; end if;
+  target:=3+((((d-date '1970-01-01')%3)+3)%3)+i*2;
+  if answer>=0 then points:=points+greatest(0,20-abs(answer-target)*5); end if;
+  i:=i+1;
+ end loop;
+ update public.count_attempts set answers=p_answers,score=points,finished_at=now() where id=p_id;
+ return public.get_count_state();
+end $$;
+
 commit;

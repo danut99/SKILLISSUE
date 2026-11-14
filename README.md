@@ -370,3 +370,24 @@ Party Draw/Cut variety: version-two parties support twelve distinct targets per 
 
 
 Party room creation correction: apply `supabase/migrations/20261114130000_reuse_only_empty_party.sql` after the reuse-host-party migration. Creation reuses only an unexpired, never-started first-match room with its host active, no other current or former members, no results, and no match roster/settings. Rooms with guests or match history do not block creating another room, and are not closed or changed by creating one. Concurrent starts still serialize per host, preventing duplicate unused solo lobbies.
+
+## Count Fast
+
+Count Fast is a separate daily perception challenge at `#count`, with its own homepage card and menu tile, following Balance's standalone structure. Apply `supabase/migrations/20261114170000_count_fast.sql` after the existing migrations. Fresh installs include the same objects in `schema.sql`.
+
+Each attempt has five rounds. Dots appear for 1.3 seconds, then the player has 10 seconds to submit a count. Exact answers earn 20 points, each dot off loses 5 (minimum zero per round). Everyone gets the same date-seeded layout. There are five starts per UTC day. A start is reserved before the first flash; leaving or refreshing consumes it. Missed/hidden rounds score zero. Finishing is idempotent and expires three minutes after starting. The server computes points from submitted answers; as with the other client-rendered games, automated inspection of game data can still cheat. This is not a secure cognitive assessment.
+
+Best daily scores add to a separate Count Fast all-time board. These points are not added to the original Draw/Cut/Car daily total, Level mode, Party, profile rank history, or Balance's board. Local guests save progress on this device, while configured online sessions use authenticated RPCs. Missing online migrations show an error rather than silently falling back to a local board. Copy result shares the score and `#count` link.
+
+Checks before deployment: apply SQL in a test project; confirm two accounts get the same dots, reserve five starts across tabs and reject a sixth, refresh during a flash, retry start/finish requests, reject another account's attempt token, reload saved scores, test UTC rollover, and verify ranking uses only each day's best completed score. Browser checks and unit tests cover local play; online RPCs require the migration to be applied.
+
+
+### Google One Tap
+
+Set `VITE_GOOGLE_CLIENT_ID` locally and in Cloudflare Pages build variables to the existing Google OAuth **Web client ID**, then rebuild. Never put the client secret in a `VITE_` variable. In that client's Google Cloud settings, add `https://playskillissue.pages.dev` and local test origins under Authorized JavaScript origins. Keep the existing Supabase Google provider and manual identity linking enabled; keep nonce validation enabled.
+
+One Tap is offered once per browser session on Home/Profile for anonymous players, never during games. It uses Google Identity Services with FedCM and a SHA-256 nonce. Supabase links the ID token to the guest first. If the identity already belongs to another player, a confirmation offers to switch accounts; guest scores are not merged into that existing account. Dismissal, blocked Google scripts, and failures leave the regular Continue with Google flow available. Signing out suppresses the prompt for that browser session.
+
+Local mocked tests verify linking, conflict, explicit switching, failures, changed identities and nonce hashing. Real Google consent, browser eligibility and configured origins require a live test with the configured OAuth client.
+
+Count Fast difficulty: apply `20261114180000_count_progressive_difficulty.sql` to start with 3-5 dots and add two each round (11-13 in the final round). Deploy client and SQL together between attempts. Existing saved scores and used tries are preserved.

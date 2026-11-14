@@ -1,5 +1,5 @@
 import { sfx } from './audio';
-import type { Mode } from '../config';
+import type { ClipMode } from './clipScenes';
 
 import { CLIP_GAMEPLAY_MS, CLIP_RESULT_MS, CLIP_OUTRO_MS, createClipPainter, type ClipResult } from './clipScenes';
 
@@ -9,7 +9,7 @@ class ClipRecorder {
  private session:ClipSession|null=null;
  get supported(){return typeof MediaRecorder!=='undefined'&&typeof HTMLCanvasElement!=='undefined'&&typeof HTMLCanvasElement.prototype.captureStream==='function';}
  private pickMime(){return ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(type=>MediaRecorder.isTypeSupported(type))??'';}
- start(source:HTMLCanvasElement, mode:Mode='draw'){
+ start(source:HTMLCanvasElement, mode:ClipMode='draw'){
   if(!this.supported)return;
   this.cancel();
   try{

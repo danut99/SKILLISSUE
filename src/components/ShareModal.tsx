@@ -24,7 +24,15 @@ import { cardFileName, renderShareCard } from '../lib/shareCard';
 import { toast, useUi } from '../lib/ui';
 import { track } from '../lib/clarity';
 
+export interface CustomShare {
+  text: string;
+  link: string;
+  filename: string;
+  render: () => Promise<Blob>;
+}
+
 interface Props {
+  custom?: CustomShare;
   open: boolean;
   onClose: () => void;
   date: string;
@@ -38,21 +46,22 @@ interface Props {
 }
 
 /** Share card preview + TikTok / Instagram (image via share sheet or download) + link-based socials. */
-export function ShareModal({ open, onClose, date, mode, snapshot, attempt, noRank = false }: Props) {
+export function ShareModal({ open, onClose, date, mode, snapshot, attempt, noRank = false, custom }: Props) {
   const liveRanks = useUi((s) => s.ranks);
   const ranks = noRank ? {} : liveRanks;
   const [blob, setBlob] = useState<Blob | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const rank = mode ? ranks[mode] : ranks.overall;
-  const text = shareText(date, ranks, mode);
-  const link = siteUrl();
+  const text = custom?.text ?? shareText(date, ranks, mode);
+  const link = custom?.link ?? siteUrl();
+  const filename = custom?.filename ?? cardFileName(date, mode);
   const short = text.split('\n').filter(line => line !== link).join('\n'); // buttons add the URL
 
   useEffect(() => {
     if (!open) return;
     let alive = true;
     let objectUrl: string | null = null;
-    renderShareCard({ date, mode, attempt, rank, snapshot })
+    (custom ? custom.render() : renderShareCard({ date, mode, attempt, rank, snapshot }))
       .then((b) => {
         if (!alive) return;
         objectUrl = URL.createObjectURL(b);
@@ -66,9 +75,9 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt, noRan
       setBlob(null);
       setUrl(null);
     };
-  }, [open, date, mode, attempt, rank, snapshot]);
+  }, [open, date, mode, attempt, rank, snapshot, custom]);
 
-  const file = blob ? new File([blob], cardFileName(date, mode), { type: 'image/png' }) : null;
+  const file = blob ? new File([blob], filename, { type: 'image/png' }) : null;
   const canShareFile = !!file && !!navigator.canShare?.({ files: [file] });
 
   const shared = (channel: string) => track(`share_${channel}_${mode ?? 'day'}`);
@@ -77,7 +86,7 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt, noRan
     if (!url) return;
     const a = document.createElement('a');
     a.href = url;
-    a.download = cardFileName(date, mode);
+    a.download = filename;
     a.click();
   }
 

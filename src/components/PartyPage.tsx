@@ -1,5 +1,6 @@
 import { ResponsiveSection } from './ResponsiveSection';
 import { DailyGamesPrompt } from './DailyGamesPrompt';
+import { NICKNAME_RULES, validNickname } from '../lib/nickname';
 import { PartyDirectory } from './PartyDirectory';
 import { setPartyPublic } from '../lib/party';
 import { MODES, type Mode } from '../config';
@@ -78,10 +79,11 @@ export function PartyPage() {
     finally { setBusy(false); }
   }
   async function joinNamed(room: PartyRoom) {
+    if (!validNickname(nickname.trim())) throw new Error(NICKNAME_RULES);
     const name = cleanNickname(nickname);
     if (!name) throw new Error('Choose a nickname first.');
     const result = await claimNickname('', name);
-    if (!result.ok) throw new Error(result.reason === 'taken' ? 'Nickname taken. Pick another.' : 'Could not save nickname.');
+    if (!result.ok) throw new Error(result.reason === 'invalid' ? NICKNAME_RULES : result.reason === 'taken' ? 'Nickname taken. Pick another.' : 'Could not save nickname.');
     usePlayer.getState().setNickname(result.nickname);
     return joinPartyRoom(room.token);
   }

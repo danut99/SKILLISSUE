@@ -80,3 +80,6 @@ export const LINKS = {
   tiktok: 'https://www.tiktok.com/@playskillissue',
   feedback: 'mailto:bocadanut99@gmail.com?subject=SKILL%20ISSUE%20feedback',
 };
+
+/** Public OAuth Web client ID, shared with the Google provider configured in Supabase. */
+export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim() ?? '';

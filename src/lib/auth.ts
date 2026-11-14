@@ -155,6 +155,8 @@ export async function connectEmail(email: string): Promise<'link_sent' | 'login_
 export async function signOut() {
   const sb = await getSupabase();
   if (!sb) return;
+  window.google?.accounts.id.disableAutoSelect();
+  sessionStorage.setItem('skillissue:one-tap-shown', '1');
   await sb.auth.signOut();
   usePlayer.getState().resetPlayer();
   const { data, error } = await sb.auth.signInAnonymously();
