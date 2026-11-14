@@ -52,6 +52,10 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
       const challenge = await createTrackedChallenge(mode);
       const url = trackedChallengeUrl(location.href, challenge);
       useUi.getState().refreshBoards();
+      if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+        try { await navigator.share({ title: 'Beat my score - Skill Issue', text: `Can you beat my ${MODE_INFO[mode].title} score?`, url }); return; }
+        catch (cause) { if (cause instanceof Error && cause.name === 'AbortError') return; }
+      }
       toast(await copyText(url) ? 'Challenge link copied!' : 'Could not copy link. Open Friends to copy your challenge link.');
     } catch (cause) {
       toast(cause instanceof Error ? cause.message : 'Could not create challenge.');
@@ -92,7 +96,6 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
         {ranks[mode] ? <> · rank <b>#{ranks[mode]}</b></> : null}
       </div>
 
-      <GuestProgressPrompt date={date} />
 
       <div className="r-actions">
         {left > 0 ? (
@@ -112,18 +115,19 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
           {next ? <><PixelIcon name={next} size={28} /><span>Next</span><span aria-hidden="true">&#8594;</span></> : 'Home'}
         </button>
       </div>
-      <div className="r-actions">
+      {best && !archived && <button className="btn btn-primary challenge-cta" disabled={challengeBusy} onClick={() => void challengeFriend()}>{challengeBusy ? 'Creating link...' : 'Challenge a friend'} <span aria-hidden="true">&#8599;</span></button>}
+      <div className="r-actions result-share-actions">
         {clip && (
           <button className="btn btn-pink" onClick={downloadClip}>
-            save clip for TikTok
+            Save video
           </button>
         )}
         <button className="btn btn-ghost" onClick={() => { track(`share_open_${mode}`); setShareOpen(true); }}>
-          share result
+          Share result
         </button>
       </div>
 
-      {best && !archived && <button className="btn btn-primary challenge-cta" disabled={challengeBusy} onClick={() => void challengeFriend()}>{challengeBusy ? 'Creating link...' : 'Beat my score'} <span aria-hidden="true">&#8599;</span></button>}
+
       <a className="challenge-manage" href="#friends">Your challenges &amp; responses</a>
       <div className="saved-row">
         <span className="saved-ok">
@@ -135,6 +139,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
         </span>
         {ranks[mode] ? <span className="saved-rank">#{ranks[mode]}</span> : null}
       </div>
+      <GuestProgressPrompt date={date} />
       {authStatus !== 'anon' && <NicknameControl date={date} />}
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} date={date} mode={mode} snapshot={snapshot} attempt={shown} noRank={archived} />
     </motion.div>

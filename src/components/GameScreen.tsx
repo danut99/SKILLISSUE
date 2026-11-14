@@ -1,3 +1,4 @@
+import { ResponsiveSection } from './ResponsiveSection';
 import { ScoreChallengeBanner } from './ScoreChallengeBanner';
 import { createTimedGame } from '../games/timedGame';
 import { savedResultCanvas } from '../lib/savedResult';
@@ -132,7 +133,6 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
         setSnapshot(savedResultCanvas(mode, date, attempt));
         setPanel({ last: attempt });
         if (res.score >= 95 && !usePlayer.getState().settings.lowPower) confetti({ particleCount: 140, spread: 80, origin: { y: 0.6 }, colors: ['#4de3ff', '#ff5d8f', '#ffd23f'] });
-        if (matchMedia('(max-width: 899px)').matches) resultRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         (archived && challengeToken ? recordChallengeAttempt(challengeToken, attempt) : recordAttempt(date, mode, attempt))
           .then((r) => {
             if (r === 'no_tries_left') {
@@ -177,6 +177,12 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
     setPanel({ last: null });
   }, [md, mode, date, attemptKey, playing, panel]);
 
+  useEffect(() => {
+    if (!panel || !matchMedia('(max-width: 899px)').matches) return;
+    const frame = requestAnimationFrame(() => resultRef.current?.scrollIntoView({ behavior: usePlayer.getState().settings.lowPower || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' }));
+    return () => cancelAnimationFrame(frame);
+  }, [panel]);
+
   const startNextTry = useCallback(() => {
     setPanel(null);
     setPlaying(false);
@@ -211,7 +217,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
 
   return (
     <>
-      <div className="with-board game-columns">
+      <div className={`with-board game-columns ${panel ? 'has-result' : 'is-playing'}`}>
       <div className="game-layout">
         <GameCanvas gameRef={gameRef} canvasRef={canvasRef} date={date} />
         <div className="side" ref={resultRef}>
@@ -230,13 +236,14 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
             />
           )}
           {(panel || (!playing && triesLeft(md) > 0)) && (
-            <GameCompanions key={`${mode}:${date}:${attemptKey}:${panel?.last?.at ?? (panel ? 'best' : 'intro')}`} mode={mode} date={date} score={panel ? (panel.last ?? bestAttempt(md))?.score : undefined} />
+            panel ? <GameCompanions key={`${mode}:${date}:${attemptKey}:${panel.last?.at ?? 'best'}`} mode={mode} date={date} score={(panel.last ?? bestAttempt(md))?.score} />
+            : <ResponsiveSection title="How to play"><GameCompanions mode={mode} date={date} /></ResponsiveSection>
           )}
 
         </div>
       </div>
       <aside className="board-col">
-        <Leaderboard mode={mode} date={today} title={`Global Top 10 · ${MODE_INFO[mode].name}`} onLoad={onBoard} />
+        <ResponsiveSection title="Leaderboard"><Leaderboard mode={mode} date={today} title={`Global Top 10 · ${MODE_INFO[mode].name}`} onLoad={onBoard} /></ResponsiveSection>
       </aside>
       </div>
       <RewardedAdModal open={adOpen} onClose={() => setAdOpen(false)} onReward={reward} />

@@ -1,3 +1,4 @@
+import { ResponsiveSection } from './ResponsiveSection';
 import { fmtCm, fmtResult } from '../lib/scoring';
 import { useEffect, useRef, useState } from 'react';
 import { MODE_INFO } from '../config';
@@ -25,6 +26,7 @@ export function LevelScreen({ mode, date }: { mode: LevelMode; date: string }) {
  const [result,setResult]=useState<AttemptResult|null>(null);
  const [saved,setSaved]=useState(false);
  const [retrySave,setRetrySave]=useState(0);
+ const resultRef=useRef<HTMLDivElement|null>(null);
  const canvasRef=useRef<HTMLCanvasElement|null>(null);
  const gameRef=useRef<Game|null>(null);
 
@@ -45,6 +47,11 @@ export function LevelScreen({ mode, date }: { mode: LevelMode; date: string }) {
   finishLevel(attempt.token,result.score).then(rows=>{if(active){useLevels.setState({rows,owner:userId});setSaved(true);setError('');}}).catch((e:Error)=>{if(active)setError(e.message);}).finally(()=>{if(active)setBusy(false);});
   return()=>{active=false;};
  },[attempt,result,userId,retrySave]);
+ useEffect(()=>{
+  if(!result||!matchMedia('(max-width:899px)').matches)return;
+  const frame=requestAnimationFrame(()=>resultRef.current?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'}));
+  return()=>cancelAnimationFrame(frame);
+ },[result]);
  async function begin(level: number){
   if(busy)return;
   setBusy(true);setError('');
@@ -74,8 +81,8 @@ export function LevelScreen({ mode, date }: { mode: LevelMode; date: string }) {
  function choose(level:number){if(!canChoose||busy)return;setAttempt(null);setResult(null);setSaved(false);setSelected(level);setError('');}
  return <section className="screen level-screen">
   <a href="#">Back to games</a><h1>{MODE_INFO[mode].title} <small>Level mode</small></h1>
-  <p>Score <b>85+</b> to advance. {LEVEL_TRIES} tries per level each day. Passing unlocks the next level immediately.</p>
-  <p className="level-star-guide">&#9733; 85+ &nbsp; &#9733;&#9733; 90+ &nbsp; &#9733;&#9733;&#9733; 95+ &middot; Replay cleared levels to improve your best stars.</p>
+  <ResponsiveSection title="Level rules"><p>Score <b>85+</b> to advance. {LEVEL_TRIES} tries per level each day. Passing unlocks the next level immediately.</p>
+  <p className="level-star-guide">&#9733; 85+ &nbsp; &#9733;&#9733; 90+ &nbsp; &#9733;&#9733;&#9733; 95+ &middot; Replay cleared levels to improve your best stars.</p></ResponsiveSection>
   {error&&<p className="party-error" role="alert">{error}</p>}
   <div className="level-picker" role="group" aria-label="Choose a level">
     {Array.from({length:totalLevels},(_,i)=>{
@@ -85,9 +92,9 @@ export function LevelScreen({ mode, date }: { mode: LevelMode; date: string }) {
       </button>;
     })}
   </div>
-  <div className="level-layout">
+  <div className={`level-layout ${result?'has-result':''}`}>
    <div>{attempt&&<GameCanvas gameRef={gameRef} canvasRef={canvasRef} date={date} label={`LEVEL ${shownLevel} / ${totalLevels}`} />}</div>
-   <div className="card px-box level-status">
+   <div className="card px-box level-status" ref={resultRef}>
     <h2>Level {shownLevel} / {totalLevels}{shownLevel<progress.level?' - Cleared':''}</h2>
     <p>{mode==='draw'?`Draw a ${LEVEL_SHAPES[shownLevel-1]}`:mode==='cut'?`Cut complexity ${shownLevel} - equal areas`:`Driving difficulty ${shownLevel} - faster each level`}</p>
     {mode==='brake'&&<p>Pass goal: stop safely within <b>{fmtCm(levelBrakePassCm(shownLevel))}</b> of the target for 85/100. Stay inside the parking bay and avoid crossing the stop line or hitting the wall.</p>}

@@ -1,3 +1,4 @@
+import { ResponsiveSection } from './ResponsiveSection';
 import { ChallengeInbox } from './ChallengeInbox';
 import { useEffect, useState } from 'react';
 import { MODE_INFO, MODES, type BoardMode } from '../config';
@@ -156,7 +157,7 @@ function FriendsContent({ date, inviteToken }: { date: string; inviteToken: stri
         <Leaderboard date={date} mode={mode} scope="friends" title="You + your friends" />
       </section>
       </div>
-      <div className="friends-challenges"><ChallengeInbox /></div>
+      <div className="friends-challenges"><ResponsiveSection title="Challenge history"><ChallengeInbox /></ResponsiveSection></div>
       </div>
     </>
   );

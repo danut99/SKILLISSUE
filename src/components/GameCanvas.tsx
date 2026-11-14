@@ -40,17 +40,19 @@ export function GameCanvas({ gameRef, canvasRef, date, label: customLabel }: Pro
       return { x: ((e.clientX - r.left) / r.width) * W, y: ((e.clientY - r.top) / r.height) * H };
     };
     const onDown = (e: PointerEvent) => {
+      if (!e.isPrimary) return;
       e.preventDefault();
       canvas.setPointerCapture?.(e.pointerId);
       gameRef.current?.down?.(toStage(e), e);
     };
     const onMove = (e: PointerEvent) => {
+      if (!e.isPrimary) return;
       const g = gameRef.current;
       if (!g?.move) return;
       const events = e.getCoalescedEvents?.() ?? [];
       for (const ev of events.length ? events : [e]) g.move(toStage(ev), ev);
     };
-    const onUp = (e: PointerEvent) => gameRef.current?.up?.(toStage(e), e);
+    const onUp = (e: PointerEvent) => { if (e.isPrimary) gameRef.current?.up?.(toStage(e), e); };
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.closest('input, textarea, select, button, a, dialog, [contenteditable="true"]')) return;
       gameRef.current?.key?.(e);

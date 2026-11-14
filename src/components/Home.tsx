@@ -1,3 +1,4 @@
+import { ResponsiveSection } from './ResponsiveSection';
 import { LEVEL_TRIES, levelCount, loadLevels, useLevels } from '../lib/levels';
 import { GuestProgressPrompt } from './GuestProgressPrompt';
 import { track } from '../lib/clarity';
@@ -9,7 +10,7 @@ import { motion } from 'motion/react';
 import { LINKS, MODE_INFO, MODES, type Mode } from '../config';
 import { addDays, dayNumber } from '../lib/daily';
 import { emojiRow, fmtResult, overallBadge } from '../lib/scoring';
-import { bestAttempt, maxTries, modeDay, totalScore, usePlayer } from '../lib/store';
+import { bestAttempt, maxTries, triesLeft, modeDay, totalScore, usePlayer } from '../lib/store';
 import { Countdown } from './Countdown';
 import { Leaderboard } from './Leaderboard';
 import { ShareModal } from './ShareModal';
@@ -126,7 +127,7 @@ export function Home({ date, onPlay }: Props) {
       <div className="with-board">
       <div className="main-col">
 
-      <GuestProgressPrompt date={date} />
+      <div className="home-account"><GuestProgressPrompt date={date} /></div>
       <div className="cards">
       {MODES.map((m, i) => {
         const levelMode = gameModes[m] === 'level';
@@ -155,7 +156,7 @@ export function Home({ date, onPlay }: Props) {
             <div className="gc-body">
               <div className="gc-title">{info.title}</div>
               <div className="gc-tag">{levelMode ? `Reach 85+. ${LEVEL_TRIES} tries per level. Pass to advance.` : m === 'draw' ? `Today's ${dailyDrawShape(date)}. One stroke. No excuses.` : info.tagline}</div>
-              <div className="gc-tries">{levelMode ? level.level > levelCount(m) ? 'All levels cleared' : `Level ${level.level} / ${levelCount(m)} - ${Math.max(0,LEVEL_TRIES-level.used)} tries left` : dots}</div>
+              <div className="gc-tries">{levelMode ? level.level > levelCount(m) ? 'All levels cleared' : `Level ${level.level} / ${levelCount(m)} - ${Math.max(0,LEVEL_TRIES-level.used)} tries left` : <><span aria-hidden="true">{dots}</span><span className="gc-attempt-label">{triesLeft(md)} tries left</span></>}</div>
               {levelMode && <div className="gc-level-stars">&#9733; {(level.records ?? []).reduce((sum, r) => sum + r.stars, 0)} / {levelCount(m) * 3}</div>}
             </div>
             <div className={`gc-cta ${best ? 'played' : ''}`}>
@@ -215,8 +216,8 @@ export function Home({ date, onPlay }: Props) {
       </div>
 
       <aside className="board-col">
-      <Leaderboard mode="overall" date={date} title="Top Tryhards" />
-      <ChallengeInbox compact />
+      <ResponsiveSection title="Leaderboards"><Leaderboard mode="overall" date={date} title="Top Tryhards" /></ResponsiveSection>
+      <ResponsiveSection title="Your challenges"><ChallengeInbox compact /></ResponsiveSection>
       </aside>
       </div>
 

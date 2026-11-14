@@ -1,3 +1,4 @@
+import { ResponsiveSection } from './ResponsiveSection';
 import { AnimatePresence, motion } from 'motion/react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
@@ -122,6 +123,8 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt, noRan
 
             <div className="share-preview">{url ? <img src={url} alt="Your share card" /> : <div className="share-loading">drawing…</div>}</div>
 
+            <button className="btn btn-primary share-native" onClick={() => void shareImage()} disabled={!file}>{canShareFile ? 'Share result' : 'Save image'}</button>
+            <ResponsiveSection title="More sharing options">
             <div className="share-main">
               <button className="btn btn-pink" onClick={() => shareImage('TikTok')} disabled={!file}>
                 TikTok
@@ -160,14 +163,17 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt, noRan
               </RedditShareButton>
             </div>
 
+            <button className="btn btn-ghost wide" onClick={copy}>Copy caption</button>
+            </ResponsiveSection>
             <div className="share-row">
               <button className="btn btn-ghost" onClick={() => { shared('save_image'); download(); }} disabled={!url}>
                 save image
               </button>
-              <button className="btn btn-ghost" onClick={copy}>
-                copy text
+              <button className="btn btn-ghost" onClick={() => { shared('copy_link'); void copyText(link).then(ok => toast(ok ? 'Link copied!' : 'Could not copy link.')); }}>
+                Copy link
               </button>
             </div>
+
             <p className="share-hint">TikTok &amp; Instagram: on your phone the card opens the share sheet. On a computer it downloads, then upload it in the app.</p>
           </motion.div>
         </motion.div>
