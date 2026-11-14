@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { dailyShape } from '../games/cutGame';
-import { splitPolygon } from '../lib/geometry';
+import { innerPoint, splitPolygon } from '../lib/geometry';
 import { partyRound, partyStandings, type PartyRoom } from '../lib/party';
 import type { Detail } from '../lib/store';
 
@@ -20,12 +20,14 @@ function Preview({ room, round, detail }: { room: PartyRoom; round: number; deta
     </svg>;
   }
   const points = (detail.stroke ?? []).slice(0, 501).filter(p => p.length === 2 && p.every(Number.isFinite));
-  const shape = dailyShape(`party:${room.token}:${room.match_no}:${round}`, rule.complexity);
+  const shape = dailyShape(`party:${room.token}:${room.match_no}:${round}`, rule.complexity,rule.cutShape,detail.cutCharacter);
+  const face=innerPoint(shape.poly,6);
   const line = detail.line;
   const pieces = line?.length === 4 ? splitPolygon(shape.poly, { x: line[0], y: line[1] }, { x: line[2], y: line[3] }) : null;
   return <svg viewBox="0 150 360 350" aria-label={rule.mode === 'draw' ? 'Player drawing' : 'Player cut'}>
     {rule.mode === 'draw' ? <polyline points={points.map(p => p.join(',')).join(' ')} fill="none" stroke="#4de3ff" strokeWidth="6" /> :
-      (pieces ? [pieces.pos, pieces.neg] : [shape.poly]).map((poly, i) => <polygon key={i} points={poly.map(p => `${p.x},${p.y}`).join(' ')} fill={i ? '#ff5d8f' : '#4de3ff'} stroke="#050a14" strokeWidth="4" />)}
+      (pieces ? [pieces.pos, pieces.neg] : [shape.poly]).map((poly, i) => <polygon key={i} points={poly.map(p => `${p.x},${p.y}`).join(' ')} fill={shape.color} stroke="#050a14" strokeWidth="4" />)}
+    {rule.mode==='cut'&&<g aria-hidden="true"><ellipse cx={face.p.x-12} cy={face.p.y-5} rx="8" ry="10" fill="white" stroke="#142039" strokeWidth="2"/><ellipse cx={face.p.x+12} cy={face.p.y-5} rx="8" ry="10" fill="white" stroke="#142039" strokeWidth="2"/><circle cx={face.p.x-12} cy={face.p.y-4} r="3" fill="#142039"/><circle cx={face.p.x+12} cy={face.p.y-4} r="3" fill="#142039"/></g>}
   </svg>;
 }
 export function PartyGallery({ room, round, final = false, compact = false }: { room: PartyRoom; round: number; final?: boolean; compact?: boolean }) {

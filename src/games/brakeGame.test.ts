@@ -172,8 +172,15 @@ describe('more forgiving Car level scoring', () => {
       expect(brakeStopResult('parking',50,60,4,scale).detail.fail).toBe(true);
     }
   });
-  it('keeps the default scoring unchanged',()=>{
-    expect(brakeStopResult('wall',50,49).score).toBeCloseTo(60.65,2);
-    expect(brakeStopResult('wall',50,48.5,4,levelBrakeScoreScale(1)).score).toBe(85);
+  it('rewards safe everyday stopping distances and fully parked cars',()=>{
+    expect(brakeStopResult('wall',50,49).score).toBeCloseTo(92,0);
+    expect(brakeStopResult('stop-line',50,48).score).toBeCloseTo(85,0);
+    for (const offset of [-2.5, 2.5]) {
+      expect(brakeStopResult('parking',50,50+offset,4).score).toBeGreaterThan(81);
+    }
+    expect(brakeStopResult('wall',50,47.5,4,levelBrakeScoreScale(1)).score).toBe(85);
+    expect(brakeFeedback(90,{objective:'wall',gapCm:126}).title).toBe('Good stop!');
+    expect(brakeFeedback(90,{objective:'parking',offsetCm:-126}).title).toBe('Good stop!');
+    expect(brakeFeedback(0,{objective:'stop-line',fail:true}).title).toBe('Too late!');
   });
 });

@@ -115,7 +115,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
           tag('played', mode);
         }
         setPlaying(true);
-        if (canvasRef.current) clipRecorder.start(canvasRef.current);
+        if (canvasRef.current) clipRecorder.start(canvasRef.current, mode);
       },
       cancelClip: () => {
         clipRecorder.cancel();
@@ -145,7 +145,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
         timer = window.setTimeout(() => {
           const frozen = snapshotCanvas(canvasRef.current);
           if (frozen) setSnapshot(frozen);
-          void clipRecorder.stop().then(recorded => {
+          void clipRecorder.stop({ mode, attempt }).then(recorded => {
             if (!disposed) setClip(recorded);
           });
         }, CLIP_RESULT_DURATION[mode]);
@@ -211,7 +211,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
 
   return (
     <>
-      <div className="with-board">
+      <div className="with-board game-columns">
       <div className="game-layout">
         <GameCanvas gameRef={gameRef} canvasRef={canvasRef} date={date} />
         <div className="side" ref={resultRef}>
@@ -230,7 +230,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
             />
           )}
           {(panel || (!playing && triesLeft(md) > 0)) && (
-            <GameCompanions mode={mode} date={date} score={panel ? (panel.last ?? bestAttempt(md))?.score : undefined} />
+            <GameCompanions key={`${mode}:${date}:${attemptKey}:${panel?.last?.at ?? (panel ? 'best' : 'intro')}`} mode={mode} date={date} score={panel ? (panel.last ?? bestAttempt(md))?.score : undefined} />
           )}
 
         </div>

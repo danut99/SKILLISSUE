@@ -38,12 +38,23 @@ export function drawResultCompanion(c: CanvasRenderingContext2D, score: number, 
     : 'You drew that with confidence.';
   c.save();
   // The driving scene needs its lower road clear for the car and stopping gap.
-  if (mode === 'brake') c.translate(0, -476);
+  if (mode === 'brake') {
+    // Dedicated score strip above the companion card; no text shares its bounds.
+    c.fillStyle = C.bg;
+    c.fillRect(12, 30, W - 24, 48);
+    c.strokeStyle = C.line;
+    c.lineWidth = 1;
+    c.strokeRect(12, 30, W - 24, 48);
+    text(c, `SCORE ${score.toFixed(1)} / 100`, W / 2, 54, {
+      size: 30, color: score >= 85 ? C.green : C.yellow, maxWidth: W - 48,
+    });
+    c.translate(0, -448);
+  }
   c.fillStyle = C.bg;
-  c.fillRect(12, 536, W - 24, 96);
+  c.fillRect(12, 536, W - 24, mode === 'brake' ? 120 : 96);
   c.strokeStyle = color;
   c.lineWidth = 2;
-  c.strokeRect(82, 540, W - 96, 88);
+  c.strokeRect(82, 540, W - 96, mode === 'brake' ? 112 : 88);
   const sprite = resultSprite(speaker);
   if (sprite?.complete && sprite.naturalWidth) {
     c.imageSmoothingEnabled = false;

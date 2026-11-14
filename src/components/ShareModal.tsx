@@ -45,7 +45,7 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt, noRan
   const rank = mode ? ranks[mode] : ranks.overall;
   const text = shareText(date, ranks, mode);
   const link = siteUrl();
-  const short = text.split('\n').slice(0, -1).join('\n'); // without the URL (buttons add it)
+  const short = text.split('\n').filter(line => line !== link).join('\n'); // buttons add the URL
 
   useEffect(() => {
     if (!open) return;

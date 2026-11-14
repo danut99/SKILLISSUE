@@ -3,7 +3,7 @@ import { dailyShape } from './cutGame';
 import { polygonArea, splitPolygon } from '../lib/geometry';
 
 describe('party cut shapes', () => {
-  it('provides twelve reproducible, bounded silhouettes that conserve area when sliced', () => {
+  it('maps Party outlines to ten reproducible character silhouettes that conserve area', () => {
     const shapes = ['circle', 'square', 'triangle', 'diamond', 'hexagon', 'pentagon', 'oval', 'rectangle', 'heptagon', 'octagon', 'star', 'flower'] as const;
     const outlines = new Set<string>();
     for (const shape of shapes) {
@@ -18,7 +18,7 @@ describe('party cut shapes', () => {
         expect(split.posArea + split.negArea).toBeCloseTo(split.total, 5);
       }
     }
-    expect(outlines.size).toBe(12);
+    expect(outlines.size).toBe(10);
   });
   it('gives every player the same seeded polygon and adds vertices at later levels', () => {
     const seed = 'party:room-token:2:5';
@@ -58,4 +58,31 @@ describe('deceptive level and party silhouettes', () => {
       expect(dailyShape(`advanced:${seed}`,complexity).poly).toEqual(poly);
     }
   });
+});
+
+describe('ten Cut characters',()=>{
+ it('gives every level a distinct name, silhouette, palette and reproducible face',()=>{
+  const designs=Array.from({length:10},(_,i)=>dailyShape(`level:cut:${i+1}`,i));
+  expect(new Set(designs.map(d=>d.name)).size).toBe(10);
+  expect(new Set(designs.map(d=>JSON.stringify(d.poly))).size).toBe(10);
+  expect(new Set(designs.map(d=>d.color)).size).toBeGreaterThanOrEqual(8);
+  expect(new Set(designs.map(d=>d.mood)).size).toBeGreaterThanOrEqual(6);
+ });
+ it('keeps character contours non-crossing and area-correct at all slicing angles',()=>{
+  const cross=(a:{x:number;y:number},b:{x:number;y:number},c:{x:number;y:number})=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+  for(let level=1;level<=10;level++){
+   const {poly}=dailyShape(`level:cut:${level}`,level-1);
+   expect(poly.every(p=>p.x>=0&&p.x<=360&&p.y>=0&&p.y<=640)).toBe(true);
+   for(let i=0;i<poly.length;i++)for(let j=i+2;j<poly.length;j++){
+    if(i===0&&j===poly.length-1)continue;
+    const a=poly[i],b=poly[(i+1)%poly.length],c=poly[j],d=poly[(j+1)%poly.length];
+    expect(cross(a,b,c)*cross(a,b,d)<-1e-7&&cross(c,d,a)*cross(c,d,b)<-1e-7,`level ${level}, edges ${i}/${j}`).toBe(false);
+   }
+   for(let i=0;i<24;i++){
+    const angle=i/24*Math.PI;const dx=Math.cos(angle)*600,dy=Math.sin(angle)*600;
+    const split=splitPolygon(poly,{x:180-dx,y:340-dy},{x:180+dx,y:340+dy});
+    expect(split.posArea+split.negArea).toBeCloseTo(split.total,4);
+   }
+  }
+ });
 });

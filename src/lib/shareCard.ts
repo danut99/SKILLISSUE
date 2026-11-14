@@ -1,15 +1,18 @@
 import { savedResultCanvas } from './savedResult';
 import { preloadResultCompanions } from '../games/resultCompanion';
 import { carSprite } from './pixelAssets';
-import { GAME_NAME, MODE_INFO, MODES, type Mode, siteUrl } from '../config';
+import { GAME_NAME, MODE_INFO, MODES, type Mode } from '../config';
+import { clipWebsite } from './clipScenes';
 import { C, FONT } from '../games/types';
 import { dayNumber } from './daily';
-import { badgeFor, emojiRow, fmtResult, overallBadge, roastFor, toneFor } from './scoring';
+import { badgeFor, fmtResult, overallBadge, roastFor, toneFor } from './scoring';
 import { bestAttempt, modeDay, totalScore, usePlayer, type Attempt } from './store';
 
 /** 9:16 story size — fits TikTok, Instagram/Facebook stories, Reels. */
 const CW = 1080;
 const CH = 1920;
+// Center the composition; keep generous margins and the bottom quarter clear.
+const CENTER = CW / 2;
 
 export interface CardInput {
   date: string;
@@ -57,7 +60,11 @@ function box(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: nu
 }
 
 function background(c: CanvasRenderingContext2D) {
-  c.fillStyle = C.bg;
+  const glow = c.createLinearGradient(0, 0, CW, CH);
+  glow.addColorStop(0, '#172347');
+  glow.addColorStop(.5, '#080d20');
+  glow.addColorStop(1, '#2a1039');
+  c.fillStyle = glow;
   c.fillRect(0, 0, CW, CH);
   c.strokeStyle = C.grid;
   c.lineWidth = 2;
@@ -71,29 +78,42 @@ function background(c: CanvasRenderingContext2D) {
     c.lineTo(CW, y);
   }
   c.stroke();
+  c.fillStyle = C.pink;
+  c.fillRect(120, 175, 9, 1250);
+  c.fillStyle = C.cyan;
+  c.fillRect(120, 175, 840, 9);
+  c.fillStyle = C.pink;
+  c.fillRect(951, 175, 9, 1250);
+  // Decorative pixels can sit outside the content safe area.
+  for (let i = 0; i < 8; i++) {
+    c.fillStyle = i % 2 ? C.cyan : C.pink;
+    c.fillRect(110 + i * 115, 1640 + (i % 3) * 55, 18, 18);
+  }
 }
 
 function header(c: CanvasRenderingContext2D, date: string) {
   // chromatic logo like the site
-  c.font = `150px ${FONT}`;
+  c.font = `100px ${FONT}`;
   c.textAlign = 'center';
   c.textBaseline = 'middle';
-  const y = 170;
+  const y = 248;
   c.fillStyle = '#000';
-  c.fillText('SKILL ISSUE', CW / 2 + 12, y + 12);
+  c.fillText('SKILL ISSUE', CENTER + 9, y + 9);
   c.fillStyle = C.pink;
-  c.fillText('SKILL ISSUE', CW / 2 + 6, y);
+  c.fillText('SKILL ISSUE', CENTER + 5, y);
   c.fillStyle = C.cyan;
-  c.fillText('SKILL ISSUE', CW / 2 - 6, y);
+  c.fillText('SKILL ISSUE', CENTER - 5, y);
   c.fillStyle = C.text;
-  c.fillText('SKILL ISSUE', CW / 2, y);
-  txt(c, `daily test #${dayNumber(date)} · ${date}`, CW / 2, 270, 46, C.muted);
+  c.fillText('SKILL ISSUE', CENTER, y);
+  box(c, CENTER - 378, 315, 756, 100, C.cyan, '#081724');
+  txt(c, clipWebsite(), CENTER, 365, 59, C.cyan, { maxWidth: 700 });
+  txt(c, `DAILY #${dayNumber(date)}  /  ${date}`, CENTER - 376, 460, 32, C.muted, { align: 'left', maxWidth: 500 });
 }
 
 function footer(c: CanvasRenderingContext2D, nickname: string) {
-  txt(c, nickname ? `played by ${nickname}` : '', CW / 2, CH - 230, 44, C.muted);
-  box(c, 120, CH - 180, CW - 240, 110, C.cyan, C.bg);
-  txt(c, `can you beat me? → ${siteUrl().replace(/^https?:\/\//, '').replace(/\/$/, '')}`, CW / 2, CH - 125, 48, C.text, { maxWidth: CW - 300 });
+  box(c, CENTER - 378, 1305, 756, 105, C.pink, '#29152f');
+  txt(c, 'YOUR TURN. BEAT THIS.', CENTER, 1358, 65, C.text, { maxWidth: 700 });
+  txt(c, nickname ? `@${nickname}` : '3 GAMES. ONE EGO.', CENTER, 1450, 36, C.muted, { maxWidth: 700 });
 }
 
 /** Draws the share card and returns it as a PNG blob. */
@@ -114,6 +134,7 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
   ]);
   background(c);
   header(c, input.date);
+  if (input.rank) txt(c, `#${input.rank} TODAY`, CENTER + 354, 460, 30, C.cyan, { align: 'right', maxWidth: 140 });
 
   if (input.mode) {
     const m = input.mode;
@@ -123,23 +144,31 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
     const tone = a ? toneFor(a.score) : 'bad';
     const color = tone === 'good' ? C.green : tone === 'ok' ? C.yellow : C.red;
 
-    txt(c, `${info.emoji} ${info.title.toUpperCase()}`, CW / 2, 380, 70, info.color, { shadow: '#000' });
+    txt(c, info.title.toUpperCase(), CENTER, 535, 50, info.color, { shadow: '#000', maxWidth: 740 });
 
     // game snapshot
-    const top = 450;
-    const sh = 820;
-    const sw = Math.round((sh * 9) / 16);
-    const sx = (CW - sw) / 2;
+    const top = 750;
+    const sh = 360;
+    const sw = 600;
+    const sx = CENTER - sw / 2;
     box(c, sx - 10, top - 10, sw + 20, sh + 20, info.color, C.bg);
     const image = input.snapshot ?? (a ? savedResultCanvas(m, input.date, a) : null);
-    if (image) c.drawImage(image, sx, top, sw, sh);
+    if (image) {
+      // Enlarge the actual play area instead of nesting a tiny full game screen.
+      const cropY = m === 'brake' ? 220 : 155;
+      const cropH = m === 'brake' ? 380 : 310;
+      const cropW = cropH * sw / sh;
+      c.save();
+      c.beginPath(); c.rect(sx, top, sw, sh); c.clip();
+      c.drawImage(image, (360 - cropW) / 2 * image.width / 360, cropY * image.height / 640,
+        cropW * image.width / 360, cropH * image.height / 640, sx, top, sw, sh);
+      c.restore();
+    }
 
     // result
-    txt(c, a ? fmtResult(m, a) : '—', CW / 2, top + sh + 120, 170, color, { shadow: '#000', maxWidth: CW - 120 });
-    if (a) txt(c, roastFor(m, a), CW / 2, top + sh + 225, 46, C.text, { maxWidth: CW - 160 });
-    txt(c, badgeFor(m, bestAttempt(md)), CW / 2, top + sh + 300, 56, C.yellow, { maxWidth: CW - 160 });
-    const rank = input.rank ? `  ·  #${input.rank} today` : '';
-    txt(c, `${emojiRow(md)}${rank}`, CW / 2, top + sh + 380, 50, C.muted);
+    txt(c, a ? fmtResult(m, a) : '—', CENTER, 635, 145, color, { shadow: '#000', maxWidth: 700 });
+    txt(c, badgeFor(m, a), CENTER, 1195, 51, C.yellow, { maxWidth: 730 });
+    if (a) txt(c, roastFor(m, a), CENTER, 1255, 39, C.text, { maxWidth: 730 });
   } else {
     // "my day" summary
     const total = totalScore(days, input.date);
@@ -147,24 +176,22 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
       const info = MODE_INFO[m];
       const md = modeDay(days, input.date, m);
       const best = bestAttempt(md);
-      const x = 60 + index * 328;
-      const width = 304;
+      const x = CENTER - 378 + index * 258;
+      const width = 240;
       const center = x + width / 2;
-      box(c, x, 370, width, 800, info.color);
-      txt(c, info.title.toUpperCase(), center, 418, 44, info.color, { maxWidth: width - 24 });
+      box(c, x, 780, width, 380, info.color);
+      txt(c, info.title.toUpperCase(), center, 820, 37, info.color, { maxWidth: width - 24 });
       if (best) {
         const image = savedResultCanvas(m, input.date, best);
-        c.drawImage(image, x + 12, 464, 280, 280 * 16 / 9);
+        c.drawImage(image, 0, image.height * .28, image.width, image.height * .36, x + 12, 865, width - 24, 180);
       } else {
-        txt(c, 'NOT PLAYED', center, 710, 38, C.muted, { maxWidth: width - 24 });
+        txt(c, 'NOT PLAYED', center, 950, 38, C.muted, { maxWidth: width - 24 });
       }
-      txt(c, best ? fmtResult(m, best) : '—', center, 1030, 66, best ? C.text : C.muted, { maxWidth: width - 28 });
-      txt(c, best ? emojiRow(md) : 'Try it today', center, 1110, 40, C.muted, { maxWidth: width - 28 });
+      txt(c, best ? fmtResult(m, best) : '—', center, 1100, 56, best ? C.text : C.muted, { maxWidth: width - 28 });
     }
-    txt(c, "TODAY'S TOTAL", CW / 2, 1250, 46, C.muted);
-    txt(c, `${total.toFixed(1)} / 300`, CW / 2, 1360, 160, C.yellow, { shadow: '#000', maxWidth: CW - 160 });
-    txt(c, overallBadge(total), CW / 2, 1480, 64, C.text, { maxWidth: CW - 160 });
-    if (input.rank) txt(c, `#${input.rank} worldwide today`, CW / 2, 1570, 54, C.cyan);
+    txt(c, "TODAY'S TOTAL", CENTER, 540, 46, C.muted);
+    txt(c, `${total.toFixed(1)} / 300`, CENTER, 650, 155, C.yellow, { shadow: '#000', maxWidth: 740 });
+    txt(c, overallBadge(total), CENTER, 1230, 54, C.text, { maxWidth: 730 });
   }
 
   footer(c, nickname);

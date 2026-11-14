@@ -167,6 +167,7 @@ grant execute on function public.get_leaderboard(text) to anon, authenticated;
 import { type BoardMode, type Mode, MODES } from '../config';
 import { isOnline, syncFromServer, useAuth, whenAuthReady } from './auth';
 import { rngFor } from './daily';
+import { brakeScore } from './brakeChallenge';
 import { round2 } from './geometry';
 import { bestAttempt, modeDay, randomName, usePlayer, type Attempt, type Detail } from './store';
 import { getSupabase } from './supabase';
@@ -225,7 +226,7 @@ function botEntries(date: string, mode: Mode): MockEntry[] {
     }
     if (r() < 0.15) return { nickname, score: 0, detail: { crashed: true, impactKmh: Math.round(5 + r() * 40) }, updated: i };
     const gapCm = Math.exp(r() * 6);
-    return { nickname, score: round2(Math.min(99.9, 100 * Math.exp(-gapCm / 200))), detail: { gapCm: +gapCm.toFixed(1) }, updated: i };
+    return { nickname, score: round2(brakeScore(gapCm)), detail: { gapCm: +gapCm.toFixed(1) }, updated: i };
   });
 }
 

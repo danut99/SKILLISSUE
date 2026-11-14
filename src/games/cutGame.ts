@@ -1,3 +1,4 @@
+import { CUT_CHARACTERS, cutCharacterIndex, paintCutFace, type CutMood } from '../lib/cutCharacters';
 import { drawResultCompanion } from './resultCompanion';
 import { sfx } from '../lib/audio';
 import { rngFor } from '../lib/daily';
@@ -8,7 +9,7 @@ import { paper, text } from './canvas';
 import { C, H, W, type Game, type GameApi } from './types';
 
 /** Today's asymmetric 7–9 vertex blob — identical for every player (UTC date seed). */
-export function dailyShape(date: string, complexity = 0, partyShape?: DrawShape): { poly: Pt[]; hue: number } {
+export function dailyShape(date: string, complexity = 0, partyShape?: DrawShape, forcedCharacter?: number): { poly: Pt[]; hue: number; color: string; dark: string; mood: CutMood; name: string; character?: number; pattern: string } {
   const rng = rngFor(`${date}:cut`);
   const n = 7 + Math.floor(rng() * 3) + Math.max(0, Math.min(9, complexity)) * 2;
   const off = rng() * Math.PI * 2;
@@ -54,6 +55,14 @@ export function dailyShape(date: string, complexity = 0, partyShape?: DrawShape)
       return { x: Math.cos(angle + rotation) * radius, y: Math.sin(angle + rotation) * radius };
     });
   }
+  const character = forcedCharacter ?? (date.startsWith('level:cut:') || partyShape ? cutCharacterIndex(complexity, partyShape) : undefined);
+  const design = character === undefined ? undefined : CUT_CHARACTERS[Math.max(0,Math.min(9,character))];
+  if (design) {
+    const rotation = (rng()-.5) * (partyShape ? .65 : .15);
+    const cos=Math.cos(rotation),sin=Math.sin(rotation);
+    const lean=(rng()-.5)*.16;
+    poly=design.poly.map(p=>({x:p.x*cos-(p.y+p.x*lean)*sin,y:p.x*sin+(p.y+p.x*lean)*cos}));
+  }
   const xs = poly.map((p) => p.x);
   const ys = poly.map((p) => p.y);
   const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
@@ -61,7 +70,9 @@ export function dailyShape(date: string, complexity = 0, partyShape?: DrawShape)
   const cx = W / 2;
   const cy = H * 0.53;
   poly = poly.map((p) => ({ x: cx + (p.x - (minX + maxX) / 2) * s, y: cy + (p.y - (minY + maxY) / 2) * s }));
-  return { poly, hue: Math.floor(rng() * 360) };
+  const hue = Math.floor(rng() * 360);
+  const look=design??CUT_CHARACTERS[hue%CUT_CHARACTERS.length];
+  return { poly, hue, color: look.color, dark: look.dark, mood:look.mood, name:design?.name??'Daily blob', character, pattern:look.pattern };
 }
 
 /** Extend segment a→b far beyond the stage edges. */
@@ -83,11 +94,12 @@ interface Piece {
 }
 
 export function createCutGame(api: GameApi, options?: { complexity?: number; partyShape?: DrawShape }): Game {
-  const { poly, hue } = dailyShape(api.date, options?.complexity, options?.partyShape);
+  const design = dailyShape(api.date, options?.complexity, options?.partyShape);
+  const {poly}=design;
   const face = innerPoint(poly, 6);
   const fs = clamp(face.d / 38, 0.55, 1.2);
-  const fill = `hsl(${hue} 90% 66%)`;
-  const dark = `hsl(${hue} 70% 30%)`;
+  const fill = design.color;
+  const dark = design.dark;
 
   let state: 'ready' | 'dragging' | 'done' = 'ready';
   let A: Pt | null = null;
@@ -102,30 +114,7 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
   let resultSound: ReturnType<typeof setTimeout> | undefined;
 
   function drawFace(c: CanvasRenderingContext2D, scared: boolean, sliced: boolean) {
-    const { x, y } = face.p;
-    for (const dx of [-15, 15]) {
-      const ex = x + dx * fs;
-      const ey = y - 9 * fs;
-      c.fillStyle = '#fff';
-      c.strokeStyle = '#000';
-      c.lineWidth = 2;
-      c.beginPath();
-      c.arc(ex, ey, (scared ? 12 : 10) * fs, 0, Math.PI * 2);
-      c.fill();
-      c.stroke();
-      const ang = Math.atan2(pointer.y - ey, pointer.x - ex);
-      const pr = (sliced ? 2 : 4) * fs;
-      c.fillStyle = '#000';
-      c.beginPath();
-      c.arc(ex + Math.cos(ang) * pr, ey + Math.sin(ang) * pr, (scared ? 3.5 : 5) * fs, 0, Math.PI * 2);
-      c.fill();
-    }
-    c.strokeStyle = '#000';
-    c.lineWidth = 2.5;
-    c.beginPath();
-    if (scared || sliced) c.ellipse(x, y + 14 * fs, 6 * fs, 8 * fs, 0, 0, Math.PI * 2);
-    else c.arc(x, y + 8 * fs, 9 * fs, 0.15 * Math.PI, 0.85 * Math.PI);
-    c.stroke();
+    paintCutFace(c, face.p, fs, design.mood, pointer, scared, sliced);
   }
 
   function pathPoly(c: CanvasRenderingContext2D, p: Pt[]) {
@@ -142,6 +131,19 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
     c.lineWidth = 4;
     c.strokeStyle = dark;
     c.stroke();
+    c.save();pathPoly(c,p);c.clip();
+    if(design.pattern==='spots'){
+      c.fillStyle=dark+'44';
+      for(const [dx,dy,r] of [[-48,-40,13],[48,-30,10],[-20,50,9],[70,35,15]]){
+        c.beginPath();c.arc(face.p.x+dx*fs,face.p.y+dy*fs,r*fs,0,Math.PI*2);c.fill();
+      }
+    }else if(design.pattern==='veins'){
+      c.strokeStyle=dark+'66';c.lineWidth=3;c.beginPath();c.moveTo(70,440);c.lineTo(280,230);
+      for(let i=0;i<4;i++){const x=95+i*40,y=415-i*40;c.moveTo(x,y);c.lineTo(x-8,y-35);c.moveTo(x,y);c.lineTo(x+35,y+8);}c.stroke();
+    }else if(design.pattern==='shine'){
+      c.strokeStyle='#ffffff77';c.lineWidth=5;c.beginPath();c.moveTo(face.p.x-45*fs,face.p.y-42*fs);c.lineTo(face.p.x-20*fs,face.p.y-58*fs);c.stroke();
+    }
+    c.restore();
   }
 
   function cut(a: Pt, b: Pt) {
@@ -174,7 +176,7 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
     cutAt = performance.now();
     sfx.slice();
     resultSound = setTimeout(() => (score >= 95 ? sfx.ding() : score < 70 ? sfx.fail() : sfx.pop()), 350);
-    api.finish({ score, detail: { a: lo, b: hi, line: [a.x, a.y, b.x, b.y].map(Math.round) }, display });
+    api.finish({ score, detail: { a: lo, b: hi, cutCharacter:design.character, line: [a.x, a.y, b.x, b.y].map(Math.round) }, display });
   }
 
   return {
@@ -290,7 +292,7 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
 
       if (state === 'ready') {
         text(c, 'CUT IT 50 / 50', W / 2, 92, { size: 40, color: C.pink, outline: 5 });
-        text(c, 'drag one straight line', W / 2, 124, { size: 22, color: C.muted });
+        text(c, design.character === undefined ? 'drag one straight line' : design.name, W / 2, 124, { size: 22, color: C.muted });
       }
     },
   };

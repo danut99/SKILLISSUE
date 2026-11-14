@@ -489,7 +489,6 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
       if (state === 'stopped' || state === 'crashed' || state === 'failed') {
         const detail = result?.detail ?? { crashed: state === 'crashed', objective: P.objective };
         drawResultCompanion(c, score, 'brake', fmtResult('brake', { score, detail }), detail);
-        text(c, `SCORE ${score.toFixed(1)} / 100`, W / 2, 65, { size: 30, color: score >= 85 ? C.green : C.yellow, outline: 5 });
       }
     },
     destroy() {

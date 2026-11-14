@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useReducedMotion } from 'motion/react';
 import type { Mode } from '../config';
 import { gameDialogue, resultDialogue } from '../lib/companionDialogue';
@@ -7,6 +9,17 @@ import { usePlayer } from '../lib/store';
 const NAMES = { demon: 'Little Menace', angel: 'Hype Angel' };
 
 export function GameCompanions({ mode, date, score }: { mode: Mode; date: string; score?: number }) {
+  const [gutter, setGutter] = useState<number | null>(null);
+  useEffect(() => {
+    if (score === undefined) return;
+    const place = () => {
+      const left = document.querySelector('.stage')?.getBoundingClientRect().left ?? 0;
+      setGutter(window.innerWidth >= 900 && left >= 190 ? Math.min(260, left - 28) : null);
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => { window.removeEventListener('resize', place); };
+  }, [score]);
   const lowPower = usePlayer(s => s.settings.lowPower);
   const reducedMotion = useReducedMotion();
   const animate = !lowPower && !reducedMotion;
@@ -20,7 +33,8 @@ export function GameCompanions({ mode, date, score }: { mode: Mode; date: string
   const animation = score === undefined ? 'angel-hover.webp'
     : name === 'angel' ? 'angel-cheer.webp' : 'demon-taunt.webp';
 
-  return <div className={`result-companion ${name} ${animate ? '' : 'still'}`}>
+  const content = <div className={`result-companion ${name} ${animate ? '' : 'still'} ${score === undefined ? '' : 'desktop-reaction'} ${gutter ? 'reaction-in-gutter' : ''}`}
+    style={gutter ? { width: gutter } : undefined}>
     <img className="floating-companion-art" width="192" height="192" aria-hidden="true" alt=""
       src={pixelArtUrl(animate ? animation : `${name}-192.png`)}
       onError={e => {
@@ -32,4 +46,5 @@ export function GameCompanions({ mode, date, score }: { mode: Mode; date: string
       {score === undefined && <span className="companion-rules">5 tries. Best one counts. Same challenge for everyone today.</span>}
     </p>
   </div>;
+  return gutter ? createPortal(content, document.body) : content;
 }

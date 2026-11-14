@@ -64,6 +64,8 @@ describe('scoring', () => {
   it('brake score decays with the gap', () => {
     expect(brakeScore(0)).toBe(100);
     expect(brakeScore(1)).toBeGreaterThan(99);
-    expect(brakeScore(100)).toBeLessThan(65);
+    expect(brakeScore(100)).toBeCloseTo(92, 0);
+    expect(brakeScore(200)).toBeCloseTo(85, 0);
+    expect(brakeScore(300)).toBeLessThan(brakeScore(200));
   });
 });

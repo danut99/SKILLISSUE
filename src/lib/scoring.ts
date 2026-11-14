@@ -102,18 +102,19 @@ export function roastFor(mode: Mode, a: Attempt): string {
     }
     if (a.detail.partial) return (a.detail.offsetCm ?? 0) < 0 ? 'Half parked, half on the road ahead.' : 'Half parked. The rest is still driving in.';
     if (s >= 95) return 'Valet parking wants your number.';
-    return (a.detail.offsetCm ?? 0) < 0 ? 'A little enthusiastic with that parking spot.' : 'Almost parked. Keep going next time.';
+    return 'Safely inside the bay. Center it for more points.';
   }
   if (a.detail.objective === 'stop-line') {
     if (a.detail.fail) return 'Red means stop. The camera saw that.';
     if (s >= 95) return 'Driving test passed. Somehow.';
+    if (s >= 85) return 'A sensible gap. Your driving instructor approves.';
     return 'The light is red. Your timing needs work.';
   }
   const cm = a.detail.gapCm ?? 9999;
   if (cm < 1) return 'The wall felt your breath. 😱';
   if (cm < 10) return 'Parking sensors are jealous.';
   if (cm < 50) return 'Solid. Mildly terrifying.';
-  if (cm < 200) return 'You stopped. Eventually.';
+  if (cm <= 250) return 'Safe stop. The bumper thanks you.';
   return 'You braked in a different postcode.';
 }
 

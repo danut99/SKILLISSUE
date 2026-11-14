@@ -1,10 +1,11 @@
+import { paintCutFace } from './cutCharacters';
 import { createBrakeGame } from '../games/brakeGame';
 import { drawResultCompanion } from '../games/resultCompanion';
 import type { Mode } from '../config';
 import { dailyShape } from '../games/cutGame';
 import { paper, text } from '../games/canvas';
 import { C, W, H, SCALE } from '../games/types';
-import { polygonArea, polygonCentroid, splitPolygon } from './geometry';
+import { innerPoint, polygonArea, polygonCentroid, splitPolygon } from './geometry';
 import { fmtResult } from './scoring';
 import { dailyDrawShape, shapeAccuracy, shapeRadius } from './drawShapes';
 import type { Attempt } from './store';
@@ -23,7 +24,9 @@ export function savedCutCanvas(date: string, attempt: Attempt): HTMLCanvasElemen
   const c = canvas.getContext('2d')!;
   c.scale(SCALE, SCALE);
   paper(c);
-  const { poly, hue } = dailyShape(date);
+  const design = dailyShape(date,0,undefined,attempt.detail.cutCharacter);
+  const {poly}=design;
+  const face=innerPoint(poly,6);
   const split = splitPolygon(poly, a, b);
   const pieces = [split.pos, split.neg];
   const total = polygonArea(poly);
@@ -37,11 +40,12 @@ export function savedCutCanvas(date: string, attempt: Attempt): HTMLCanvasElemen
     c.beginPath();
     piece.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y));
     c.closePath();
-    c.fillStyle = `hsl(${hue} 90% ${index === 0 ? 66 : 55}%)`;
+    c.fillStyle = design.color;
     c.fill();
     c.strokeStyle = '#000';
     c.lineWidth = 3;
     c.stroke();
+    c.save();c.clip();paintCutFace(c,face.p,Math.max(.45,Math.min(1.2,face.d/38)),design.mood,{x:180,y:100},false,true);c.restore();
     const center = polygonCentroid(piece);
     text(c, `${(polygonArea(piece) / total * 100).toFixed(1)}%`, center.x, center.y, { size: 27, color: C.text, outline: 5 });
     c.restore();

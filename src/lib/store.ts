@@ -15,6 +15,8 @@ export interface Detail {
   timedOut?: boolean;
   /** Bounded drawing samples for restoring the actual stroke. */
   stroke?: number[][];
+  /** Saved character selection keeps result previews consistent. */
+  cutCharacter?: number;
   /** cut: smaller / larger half in % */
   a?: number;
   b?: number;

@@ -472,6 +472,19 @@ body.low-power { background: var(--bg); }
   .stage-wrap { width: min(100%, calc((100dvh - 170px - var(--ad-h)) * 9 / 16)); }
   .side { width: 100%; }
 
+  /* Share the header's outer edges and distribute spare room equally between cards. */
+  .game-columns {
+    grid-template-columns: minmax(0, calc((100dvh - 170px - var(--ad-h)) * 9 / 16)) minmax(0, 400px) minmax(0, 360px);
+    column-gap: clamp(32px, 3vw, 48px);
+    justify-content: space-between;
+  }
+  .game-columns > .game-layout { display: contents; }
+  .game-columns .stage-wrap { width: 100%; min-width: 0; margin-inline: 0; }
+  .game-columns .side, .game-columns > .board-col { min-width: 0; }
+  .game-columns table.lb { table-layout: fixed; }
+  .game-columns .lb td.nick { max-width: none; }
+  .game-columns .lb td:last-child { width: 112px; }
+
   /* menu: wider modal, 3 columns, bigger tiles */
   .menu-modal { align-items: center; }
   .menu-box { width: min(760px, 100%); padding: 28px 32px 20px; }
@@ -1438,3 +1451,81 @@ body.low-power .waiting-dots { animation: none; }
  .home .hero { grid-template-areas:"roast status" "roast help"; }
 }
 .home .hero .how2 { margin-top:12px; }
+
+/* Mobile review: keep card copy readable even with long level/result labels. */
+@media (max-width: 899px) {
+  .cards .game-card {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+  }
+  .cards .gc-emoji { width: 64px; }
+  .cards .gc-body { min-width: 0; }
+  .cards .gc-title { line-height: 1.1; }
+  .cards .gc-tag { line-height: 1.25; }
+  .cards .gc-tries { letter-spacing: 1px; overflow-wrap: anywhere; }
+  .cards .gc-cta {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    padding: 8px 12px;
+    line-height: 1.2;
+  }
+  .game-mode-switch button { min-height: 44px; }
+  .game-bar { flex-wrap: wrap; }
+  .game-title { min-width: 0; }
+  .r-top { flex-wrap: wrap; }
+  .r-top .pill { min-width: 0; overflow-wrap: anywhere; }
+  .party-players li > span { min-width: 0; }
+  .party-players li > b { flex-shrink: 0; }
+  .party-history-select select { min-width: 0; max-width: 100%; }
+  .party-gallery select { min-height: 44px; }
+  .level-status { min-width: 0; overflow-wrap: anywhere; }
+  .level-status > .btn { width: 100%; margin-top: 10px; }
+  .level-layout { gap: 16px; }
+  .level-layout > div:empty { display: none; }
+}
+
+/* Dialogs must also scroll on phones held sideways and above the 600px breakpoint. */
+.modal {
+  padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+}
+.modal-box {
+  max-height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+body:has(.modal) { overflow: hidden; }
+.toggle-row > span:first-child { min-width: 0; }
+.t-pill { flex-shrink: 0; }
+
+@media (max-width: 899px) and (max-height: 500px) {
+  /* Preserve a usable drawing area; the page can scroll around the canvas. */
+  .stage-wrap { width: min(100%, 280px); }
+}
+
+@media (max-width: 899px) {
+  #app { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+  .topbar { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right)); }
+}
+@media (max-width: 540px) {
+  .hero .logo { font-size: clamp(40px, 13vw, 70px); }
+}
+.menu-box {
+  max-height: calc(100dvh - max(12px, env(safe-area-inset-top)) - max(12px, env(safe-area-inset-bottom)));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media(min-width:900px) {
+ .game-layout > .side { display:flex; flex-direction:column; }
+ .desktop-reaction { order:-1; margin-bottom:12px; }
+ .desktop-reaction.reaction-in-gutter { position:fixed; left:12px; top:34vh; z-index:24; display:flex; flex-direction:column; gap:4px; align-items:center; pointer-events:none; }
+ .reaction-in-gutter .floating-companion-art { flex:none; width:112px; height:112px; }
+ .reaction-in-gutter .floating-companion-bubble { width:100%; font-size:21px; }
+}
+
+@media(max-width:899px) { .result-companion.desktop-reaction { display:none; } }

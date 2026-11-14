@@ -61,8 +61,10 @@ export const MODE_INFO: Record<Mode, ModeInfo> = {
   },
 };
 
+/** Public destination for social buttons, copied text and exported cards. */
 export const siteUrl = (): string =>
-  typeof location !== 'undefined' && location.host ? location.origin + location.pathname : 'skillissue.fun';
+  (typeof document !== 'undefined' && document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href)
+  || (typeof location !== 'undefined' && location.host ? location.origin + location.pathname : 'https://playskillissue.pages.dev/');
 
 /** BRAKE! car skins — unlocked by best streak (like Krillion's dive buddies). */
 export const CAR_SKINS = [

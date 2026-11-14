@@ -17,10 +17,14 @@ export function dailyBrakeObjective(date: string): BrakeObjective {
   return BRAKE_OBJECTIVES[index];
 }
 
-/** Distance in centimeters from the desired stopping position. */
-export const brakeScore = (gapCm: number, distanceScaleCm = 200) => (gapCm < 0.05 ? 100 : Math.min(99.9, 100 * Math.exp(-gapCm / distanceScaleCm)));
+/** Safe stops at 1 m earn about 92 points; 2 m earns about 85. */
+export const BRAKE_SCORE_DISTANCE_CM = 1200;
+export const brakeScore = (gapCm: number, distanceScaleCm = BRAKE_SCORE_DISTANCE_CM) => (gapCm < 0.05 ? 100 : Math.min(99.9, 100 * Math.exp(-gapCm / distanceScaleCm)));
 
 export function brakeFeedback(score: number, detail: Detail): { title: string; tip: string } {
+  if (!detail.fail && !detail.crashed && score >= 85 && score < 95) {
+    return { title: 'Good stop!', tip: detail.objective === 'parking' ? 'Safely parked. Aim closer to the center for more points.' : 'A safe stopping distance. Get closer for more points.' };
+  }
   if (detail.crashed || (detail.fail && detail.objective === 'stop-line') || (detail.offsetCm ?? 0) < 0) {
     // A small parking overshoot can still be an excellent result.
     if (!detail.fail && !detail.crashed && score >= 95) return { title: 'Almost perfect!', tip: 'Keep that timing. You are very close.' };
@@ -36,7 +40,7 @@ export function brakeFeedback(score: number, detail: Detail): { title: string; t
  * Parking: fully inside the bay scores by centering; partly inside scores the bay-edge score
  * times the share of the car inside; no part inside fails. `carLenM` is the car length in meters.
  */
-export function brakeStopResult(objective: BrakeObjective, target: number, position: number, carLenM = 0, distanceScaleCm = 200): { score: number; detail: Detail } {
+export function brakeStopResult(objective: BrakeObjective, target: number, position: number, carLenM = 0, distanceScaleCm = BRAKE_SCORE_DISTANCE_CM): { score: number; detail: Detail } {
   const offsetM = target - position;
   const gapCm = round2(Math.abs(offsetM) * 100);
   const base = { objective, gapCm, offsetCm: round2(offsetM * 100) };
