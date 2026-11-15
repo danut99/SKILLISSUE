@@ -1,8 +1,10 @@
+import { LeagueCard } from './LeaguePage';
 import { ResponsiveSection } from './ResponsiveSection';
 import { LEVEL_TRIES, levelCount, loadLevels, useLevels } from '../lib/levels';
 import { GuestProgressPrompt } from './GuestProgressPrompt';
 import { track } from '../lib/clarity';
 import { useAuth } from '../lib/auth';
+import { RecentChampions } from './RecentChampions';
 import { PartyStats } from './PartyStats';
 import { ChallengeInbox } from './ChallengeInbox';
 import { useEffect, useState } from 'react';
@@ -15,6 +17,7 @@ import { Countdown } from './Countdown';
 import { Leaderboard } from './Leaderboard';
 import { ShareModal } from './ShareModal';
 import { AccountCard } from './AccountCard';
+import { NicknameControl } from './NicknameControl';
 import { pixelArtUrl, preloadPixelCars } from '../lib/pixelAssets';
 import { dailyDrawShape } from '../lib/drawShapes';
 import { PixelIcon } from './PixelIcon';
@@ -133,7 +136,14 @@ export function Home({ date, onPlay }: Props) {
       <div className="with-board">
       <div className="main-col">
 
-      <div className="home-account"><GuestProgressPrompt date={date} /></div>
+      <div className="home-account">
+        <GuestProgressPrompt date={date} />
+        {authStatus === 'linked' && <section className="guest-progress" aria-label="Your name and account">
+          <NicknameControl date={date} />
+          <a className="link-btn" href="#me">My account</a>
+          <p className="guest-progress-note">Your progress is saved to your account.</p>
+        </section>}
+      </div>
       <div className="cards">
       {MODES.map((m, i) => {
         const levelMode = gameModes[m] === 'level';
@@ -143,9 +153,9 @@ export function Home({ date, onPlay }: Props) {
         const info = MODE_INFO[m];
         const dots = emojiRow(md) + '⬜'.repeat(Math.max(0, maxTries(md) - md.tries.length));
         return (
-          <div className="game-mode-card" key={m}>
+          <div className="game-mode-card" key={m} style={{ ['--accent' as string]: info.color }}>
           <div className="game-mode-switch" role="group" aria-label={`${info.title} mode`}>
-            <span>Mode:</span><button aria-pressed={!levelMode} onClick={() => setGameModes(s => ({...s, [m]: 'daily'}))}>Daily</button><button aria-pressed={levelMode} onClick={() => setGameModes(s => ({...s, [m]: 'level'}))}>Level</button>
+            <button aria-pressed={!levelMode} onClick={() => setGameModes(s => ({...s, [m]: 'daily'}))}>Daily</button><button aria-pressed={levelMode} onClick={() => setGameModes(s => ({...s, [m]: 'level'}))}>Levels</button>
           </div>
           <motion.button
             className="game-card px-box"
@@ -179,6 +189,9 @@ export function Home({ date, onPlay }: Props) {
         );
       })}
       </div>
+
+      <LeagueCard date={date} />
+      <RecentChampions date={date} />
 
       <a className="card px-box balance-promo" href="#balance">
         <PixelIcon name="balance" size={64} />
@@ -227,13 +240,24 @@ export function Home({ date, onPlay }: Props) {
               </button>;
             })}
           </div>
+          {MODES.every(mode => modeDay(days, date, mode).tries.length > 0) && <div className="daily-return-dialogue">
+            <div className="daily-companion angel">
+              <img src={pixelArtUrl('angel-192.png')} width="64" height="64" alt="" aria-hidden="true" />
+              <p><b>Hype Angel</b>{authStatus === 'anon' ? 'Link Google to keep your scores, streak and unlocks across devices. ' : 'Nice work today! '}New challenges in <Countdown />.</p>
+            </div>
+            <div className="daily-companion demon">
+              <img src={pixelArtUrl('demon-192.png')} width="64" height="64" alt="" aria-hidden="true" />
+              <p><b>Little Menace</b>{authStatus === 'anon' ? 'Keep your progress. Come back tomorrow. Prove it wasn\'t luck.' : 'Beat today\'s score tomorrow. Prove it wasn\'t luck.'}</p>
+            </div>
+            {authStatus === 'anon' && <a className="btn btn-primary" href="#me">Link Google</a>}
+          </div>}
         </div>
       )}
 
       {authStatus !== 'anon' && <AccountCard />}
       </div>
 
-      <aside className="board-col">
+      <aside className="board-col" id="today-leaderboard">
       <ResponsiveSection title="Leaderboards"><Leaderboard mode="overall" date={date} title="Top Tryhards" /></ResponsiveSection>
       <ResponsiveSection title="Your challenges"><ChallengeInbox compact /></ResponsiveSection>
       </aside>

@@ -6,6 +6,7 @@ import { MODE_INFO, MODES, REWARDED_ADS, type Mode } from '../config';
 import { saveClip } from '../lib/clip';
 import { useAuth } from '../lib/auth';
 import { GuestProgressPrompt } from './GuestProgressPrompt';
+import { GuestAccountNudge } from './GuestAccountNudge';
 import { NicknameControl } from './NicknameControl';
 import { copyText, badgeFor, emojiRow, fmtResult, roastFor, shareText, toneFor } from '../lib/scoring';
 import { bestAttempt, maxTries, modeDay, triesLeft, usePlayer, type Attempt } from '../lib/store';
@@ -140,6 +141,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
         {ranks[mode] ? <span className="saved-rank">#{ranks[mode]}</span> : null}
       </div>
       <GuestProgressPrompt date={date} />
+      {last && !archived && <GuestAccountNudge date={date} attemptAt={last.at} blocked={shareOpen || challengeBusy} />}
       {authStatus !== 'anon' && <NicknameControl date={date} />}
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} date={date} mode={mode} snapshot={snapshot} attempt={shown} noRank={archived} />
     </motion.div>

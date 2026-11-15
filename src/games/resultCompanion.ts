@@ -3,7 +3,7 @@ import type { Detail } from '../lib/store';
 import { pixelArtUrl } from '../lib/pixelAssets';
 import { text } from './canvas';
 import { C, W } from './types';
-import { brakeFeedback } from '../lib/brakeChallenge';
+import { resultTaunt } from '../lib/resultTaunts';
 
 const sprites = new Map<string, HTMLImageElement>();
 
@@ -29,13 +29,7 @@ export function drawResultCompanion(c: CanvasRenderingContext2D, score: number, 
   const angel = score >= 80;
   const speaker = angel ? 'angel' : 'demon';
   const color = angel ? C.cyan : C.pink;
-  const reaction = mode === 'brake'
-    ? `${brakeFeedback(score, detail).title} ${brakeFeedback(score, detail).tip}`
-    : mode === 'cut'
-    ? angel ? 'A fair split. Even the blob agrees.' : 'Someone got the bigger half.'
-    : angel
-    ? score >= 95 ? 'Okay. That was ridiculously good.' : 'That shape deserves a screenshot.'
-    : 'You drew that with confidence.';
+  const reaction = resultTaunt(mode, score, detail);
   c.save();
   // The driving scene needs its lower road clear for the car and stopping gap.
   if (mode === 'brake') {
@@ -64,17 +58,17 @@ export function drawResultCompanion(c: CanvasRenderingContext2D, score: number, 
   text(c, result, 93, 580, { size: 32, maxWidth: W - 112, color, align: 'left' });
   const words = reaction.split(' ');
   let line = '';
-  let y = 604;
-  c.font = '17px "VT323", monospace';
+  let y = 602;
+  c.font = '15px "VT323", monospace';
   for (const word of words) {
     const next = line ? `${line} ${word}` : word;
     if (c.measureText(next).width > W - 112 && line) {
-      text(c, line, 93, y, { size: 17, align: 'left' });
-      y += 17;
+      text(c, line, 93, y, { size: 15, align: 'left' });
+      y += 15;
       line = word;
     } else line = next;
   }
-  text(c, line, 93, y, { size: 17, align: 'left' });
+  text(c, line, 93, y, { size: 15, align: 'left' });
   const transform = c.getTransform();
   c.restore();
   // Saved result canvases only render once; fill the sprite when it loads too.

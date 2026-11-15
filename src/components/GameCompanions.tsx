@@ -23,28 +23,29 @@ export function GameCompanions({ mode, date, score }: { mode: Mode; date: string
   const lowPower = usePlayer(s => s.settings.lowPower);
   const reducedMotion = useReducedMotion();
   const animate = !lowPower && !reducedMotion;
-  const current = score === undefined
-    ? {
-      speaker: 'angel' as const,
-      text: gameDialogue(mode, date).filter(line => line.speaker === 'angel').map(line => line.text).join(' '),
-    }
-    : resultDialogue(mode, score, date)[0];
+  const lines = score === undefined ? gameDialogue(mode, date) : resultDialogue(mode, score, date);
+  const current = lines[0];
   const name = current.speaker;
   const animation = score === undefined ? 'angel-hover.webp'
     : name === 'angel' ? 'angel-cheer.webp' : 'demon-taunt.webp';
 
-  const content = <div className={`result-companion ${name} ${animate ? '' : 'still'} ${score === undefined ? '' : 'desktop-reaction'} ${gutter ? 'reaction-in-gutter' : ''}`}
+  const content = <div className={score === undefined ? 'companion-intro' : undefined}>{lines.map((line, index) => {
+    const name = line.speaker;
+    const art = score === undefined ? name === 'angel' ? 'angel-hover.webp' : 'demon-taunt.webp' : animation;
+    return <div key={`${name}:${index}`} className={`result-companion ${name} ${animate ? '' : 'still'} ${score === undefined ? '' : 'desktop-reaction'} ${gutter ? 'reaction-in-gutter' : ''}`}
     style={gutter ? { width: gutter } : undefined}>
     <img className="floating-companion-art" width="192" height="192" aria-hidden="true" alt=""
-      src={pixelArtUrl(animate ? animation : `${name}-192.png`)}
+      src={pixelArtUrl(animate ? art : `${name}-192.png`)}
       onError={e => {
         const fallback = pixelArtUrl(`${name}-192.png`);
         if (!e.currentTarget.src.endsWith(fallback)) e.currentTarget.src = fallback;
       }} />
-    <p className="floating-companion-bubble" role="status">
-      <b>{NAMES[name]}</b>{current.text}
-      {score === undefined && <span className="companion-rules">5 tries. Best one counts. Same challenge for everyone today.</span>}
+    <p className="floating-companion-bubble" role={score === undefined ? undefined : 'status'}>
+      <b>{NAMES[name]}</b>{line.text}
+      {line.scoring && <span className="companion-scoring"><strong>How points work</strong>{line.scoring}</span>}
+      {score === undefined && name === 'angel' && <span className="companion-rules">5 tries. Best one counts. Same challenge for everyone today.</span>}
     </p>
   </div>;
+  })}</div>;
   return gutter ? createPortal(content, document.body) : content;
 }

@@ -1,3 +1,4 @@
+import { LeagueCareer } from './LeaguePage';
 import { RankCalendar } from './RankCalendar';
 import { lazy, Suspense, type ReactNode } from 'react';
 const ProgressCharts = lazy(() => import('./ProgressCharts'));
@@ -40,6 +41,7 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
         <AccountCard page />
       </Section>
       </div>
+      <LeagueCareer date={date} />
       <div className="profile-overview">
         <div className="profile-progress-column">
       <Suspense fallback={<p role="status">Loading progress charts...</p>}><ProgressCharts date={date}><div className="progress-lifetime"><h3 className="progress-chart-title">Overall stats</h3>        <dl className="me-stats">

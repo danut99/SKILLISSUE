@@ -1,3 +1,4 @@
+import { BonusGameReaction } from './BonusGameReaction';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { dayNumber } from '../lib/daily';
@@ -119,7 +120,7 @@ function CountSession({ date }: { date: string }) {
             {dots.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="11" fill="currentColor" />)}
           </svg> : <div className="count-message">
             <strong>{phase === 'get-ready' ? 'Ready?' : phase === 'answer' ? '?' : phase === 'result' ? `${result?.score ?? 0}/100` : '● ● ●'}</strong>
-            <span>{phase === 'get-ready' ? 'Watch the middle.' : phase === 'answer' ? 'How many did you see?' : phase === 'result' ? (result?.score ?? 0) >= 85 ? 'Sharp eyes. Suspiciously sharp.' : 'Your eyes would like a rematch.' : `Dots appear for ${COUNT_FLASH_MS / 1000} seconds.`}</span>
+            {phase === 'result' ? <BonusGameReaction mode="count" score={result?.score ?? 0} seed={`${date}:${result?.id ?? ''}`} /> : <span>{phase === 'get-ready' ? 'Watch the middle.' : phase === 'answer' ? 'How many did you see?' : `Dots appear for ${COUNT_FLASH_MS / 1000} seconds.`}</span>}
           </div>}
         </div>
         <div className="count-controls" aria-live="polite">

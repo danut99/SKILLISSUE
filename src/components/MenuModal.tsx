@@ -27,8 +27,9 @@ export function MenuModal({ open, route, onClose, onNavigate, onSettings }: Prop
   const options: Tile[] = [
     { id: 'home', icon: 'calendar', label: 'home', route: null },
     { id: 'me', icon: 'profile', label: 'my skill issue', route: 'me' },
-    { id: 'friends', icon: 'friends', label: 'friends', route: 'friends' },
+    { id: 'league', icon: 'league-shield', label: 'leagues', route: 'league' },
     { id: 'party', icon: 'battle', label: 'party', sub: '2-8 players', route: 'party' },
+    { id: 'friends', icon: 'friends', label: 'friends', route: 'friends' },
     { id: 'settings', icon: 'settings', label: 'settings', action: onSettings },
     { id: 'faq', icon: 'faq', label: 'faq', route: 'faq' },
     { id: 'privacy', icon: 'privacy', label: 'privacy', route: 'privacy' },

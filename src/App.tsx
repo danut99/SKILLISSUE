@@ -1,3 +1,4 @@
+import { LeaguePage, LeagueHeaderLink } from './components/LeaguePage';
 import { GoogleOneTap } from './components/GoogleOneTap';
 import { LevelScreen } from './components/LevelScreen';
 import { BalancePage } from './components/BalancePage';
@@ -27,7 +28,7 @@ import { tag, track } from './lib/clarity';
 
 const PartyPage = lazy(() => import('./components/PartyPage').then(module => ({ default: module.PartyPage })));
 
-const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party', 'levels', 'balance', 'count'] as const;
+const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party', 'levels', 'balance', 'count', 'league'] as const;
 const ChallengePreview = import.meta.env.DEV
   ? lazy(() => import('./components/ChallengesPage').then(module => ({ default: module.ChallengesPage })))
   : null;
@@ -115,8 +116,8 @@ export default function App() {
   return (
     <MotionConfig reducedMotion={settings.lowPower ? 'always' : 'user'}>
       <header className={`topbar ${mode === null ? 'topbar-home' : ''}`}>
-        <button className="corner-btn px-box" onClick={() => { track('menu_open'); setMenuOpen(true); }} aria-label="Open menu">
-          ☰
+        <button className="corner-btn px-box header-menu-button" onClick={() => { track('menu_open'); setMenuOpen(true); }} aria-label="Open menu">
+          <span aria-hidden="true">☰</span><span className="header-menu-label">Menu</span>
         </button>
         {mode !== null ? (
           <div className="header-home-nav">
@@ -137,6 +138,7 @@ export default function App() {
           <h1 className="logo home-header-logo"><span className="logo-skill">SKILL</span><span className="logo-issue">ISSUE</span></h1>
         )}
         <div className="topbar-right">
+          <LeagueHeaderLink date={date} />
           <a className="corner-btn px-box header-feedback" href={LINKS.feedback} onClick={() => track('feedback_click')} aria-label="Send feedback by email" title="Send feedback">
             <PixelIcon name="feedback" size={24} />
             <span>Feedback</span>
@@ -155,6 +157,8 @@ export default function App() {
       <main id="app" key={settings.colorblind ? 'cb' : 'std'}>
         {mode === 'challenges' ? (
           ChallengePreview ? <Suspense fallback={<p>Loading preview…</p>}><ChallengePreview today={date} /></Suspense> : <Home date={date} onPlay={navigate} />
+        ) : mode === 'league' ? (
+          <LeaguePage date={date} />
         ) : mode === 'count' ? (
           <CountPage date={date} />
         ) : mode === 'balance' ? (

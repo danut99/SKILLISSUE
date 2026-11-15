@@ -1,3 +1,4 @@
+import { BonusGameReaction } from './BonusGameReaction';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { balanceSetup, createBalanceGame } from '../games/balanceGame';
@@ -207,6 +208,7 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
           {shown ? <>
             <p className="balance-result-label">{perfect ? 'Perfect balance' : balanced ? 'Lunch saved' : 'Gravity wins'}</p>
             <h2 className={balanced ? 'balance-score balanced' : 'balance-score'}>{shown.score.toFixed(1)} <span>/ 100</span></h2>
+            <BonusGameReaction mode="balance" score={shown.score} seed={`${date}:${shown.id}`} />
             <p>{perfect ? 'Steady hands. Happy friends.' : `The balance point was ${difference > 0 ? 'right' : 'left'} of your support.`}</p>
             {!perfect && <p className="balance-note">Off by {(shown.error / 300 * 100).toFixed(1)}% of the plank.</p>}
           </> : <>

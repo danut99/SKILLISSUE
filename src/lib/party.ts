@@ -118,7 +118,7 @@ export const submitPartyResult = (token: string, match: number, round: number, r
 
 export const leavePartyRoom = (token: string, player?: string) => rpc<void>('leave_party_room', { p_room: token, p_player: player ?? null });
 
-export interface PublicParty { token:string; code:string; host:string; round_count:number; selected_games:Mode[]; players:number }
+export interface PublicParty { token:string; code:string; host:string; round_count:number; selected_games:Mode[]; players:number; games_played?:number; latest_match?:number; latest_round_count?:number; winners?:string[]; winning_score?:number|null; status?:'Waiting'|'Playing'|'Finished'|'Expired'; expired?:boolean; is_mine?:boolean }
 export const listPublicParties=()=>rpc<PublicParty[]>('list_public_parties');
 export const findPartyCode=(code:string)=>rpc<string>('find_party_code',{p_code:code.trim().toUpperCase()});
 export const setPartyPublic=(token:string,visible:boolean)=>rpc<PartyRoom>('set_party_public',{p_room:token,p_public:visible});

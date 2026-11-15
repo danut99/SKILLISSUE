@@ -16,6 +16,8 @@ const FILES: Record<ExistingIconName, string> = {
 };
 
 const MENU_ICONS = {
+  'league-shield': { color: '#c2d4e7', path: 'M3 1h18v14l-9 9-9-9z', detail: 'M11 5h2v3h4v3h-3l1 5-3-2-3 2 1-5H7V8h4z' },
+  'crown-record': { color: '#ffe88a', path: 'M10 2h4v2h-4z M2 6h4v4h3V6h2V4h2v2h2v4h3V6h4v6h-2v6H4v-6H2z M4 20h16v2H4z', detail: 'M11 10h2v2h2v2h-2v2h-2v-2H9v-2h2z M5 17h14v1H5z' },
   'crown-gold': { color: '#ffd23f', path: 'M2 5h3v3h3V5h2V2h4v3h2v3h3V5h3v5h-2v7H4v-7H2z M4 19h16v3H4z', detail: 'M7 12h3v3H7z M14 12h3v3h-3z' },
   'crown-silver': { color: '#c9d8eb', path: 'M2 5h3v3h3V5h2V2h4v3h2v3h3V5h3v5h-2v7H4v-7H2z M4 19h16v3H4z', detail: 'M7 12h3v3H7z M14 12h3v3h-3z' },
   'crown-bronze': { color: '#d99260', path: 'M2 5h3v3h3V5h2V2h4v3h2v3h3V5h3v5h-2v7H4v-7H2z M4 19h16v3H4z', detail: 'M7 12h3v3H7z M14 12h3v3h-3z' },
