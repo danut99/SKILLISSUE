@@ -1,3 +1,5 @@
+import { GamePlayerCount, useGamePlayerCounts } from './GamePlayerCount';
+import { ReturnPoll } from './ReturnPoll';
 import { LeagueCard } from './LeaguePage';
 import { ResponsiveSection } from './ResponsiveSection';
 import { LEVEL_TRIES, levelCount, loadLevels, useLevels } from '../lib/levels';
@@ -42,6 +44,7 @@ interface Props {
 }
 
 export function Home({ date, onPlay }: Props) {
+  const playerCounts = useGamePlayerCounts();
   const lowPower = usePlayer(s => s.settings.lowPower);
   const reducedMotion = useReducedMotion();
   const [gameModes, setGameModes] = useState<Record<string, 'daily' | 'level'>>({});
@@ -105,6 +108,7 @@ export function Home({ date, onPlay }: Props) {
             <span className="hero-stat-label">NEXT RESET</span> <Countdown />
           </span>
         </div>
+        <div className="home-hero-actions"><ReturnPoll date={date} compact />
         <details className="how2" id="how" open={location.hash === '#how'}>
           <summary>&#9656; how to play</summary>
           <ul>
@@ -131,6 +135,7 @@ export function Home({ date, onPlay }: Props) {
             </a>
           </div>
         </details>
+        </div>
       </header>
 
       <div className="with-board">
@@ -168,6 +173,7 @@ export function Home({ date, onPlay }: Props) {
             whileTap={{ scale: 0.97 }}
           >
             <span className="gc-num">test 0{i + 1}</span>
+            <GamePlayerCount count={playerCounts[m]} />
             <div className="gc-emoji"><PixelIcon name={m} size={64} /></div>
             <div className="gc-body">
               <div className="gc-title">{info.title}</div>
@@ -194,12 +200,14 @@ export function Home({ date, onPlay }: Props) {
       <RecentChampions date={date} />
 
       <a className="card px-box balance-promo" href="#balance">
+        <GamePlayerCount count={playerCounts.balance} />
         <PixelIcon name="balance" size={64} />
         <div><span className="party-beta">Playable beta</span><h2>BALANCE!</h2><p>One plank. Two creatures. Find the balance point.</p></div>
         <span className="btn btn-primary">Try Balance! &#8594;</span>
       </a>
 
       <a className="card px-box balance-promo count-promo" href="#count">
+        <GamePlayerCount count={playerCounts.count} />
         <PixelIcon name="count" size={64} />
         <div><span className="party-beta">New challenge</span><h2>COUNT FAST</h2><p>A quick flash. How many dots? Five rounds to prove your eyes work.</p></div>
         <span className="btn btn-primary">Play Count Fast →</span>
