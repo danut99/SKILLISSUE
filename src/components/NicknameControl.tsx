@@ -59,8 +59,8 @@ export function NicknameControl({ date }: { date: string }) {
       ) : (
         <div className="nick-status">
           playing as <b>{nickname}</b>{' '}
-          <button className="link-btn" onClick={() => { setNick(nickname); setEditing(true); }}>
-            change name
+          <button className="link-btn change-name-button" onClick={() => { setNick(nickname); setEditing(true); }}>
+            Change name
           </button>
         </div>
       )}

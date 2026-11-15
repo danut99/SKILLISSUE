@@ -213,7 +213,7 @@ export function Home({ date, onPlay }: Props) {
         <span className="btn btn-primary">Play Count Fast →</span>
       </a>
 
-      <section className="card px-box home-party party-promo" aria-labelledby="home-party-title">
+      <a className="card px-box home-party party-promo" href="#party" aria-labelledby="home-party-title">
         <div className="party-promo-main">
           <div className="party-promo-copy">
             <div className="party-promo-heading"><h2 id="home-party-title">PARTY MODE</h2><span className="party-beta">Beta</span></div>
@@ -221,10 +221,10 @@ export function Home({ date, onPlay }: Props) {
             <p className="party-promo-details">2&ndash;8 players &middot; Draw, Cut &amp; Car &middot; Play together</p>
           </div>
           <div className="party-promo-icons" aria-hidden="true"><PixelIcon name="draw" size={42} /><PixelIcon name="cut" size={42} /><PixelIcon name="brake" size={42} /></div>
-          <a className="btn btn-primary party-promo-link" href="#party">Play with friends <span aria-hidden="true">&#8594;</span></a>
+          <span className="btn btn-primary party-promo-link">Play with friends <span aria-hidden="true">&#8594;</span></span>
         </div>
         <div className="party-promo-footer"><PartyStats /><small>In testing &mdash; you may run into bugs.</small></div>
-      </section>
+      </a>
 
       {playedAny && (
         <div className="card px-box total-card">
