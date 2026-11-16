@@ -7,10 +7,12 @@ export const DIVISIONS=['Bronze','Silver','Gold','Diamond','Elite'];
 export interface LeagueRow { nickname:string;score:number;rank:number;is_me:boolean;days:{date:string;score:number;counted:boolean}[] }
 export interface League { career?:{highest_division:number;weeks:number;wins:number};joined:boolean;week:string;ends_at:string;division?:number;rows?:LeagueRow[];previous?:{week:string;rank:number;score:number;division:number;next_division:number}|null }
 export function leagueZone(rank:number,size:number,score:number){return size<10?'forming':rank<=5&&score>=600?'promotion':'safe';}
-export async function fetchLeague(join=true):Promise<League>{
+/** Only an explicit join may create the player's profile; just viewing the league must not. */
+export async function fetchLeague(join=false):Promise<League>{
  const sb=await getSupabase();if(!sb)throw new Error('Connect online to enter leagues.');
- await ensureNickname();
+ if(join)await ensureNickname();
  const {data,error}=await sb.rpc('get_my_league',{p_join:join});
+ if(error?.message.includes('nickname_required'))return {joined:false,week:'',ends_at:''};
  if(error)throw new Error(error.code==='PGRST202'?'Leagues are not available yet.':'Could not load your league. Please try again.');
  return data as League;
 }
