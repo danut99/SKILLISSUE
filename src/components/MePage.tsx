@@ -28,7 +28,7 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
 
       <header className="me-hero">
         <p className="me-eyebrow">your logbook</p>
-        <h1>My Skill Issue</h1>
+        <h1>My Skilly</h1>
         <p className="me-sub">{nickname ? `Playing as ${nickname}` : 'Your scores, progress and daily places.'}</p>
       </header>
 

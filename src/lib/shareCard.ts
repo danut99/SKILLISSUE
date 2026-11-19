@@ -98,13 +98,13 @@ function header(c: CanvasRenderingContext2D, date: string) {
   c.textBaseline = 'middle';
   const y = 248;
   c.fillStyle = '#000';
-  c.fillText('SKILL ISSUE', CENTER + 9, y + 9);
+  c.fillText(GAME_NAME, CENTER + 9, y + 9);
   c.fillStyle = C.pink;
-  c.fillText('SKILL ISSUE', CENTER + 5, y);
+  c.fillText(GAME_NAME, CENTER + 5, y);
   c.fillStyle = C.cyan;
-  c.fillText('SKILL ISSUE', CENTER - 5, y);
+  c.fillText(GAME_NAME, CENTER - 5, y);
   c.fillStyle = C.text;
-  c.fillText('SKILL ISSUE', CENTER, y);
+  c.fillText(GAME_NAME, CENTER, y);
   box(c, CENTER - 378, 315, 756, 100, C.cyan, '#081724');
   txt(c, clipWebsite(), CENTER, 365, 59, C.cyan, { maxWidth: 700 });
   txt(c, `DAILY #${dayNumber(date)}  /  ${date}`, CENTER - 376, 460, 32, C.muted, { align: 'left', maxWidth: 500 });

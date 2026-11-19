@@ -587,7 +587,7 @@ body.low-power { background: var(--bg); }
 .tagline-left { color: var(--muted); font-size: 22px; margin: 0 0 6px; }
 .legal .acc-head { color: var(--text); margin-top: 0; }
 
-/* ---------- My Skill Issue page (clean, Krillion "My Krillion" style) ---------- */
+/* ---------- My Skilly page (clean, Krillion "My Krillion" style) ---------- */
 .me-page { max-width: 720px; margin: 0 auto; }
 .me-page > .btn:first-child { margin-left: 54px; }
 .me-hero { margin: 22px 0 8px; }
@@ -921,7 +921,7 @@ body.low-power .logo2, body.low-power .scene-car, body.low-power .blob, body.low
 /* Sharper arcade lettering within the original compact header. */
 .hero .logo { font-size: clamp(54px, 14vw, 96px); letter-spacing: 1px; white-space: nowrap; }
 .logo .logo-skill { color: var(--text); text-shadow: 3px 3px 0 var(--pink), 6px 6px 0 #000; }
-.logo .logo-issue { margin-left: .16em; color: var(--cyan); text-shadow: 3px 3px 0 var(--pink), 6px 6px 0 #000; }
+.logo .logo-issue { margin-left: 0; color: var(--cyan); text-shadow: 3px 3px 0 var(--pink), 6px 6px 0 #000; }
 .logo-mark { display: inline-block; width: .48em; height: .48em; margin-left: .16em; vertical-align: .04em; color: var(--cyan); filter: drop-shadow(3px 3px 0 #000); }
 
 /* Unified daily status row, without enlarging the rest of the header. */

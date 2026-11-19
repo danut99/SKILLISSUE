@@ -128,18 +128,18 @@ export default function App() {
           <a
             className="mini-logo"
             href="#"
-            aria-label="SKILL ISSUE home"
+            aria-label="SKILLY home"
             onClick={(e) => {
               e.preventDefault();
               navigate(null);
             }}
           >
-            SKILL<span>ISSUE</span>
+            SKILL<span>Y</span>
           </a>
           <a className="header-daily-link" href="#" onClick={e=>{e.preventDefault();navigate(null);}}><span aria-hidden="true">&#8592;</span> Daily games</a>
           </div>
         ) : (
-          <h1 className="logo home-header-logo"><span className="logo-skill">SKILL</span><span className="logo-issue">ISSUE</span></h1>
+          <h1 className="logo home-header-logo"><span className="logo-skill">SKILL</span><span className="logo-issue">Y</span></h1>
         )}
         <div className="topbar-right">
           <LeagueHeaderLink date={date} />

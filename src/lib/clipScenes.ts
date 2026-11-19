@@ -57,7 +57,7 @@ export function clipCaption(mode: Mode, result: string, site: string, today = tr
   draw: `Everyone on Earth got the same shape${when}. I scored ${result} 🎯 Can you draw it better?`,
   brake: `Same car, same road for everyone${when}. My result: ${result} 🚗 Can you stop closer?`,
  }[mode];
- return `${hook}\nComment your score 👇\n🎮 ${site}\n#skillissue #challenge #game #fyp`;
+ return `${hook}\nComment your score 👇\n🎮 ${site}\n#skilly #skillissue #challenge #game #fyp`;
 }
 
 /** TikTok's native caption look: bold white text on a dark rounded pill. */

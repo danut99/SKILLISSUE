@@ -55,7 +55,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
       const url = trackedChallengeUrl(location.href, challenge);
       useUi.getState().refreshBoards();
       if (navigator.share && matchMedia('(pointer: coarse)').matches) {
-        try { await navigator.share({ title: 'Beat my score - Skill Issue', text: `Can you beat my ${MODE_INFO[mode].title} score?`, url }); return; }
+        try { await navigator.share({ title: 'Beat my score - Skilly', text: `Can you beat my ${MODE_INFO[mode].title} score?`, url }); return; }
         catch (cause) { if (cause instanceof Error && cause.name === 'AbortError') return; }
       }
       toast(await copyText(url) ? 'Challenge link copied!' : 'Could not copy link. Open Friends to copy your challenge link.');
@@ -67,7 +67,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
   async function downloadClip() {
     if (!clip || !shown) return;
     track(`clip_save_${mode}`);
-    const name = `skill-issue-${mode}-${fmtResult(mode, shown).replace(/[^\w.]+/g, '_')}.${clip.ext}`;
+    const name = `skilly-${mode}-${fmtResult(mode, shown).replace(/[^\w.]+/g, '_')}.${clip.ext}`;
     const caption = clipCaption(mode, fmtResult(mode, shown), clipWebsite(), !archived);
     // Copy without awaiting so the share sheet still opens inside the tap's user gesture.
     const copied = navigator.clipboard?.writeText(caption).then(() => true, () => false) ?? Promise.resolve(false);

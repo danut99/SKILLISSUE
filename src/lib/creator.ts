@@ -102,7 +102,7 @@ export function captionVariants(mode: Mode, date: string, result: string | null,
   const { seriesStart } = useCreator.getState();
   const game = mode === 'draw' ? `draw today's ${dailyDrawShape(date)}` : mode === 'cut' ? 'cut this blob 50/50' : 'stop at the perfect spot';
   const score = result ? ` I got ${result}.` : '';
-  const tags = `#skillissue #${MODE_INFO[mode].name.toLowerCase()} #challenge #game #fyp`;
+  const tags = `#skilly #skillissue #${MODE_INFO[mode].name.toLowerCase()} #challenge #game #fyp`;
   const series = seriesStart ? `Day ${seriesDay(seriesStart, date)} of trying to ${game} 😤` : `Trying to ${game} 😤`;
   const opener = mode === 'cut'
     ? `Pause & guess: where would YOU cut this blob 50/50? 👀 Everyone on Earth got it today.${score} Comment your split 👇`

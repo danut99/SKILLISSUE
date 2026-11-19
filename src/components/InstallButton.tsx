@@ -19,7 +19,7 @@ export function InstallButton() {
       <button className="install-card px-box" onClick={onClick}>
         <span className="install-icon" aria-hidden="true">📲</span>
         <span className="install-copy">
-          <b>Get the SKILL ISSUE app</b>
+          <b>Get the SKILLY app</b>
           <small>Free. No app store. Play from your home screen.</small>
         </span>
         <span className="btn btn-primary">Install</span>
@@ -38,13 +38,13 @@ export function InstallButton() {
               <ol>
                 <li>Tap <b>Share</b> <span className="install-share" aria-hidden="true">⬆</span> in Safari.</li>
                 <li>Scroll down and tap <b>Add to Home Screen</b> ➕.</li>
-                <li>Tap <b>Add</b>. Done, SKILL ISSUE is on your phone.</li>
+                <li>Tap <b>Add</b>. Done, SKILLY is on your phone.</li>
               </ol>
             ) : (
               <ol>
                 <li>Open your browser menu <b>⋮</b>.</li>
                 <li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li>
-                <li>Confirm. Done, SKILL ISSUE is on your phone.</li>
+                <li>Confirm. Done, SKILLY is on your phone.</li>
               </ol>
             )}
             <button className="btn btn-primary" onClick={() => setHelp(false)}>Got it</button>

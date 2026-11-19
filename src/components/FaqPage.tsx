@@ -3,7 +3,7 @@ import { PARTY_ROUNDS, PARTY_REVEAL_SECONDS } from '../lib/party';
 
 const SECTIONS: { title: string; questions: [string, string][] }[] = [
   { title: 'Daily games', questions: [
-    ['What is Skill Issue?', 'Three daily precision tests: draw the daily shape, cut a blob 50/50, and complete the daily driving objective. Everyone gets the same tests for that day. Play with your finger or mouse.'],
+    ['What is Skilly?', 'Three daily precision tests: draw the daily shape, cut a blob 50/50, and complete the daily driving objective. Everyone gets the same tests for that day. Play with your finger or mouse.'],
     ['How many tries do I get?', 'Five tries per game each day. Only your best score in each game counts; the three best scores add up to a total out of 300. A failed attempt scores zero and uses a try. Retry shows your remaining attempts.'],
     ['When do the games reset?', 'Every day at 00:00 UTC. The homepage countdown shows the time remaining. This resets daily attempts and daily rankings, while your history stays saved.'],
     ['How do I draw?', 'Draw one continuous stroke around the center dot, following the proportions and orientation of the outline. Close the loop. You can draw larger or smaller than the guide. Tiny shapes, incomplete loops, or getting too close to the dot can fail.'],
@@ -36,10 +36,10 @@ const SECTIONS: { title: string; questions: [string, string][] }[] = [
   ] },
   { title: 'Account, progress & sharing', questions: [
     ['Do I need an account?', 'No. You can play as a guest and receive a random nickname. Online guest sessions can save scores, but you need that same browser session to access them. Offline/demo progress stays on your device.'],
-    ['How do I keep my progress?', 'Open My Skill Issue and tap Continue with Google. This saves your guest account so you can use it on other devices. No password needed.'],
-    ['How do I sign in on another device?', 'Tap Continue with Google in My Skill Issue and pick the same Google account. Your nickname, scores, streak, cars, friends, and challenges follow your account. Guest attempts made on the new device are not merged when you switch to an existing account.'],
+    ['How do I keep my progress?', 'Open My Skilly and tap Continue with Google. This saves your guest account so you can use it on other devices. No password needed.'],
+    ['How do I sign in on another device?', 'Tap Continue with Google in My Skilly and pick the same Google account. Your nickname, scores, streak, cars, friends, and challenges follow your account. Guest attempts made on the new device are not merged when you switch to an existing account.'],
     ['What if I clear my browser data?', 'You may lose access to an anonymous guest session. Save your account with Google first. A Google-linked account can be restored by signing in again.'],
-    ['How do streaks and cars work?', 'Play daily to grow your streak and unlock car skins. My Skill Issue shows your stats, streak, and garage, including the streak required for each car. Pick an unlocked car there.'],
+    ['How do streaks and cars work?', 'Play daily to grow your streak and unlock car skins. My Skilly shows your stats, streak, and garage, including the streak required for each car. Pick an unlocked car there.'],
     ['Can I change my nickname?', 'Yes, from the result card. Nicknames are unique; if yours is taken, choose another.'],
     ['Share result, Save clip, or Beat my score?', 'Share result creates an image card. Save clip saves a daily attempt as a vertical video when your browser supports recording. Beat my score creates a tracked challenge link that friends can accept.'],
     ['How do I post to TikTok or Instagram?', 'Use the share buttons on your phone to open its share sheet when supported. Otherwise the image or clip downloads so you can upload it in the app yourself. Recording and sharing support varies by browser.'],

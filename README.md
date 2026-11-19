@@ -1,6 +1,8 @@
-# SKILL ISSUE 🫠
+# SKILLY 🫠
 
-> 3 stupid daily tests. 5 tries each. Same challenge for everyone on Earth today.
+> 3 stupid daily tests. 5 tries each. Same challenge for everyone on Earth today. Fail one? Skill issue.
+
+Live at **https://skilly.pages.dev**. The game was called **SKILL ISSUE** until Nov 2026; the old `playskillissue.pages.dev` 301-redirects here (`functions/_middleware.ts`). "Skill issue" stays as the running joke (roasts, the 💀 reaction), but the brand is SKILLY because the phrase is a crowded meme and other sites already use it. Saved-data keys (`skillissue:*`) were kept on purpose so nobody loses progress.
 
 A viral, TikTok-friendly daily mini-game site: **🎯 Draw** a perfect circle, **🔪 Cut** a blob 50/50, **🚗 BRAKE!** before the wall.
 No login needed to play. Global daily leaderboard. Every try can be saved as a vertical video clip for TikTok.
@@ -89,6 +91,7 @@ Daily content comes from a **UTC-date-seeded PRNG** (`xmur3` + `mulberry32`) →
 | **Bottom ad banner** | `src/components/AdBanner.tsx` | Fixed 320×50 slot, space reserved in CSS → zero layout shift. Instructions for AdSense/Adsterra in the file. |
 | **Rewarded ad (+1 try)** | `src/components/RewardedAdModal.tsx` | **Disabled for now** (`REWARDED_ADS = false` in `config.ts`). Currently a 5-second placeholder. Replace with a real rewarded unit and call `onReward()` from its "reward granted" callback. |
 | **Creator studio** (secret) | `#creator`, `lib/creator.ts`, `lib/compilation.ts`, `components/CreatorPage.tsx` | For the game's own TikTok/Instagram account. Open `#creator` once on your phone and tap "Turn on". Then: every try is kept as a clip on the device (IndexedDB, 3 days); "Make 5-tries video" stitches today's tries (each trimmed to its action + reveal, ending on "BEST OF 5"); three caption styles to copy; a 14-day content calendar (Cut most days) with a posted checkbox; recording settings: clean screen (hides ads/companions/leaderboards), "Day N of trying…" series line, or a custom hook. Not linked anywhere; players never see it. |
+| **SEO landing pages** | `scripts/seo-pages.mjs` → `public/cut-in-half/`, `public/draw-perfect-circle/`, `public/brake-game/`, `public/sitemap.xml`, `public/seo.css` | The game itself lives on one URL with `#hash` routes, which Google treats as one page. These static pages (no JS) each target real searches ("cut in half game", "draw a perfect circle", "brake game") with how-to, scoring, tips, FAQ, `VideoGame` + `FAQPage` + `BreadcrumbList` structured data and a Play button into the game. Linked from the home footer. Edit the text in the script, then `npm run seo`. |
 | **Install as app (PWA)** | `lib/install.ts`, `components/InstallButton.tsx`, `public/sw.js` | "📲 Get the SKILL ISSUE app" card under the games. Android/desktop Chrome: native install prompt. iPhone: Share → Add to Home Screen steps. TikTok/Instagram in-app browsers: "open in browser first" steps. Hidden once installed. Service worker (production only): pages network-first with offline fallback, hashed `/assets/*` cache-first, `/art/` + icons stale-while-revalidate. Bump `CACHE` in `sw.js` to wipe old caches. |
 | **Confetti** | `GameScreen.tsx` | On scores ≥ 95 (off in low-power mode). |
 | **Streak rewards** | `CAR_SKINS` in `config.ts`, garage in ⚙️ | BRAKE! car skins unlock at 3/7/14/30-day best streak. |
@@ -387,7 +390,7 @@ Checks before deployment: apply SQL in a test project; confirm two accounts get 
 
 ### Google One Tap
 
-Set `VITE_GOOGLE_CLIENT_ID` locally and in Cloudflare Pages build variables to the existing Google OAuth **Web client ID**, then rebuild. Never put the client secret in a `VITE_` variable. In that client's Google Cloud settings, add `https://playskillissue.pages.dev` and local test origins under Authorized JavaScript origins. Keep the existing Supabase Google provider and manual identity linking enabled; keep nonce validation enabled.
+Set `VITE_GOOGLE_CLIENT_ID` locally and in Cloudflare Pages build variables to the existing Google OAuth **Web client ID**, then rebuild. Never put the client secret in a `VITE_` variable. In that client's Google Cloud settings, add `https://skilly.pages.dev` (and the old `https://playskillissue.pages.dev` while it still redirects) and local test origins under Authorized JavaScript origins. Keep the existing Supabase Google provider and manual identity linking enabled; keep nonce validation enabled.
 
 One Tap is offered once per browser session on Home/Profile for anonymous players, never during games. It uses Google Identity Services with FedCM and a SHA-256 nonce. Supabase links the ID token to the guest first. If the identity already belongs to another player, a confirmation offers to switch accounts; guest scores are not merged into that existing account. Dismissal, blocked Google scripts, and failures leave the regular Continue with Google flow available. Signing out suppresses the prompt for that browser session.
 

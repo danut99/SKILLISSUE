@@ -14,7 +14,7 @@ export const SUPABASE_PUBLISHABLE_KEY: string =
 /** Microsoft Clarity project id (public, it ships in the page). Override with VITE_CLARITY_PROJECT_ID; set it to an empty value to disable. */
 export const CLARITY_PROJECT_ID: string = import.meta.env.VITE_CLARITY_PROJECT_ID?.trim() ?? 'zcwstocts6';
 
-export const GAME_NAME = 'SKILL ISSUE';
+export const GAME_NAME = 'SKILLY';
 export const LAUNCH_DATE = '2026-11-12';
 export const BASE_TRIES = 5;
 /** "Watch an ad → +1 try". Off for now; flip to true once a real rewarded-ad network is wired in. */
@@ -64,7 +64,7 @@ export const MODE_INFO: Record<Mode, ModeInfo> = {
 /** Public destination for social buttons, copied text and exported cards. */
 export const siteUrl = (): string =>
   (typeof document !== 'undefined' && document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href)
-  || (typeof location !== 'undefined' && location.host ? location.origin + location.pathname : 'https://playskillissue.pages.dev/');
+  || (typeof location !== 'undefined' && location.host ? location.origin + location.pathname : 'https://skilly.pages.dev/');
 
 /** BRAKE! car skins — unlocked by best streak (like Krillion's dive buddies). */
 export const CAR_SKINS = [
@@ -78,7 +78,7 @@ export const CAR_SKINS = [
 /** Social / contact links shown in the menu. Replace before launch (leave '' to hide). */
 export const LINKS = {
   tiktok: 'https://www.tiktok.com/@playskillissue',
-  feedback: 'mailto:bocadanut99@gmail.com?subject=SKILL%20ISSUE%20feedback',
+  feedback: 'mailto:bocadanut99@gmail.com?subject=SKILLY%20feedback',
 };
 
 /** Public OAuth Web client ID, shared with the Google provider configured in Supabase. */

@@ -84,7 +84,7 @@ export function Home({ date, onPlay }: Props) {
     <section className="screen home">
       <header className="hero">
         <motion.h1 className="logo" initial={{ scale: 0.6, rotate: -6 }} animate={{ scale: 1, rotate: -2 }} transition={{ type: 'spring', stiffness: 200, damping: 10 }}>
-          <span className="logo-skill">SKILL</span><span className="logo-issue">ISSUE</span>
+          <span className="logo-skill">SKILL</span><span className="logo-issue">Y</span>
         </motion.h1>
         <button
           className="tagline taunt"
@@ -279,6 +279,8 @@ export function Home({ date, onPlay }: Props) {
       </div>
 
       <p className="footer-note">
+        <a href="/cut-in-half/">cut in half game</a> · <a href="/draw-perfect-circle/">draw a perfect circle</a> · <a href="/brake-game/">brake game</a>
+        <br />
         <a href="#privacy">privacy</a> · <a href="#how">how to play</a>
         {LINKS.tiktok && <> &middot; <a href={LINKS.tiktok} target="_blank" rel="noopener noreferrer">TikTok @playskillissue</a></>}
       </p>

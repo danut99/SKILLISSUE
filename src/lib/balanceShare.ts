@@ -10,7 +10,7 @@ import { clipRecorder } from './clip';
 
 export const balanceLink = () => `${siteUrl().split('#')[0]}#balance`;
 export const balanceCaption = (date: string, score: number) =>
-  `SKILL ISSUE #${dayNumber(date)}\nBALANCE! ${score.toFixed(1)} / 100\nTwo friends. One support. Can you beat me?\n${balanceLink()}`;
+  `SKILLY #${dayNumber(date)}\nBALANCE! ${score.toFixed(1)} / 100\nTwo friends. One support. Can you beat me?\n${balanceLink()}`;
 
 export function balanceClipAttempt(attempt: BalanceAttempt): Attempt {
   return { score: attempt.score, detail: {}, at: attempt.at };

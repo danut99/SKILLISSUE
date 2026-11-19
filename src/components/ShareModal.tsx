@@ -149,7 +149,7 @@ export function ShareModal({ open, onClose, date, mode, snapshot, attempt, noRan
             </div>
 
             <div className="share-socials">
-              <FacebookShareButton beforeOnClick={() => shared('facebook')} url={link} hashtag="#skillissue" aria-label="Share on Facebook">
+              <FacebookShareButton beforeOnClick={() => shared('facebook')} url={link} hashtag="#skilly" aria-label="Share on Facebook">
                 <FacebookIcon size={size} />
               </FacebookShareButton>
               <XShareButton beforeOnClick={() => shared('x')} url={link} text={short} aria-label="Share on X">

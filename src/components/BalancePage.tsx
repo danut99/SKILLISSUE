@@ -138,7 +138,7 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
     }
   }, [date, left, released, saving, shown]);
   const share = useMemo(() => shown ? {
-    text: balanceCaption(date, shown.score), link: balanceLink(), filename: `skill-issue-balance-${date}-${shown.score.toFixed(1)}.png`,
+    text: balanceCaption(date, shown.score), link: balanceLink(), filename: `skilly-balance-${date}-${shown.score.toFixed(1)}.png`,
     render: () => renderBalanceCard(date, shown, snapshot),
   } : undefined, [date, shown, snapshot]);
   async function release() {
@@ -177,7 +177,7 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
       if (!alive.current) return;
       if (!video) { toast('Video recording is unavailable in this browser. You can share an image.'); return; }
       setClip(video);
-      const outcome = await saveClip(video.blob, `skill-issue-balance-${date}-${shown.score.toFixed(1)}.${video.ext}`, balanceCaption(date, shown.score));
+      const outcome = await saveClip(video.blob, `skilly-balance-${date}-${shown.score.toFixed(1)}.${video.ext}`, balanceCaption(date, shown.score));
       if (outcome === 'downloaded') toast('Video saved. Ready to upload!');
     } catch { if (alive.current) toast('Could not create the video. Please try again.'); }
     finally { if (alive.current) setClipBusy(false); }

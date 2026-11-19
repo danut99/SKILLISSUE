@@ -21,7 +21,7 @@ export function CreatorPage({ date, onPlay }: { date: string; onPlay: (mode: Mod
       <section className="screen creator">
         <div className="card px-box creator-off">
           <h2>Creator studio</h2>
-          <p>Tools for posting SKILL ISSUE videos: a daily content calendar, every try saved as a clip, "5 tries" videos and ready captions.</p>
+          <p>Tools for posting SKILLY videos: a daily content calendar, every try saved as a clip, "5 tries" videos and ready captions.</p>
           <p className="muted">Only turns on for this device. Players never see it.</p>
           <button className="btn btn-primary" onClick={() => creator.setEnabled(true)}>Turn on creator mode</button>
         </div>
@@ -149,7 +149,7 @@ function TodayClips({ date, clips, onChange }: { date: string; clips: StoredClip
             {compiled?.mode === mode && compiledUrl && (
               <div className="creator-compiled">
                 <video src={compiledUrl} controls playsInline />
-                <button className="btn btn-pink" onClick={() => void share(compiled.blob, compiled.ext, `skill-issue-${mode}-5-tries`, captionVariants(mode, date, best.label, site)[1])}>Share 5-tries video</button>
+                <button className="btn btn-pink" onClick={() => void share(compiled.blob, compiled.ext, `skilly-${mode}-5-tries`, captionVariants(mode, date, best.label, site)[1])}>Share 5-tries video</button>
               </div>
             )}
             <div className="creator-clips">
@@ -158,7 +158,7 @@ function TodayClips({ date, clips, onChange }: { date: string; clips: StoredClip
                   <video src={urls.get(clip)} controls playsInline preload="metadata" />
                   <span>#{i + 1} · {clip.label}{clip === best ? ' · best' : ''}</span>
                   <div className="creator-row">
-                    <button className="btn btn-ghost" onClick={() => void share(clip.blob, clip.ext, `skill-issue-${mode}-${i + 1}`, captionVariants(mode, date, clip.label, site)[0])}>Share</button>
+                    <button className="btn btn-ghost" onClick={() => void share(clip.blob, clip.ext, `skilly-${mode}-${i + 1}`, captionVariants(mode, date, clip.label, site)[0])}>Share</button>
                     <button className="link-btn" onClick={async () => { if (clip.id !== undefined) await deleteCreatorClip(clip.id); onChange(); }}>delete</button>
                   </div>
                 </div>
