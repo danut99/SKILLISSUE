@@ -3,6 +3,13 @@ import type { EngineData } from '../vehicle.ts'
 class AudioSys {
   private context: AudioContext | null = null
   private out: GainNode | null = null
+  private speaker: GainNode | null = null
+  muted = (() => { try { return localStorage.getItem('vroombox:muted') === '1' } catch { return false } })()
+  toggleMute(): void {
+    this.muted = !this.muted
+    if (this.speaker) this.speaker.gain.value = this.muted ? 0 : 1
+    try { localStorage.setItem('vroombox:muted', this.muted ? '1' : '0') } catch { /* storage unavailable */ }
+  }
   private recDest: MediaStreamAudioDestinationNode | null = null
   private noiseBuf: AudioBuffer | null = null
 
@@ -13,7 +20,10 @@ class AudioSys {
       this.context = new Ctor({ latencyHint: 'interactive' })
       this.out = this.context.createGain()
       this.out.gain.value = 0.9
-      this.out.connect(this.context.destination)
+      this.speaker = this.context.createGain()
+      this.speaker.gain.value = this.muted ? 0 : 1
+      this.out.connect(this.speaker)
+      this.speaker.connect(this.context.destination)
     }
     return this.context
   }

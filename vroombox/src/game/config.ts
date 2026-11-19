@@ -15,10 +15,11 @@ export const TOP_SPEED = 14
 export const DRIVE_FORCE = 140
 export const ROLLING_FORCE = 4
 export const REVERSE_FACTOR = 0.55
-/** In the air: target spin (rad/s, ~0.9 s per flip), how hard it steers toward it, and the max angular acceleration. */
-export const AIR_SPIN = 7
-export const AIR_RESPONSE = 6
-export const AIR_ACCEL = 22
+/** Air pedals ask for a small tilt, with slow rotation and gentle recovery on release. */
+export const AIR_TILT = 0.4
+export const AIR_SPIN = 1.2
+export const AIR_RESPONSE = 4
+export const AIR_ACCEL = 5
 /** The chassis center of mass is pulled down to the axles so odd shapes stay drivable. */
 export const INERTIA_SCALE = 1.4
 export const SUSPENSION_HZ = 4.5
@@ -26,6 +27,9 @@ export const SUSPENSION_DAMPING = 0.7
 export const WHEEL_FRICTION = 0.95
 
 export const START_X = 0
+// Seasonal geometry revision for comparable times and deterministic replays.
+export const COURSE_REVISION = 8
+export const courseRevisionOf = (id: number) => COURSE_REVISION + (id === 101 ? 1 : 0)
 export const WALL_X = -7
 export const TERRAIN_X0 = -12
 export const CHUNK_LEN = 40
@@ -39,7 +43,7 @@ export const SEGMENT_LEN = 100
 export const ROCK_LIFT = 0.1
 
 /** Seconds of full throttle in a stock tank. Braking burns half as much. */
-export const BASE_FUEL = 28
+export const BASE_FUEL = 40
 export const FUEL_OUT_TIME = 1.5
 export const COIN_VALUE = 5
 

@@ -1,5 +1,4 @@
 import { t } from '../i18n.ts'
-import { progress } from '../progress.ts'
 import { el } from '../util/dom.ts'
 import { starRow } from './labels.ts'
 import type { Screen } from './screen.ts'
@@ -38,7 +37,6 @@ export function topBar(title: string, back: () => void): HTMLElement {
     {},
     el('button.btn.ghost.backbtn', { type: 'button', onclick: back }, t.back),
     el('h1.title', {}, title),
-    el('span.pill.coins', {}, t.coinsPill(progress.coins)),
   )
 }
 

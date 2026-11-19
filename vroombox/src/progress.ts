@@ -1,6 +1,7 @@
-import { COIN_VALUE } from './game/config.ts'
+﻿import { COIN_VALUE, courseRevisionOf } from './game/config.ts'
 import { MAP_ORDER, type MapId } from './game/maps.ts'
 import {
+  ACTIVE_LEVELS,
   deliveryRun,
   deliveryStars,
   LEVELS,
@@ -26,8 +27,10 @@ type Data = {
   v: 1
   daily: Daily | null
   coins: number
+  vehicleUpgrades: Record<string, Upgrades>
+  paidLevels: Record<string, number>
   upgrades: Upgrades
-  levels: Record<string, { stars: number; time: number }>
+  levels: Record<string, { stars: number; time: number | null; length?: number; courseRevision?: number }>
   routes: Record<string, number>
   pulls: Record<string, number>
   /** `${vehicleId}:${map}` → best endless distance. */
@@ -37,7 +40,7 @@ type Data = {
 
 const KEY = 'vroombox:progress'
 
-const fresh = (): Data => ({ v: 1, daily: null, coins: 0, upgrades: { ...NO_UPGRADES }, levels: {}, routes: {}, pulls: {}, endless: {}, selected: null })
+const fresh = (): Data => ({ v: 1, daily: null, coins: 0, vehicleUpgrades: {}, paidLevels: {}, upgrades: { ...NO_UPGRADES }, levels: {}, routes: {}, pulls: {}, endless: {}, selected: null })
 
 function load(): Data {
   try {
@@ -62,22 +65,33 @@ export function saveProgress(): void {
   }
 }
 
-export function upgradeCost(key: UpgradeKey): number | null {
-  const lvl = progress.upgrades[key]
-  return lvl >= MAX_UPGRADE ? null : UPGRADE_COSTS[lvl]
+export function upgradesFor(vehicleId: string): Upgrades {
+  const raw = { ...NO_UPGRADES, ...progress.upgrades, ...progress.vehicleUpgrades[vehicleId] }
+  for (const key of Object.keys(raw) as UpgradeKey[]) raw[key] = Math.max(0, Math.min(MAX_UPGRADE, Math.floor(Number(raw[key]) || 0)))
+  return raw
 }
-
-export function buyUpgrade(key: UpgradeKey): boolean {
-  const cost = upgradeCost(key)
+export function upgradeCost(key: UpgradeKey, vehicleId = progress.selected ?? ''): number | null {
+  const level = upgradesFor(vehicleId)[key]
+  return level >= MAX_UPGRADE ? null : UPGRADE_COSTS[level]
+}
+export function buyUpgrade(key: UpgradeKey, vehicleId = progress.selected ?? ''): boolean {
+  if (!vehicleId || key === 'tank') return false
+  const cost = upgradeCost(key, vehicleId)
   if (cost === null || progress.coins < cost) return false
+  const current = upgradesFor(vehicleId)
+  current[key]++
   progress.coins -= cost
-  progress.upgrades[key]++
+  progress.vehicleUpgrades[vehicleId] = current
   saveProgress()
   return true
 }
 
 export const levelStarsOf = (id: number) => progress.levels[id]?.stars ?? 0
-export const levelTimeOf = (id: number): number | null => progress.levels[id]?.time ?? null
+export const levelTimeOf = (id: number): number | null => {
+  const saved = progress.levels[id]
+  const level = ACTIVE_LEVELS.find(l => l.id === id)
+  return saved?.courseRevision === courseRevisionOf(id) && saved.length === level?.length ? saved.time : null
+}
 export const levelUnlocked = (id: number) => id === 1 || levelStarsOf(id - 1) > 0
 export const totalLevelStars = () => LEVELS.reduce((s, l) => s + levelStarsOf(l.id), 0)
 export const routeStarsOf = (id: number) => progress.routes[id] ?? 0
@@ -93,7 +107,7 @@ export function allStars(): number {
 
 /** Stars needed to unlock each wheel design. */
 export const WHEEL_UNLOCK: Record<WheelDesign, number> = { classic: 0, sport: 0, offroad: 3, donut: 8, ball: 15, cookie: 24 }
-export const wheelUnlocked = (d: WheelDesign) => allStars() >= WHEEL_UNLOCK[d]
+export const wheelUnlocked = (_d: WheelDesign) => true
 
 /** Farm is open from the start; every other map opens once its first level is finished. */
 export function mapUnlocked(map: MapId): boolean {
@@ -109,6 +123,7 @@ export function endlessBest(vehicleId: string, map: MapId): number {
 }
 
 export type Outcome = {
+  resumed?: boolean
   run: RunSpec
   vehicleId: string
   end: EndKind
@@ -194,6 +209,7 @@ export function noteDrawn(): number {
 
 /** Applies a finished run to the saved progress and returns what the player earned. */
 export function recordRun(o: Outcome): Reward {
+  if(o.run.testDrive) return {stars:0,coins:0,best:false,bestValue:0,next:null,missions:[]}
   let coins = o.coins * COIN_VALUE
   let stars = 0
   let best = false
@@ -208,20 +224,26 @@ export function recordRun(o: Outcome): Reward {
     best = d > prev
     bestValue = Math.max(prev, d)
     progress.endless[`${o.vehicleId}:${map}`] = bestValue
-    coins += Math.floor(o.distance / 10)
+    coins = 0
   } else if (run.kind === 'level') {
-    const idx = LEVELS.findIndex((l) => String(l.id) === run.ref)
-    const level = LEVELS[idx]
-    stars = levelStars(level, o.end === 'finish', o.stars, o)
+    const idx = ACTIVE_LEVELS.findIndex((l) => String(l.id) === run.ref)
+    const level = ACTIVE_LEVELS[idx]
+    stars = levelStars(level, o.end === 'finish', o.stars, o.resumed ? { ...o, time: Infinity } : o)
     const prev = progress.levels[level.id]
+    const prevTime = levelTimeOf(level.id)
     const prevStars = prev?.stars ?? 0
     if (stars > 0) {
-      best = !prev || o.time < prev.time
-      progress.levels[level.id] = { stars: Math.max(prevStars, stars), time: prev ? Math.min(prev.time, o.time) : o.time }
+      best = !o.resumed && (prevTime == null || o.time < prevTime)
+      progress.levels[level.id] = { stars: Math.max(prevStars, stars), length: level.length, courseRevision: courseRevisionOf(level.id), time: o.resumed ? prevTime : prevTime == null ? o.time : Math.min(prevTime, o.time) }
     }
     bestValue = progress.levels[level.id]?.time ?? 0
-    coins += 60 * Math.max(0, stars - prevStars)
-    if (stars > 0 && LEVELS[idx + 1]) next = levelRun(LEVELS[idx + 1])
+    coins = 0
+    if (o.end === 'finish') {
+      const paid = progress.paidLevels[run.ref] ?? 0
+      coins = (paid === 0 ? 120 : o.resumed ? 0 : 20) + 30 * Math.max(0, stars - paid)
+      progress.paidLevels[run.ref] = Math.max(paid, stars, 1)
+    }
+    if (stars > 0 && ACTIVE_LEVELS[idx + 1]) next = levelRun(ACTIVE_LEVELS[idx + 1])
   } else if (run.kind === 'pull') {
     const idx = PULL_LOADS.findIndex((l) => l.id === run.ref)
     const prev = pullBestOf(run.ref)
@@ -243,18 +265,12 @@ export function recordRun(o: Outcome): Reward {
     if (stars > 0 && ROUTES[idx + 1]) next = deliveryRun(ROUTES[idx + 1])
   }
 
-  const finished = o.end === 'finish' || o.end === 'fullpull'
-  const m = advanceMissions(
-    {
-      flips: o.flips,
-      distance: run.kind === 'pull' ? 0 : Math.floor(o.distance),
-      levels: run.kind === 'level' && stars > 0 ? 1 : 0,
-      eggs: run.kind === 'delivery' && finished ? o.eggs : 0,
-      coins: o.coins,
-    },
-    { pull: run.kind === 'pull' ? Math.floor(o.pulled) : 0 },
-  )
+
   progress.coins += coins
   saveProgress()
-  return { stars, coins: coins + m.coins, best, bestValue, next, missions: m.done }
+  return { stars, coins, best, bestValue, next, missions: [] }
 }
+
+
+
+

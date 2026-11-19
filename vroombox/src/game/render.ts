@@ -1,3 +1,4 @@
+﻿import { drawBackdrop, drawRockArt, groundTexture } from './art.ts'
 import { clamp } from '../geometry/poly.ts'
 import { t } from '../i18n.ts'
 import { geomOf, wheelSpriteOf, type Vehicle } from '../vehicle.ts'
@@ -36,7 +37,9 @@ export class Camera {
     const speed = Math.hypot(v.x, v.y)
     const tx = p.x + 2 + clamp(v.x * 0.35, -3, 7)
     const ty = p.y + 1.2
-    const tppm = this.basePpm(view) / (1 + Math.min(speed, 25) * 0.014)
+    let tppm = this.basePpm(view) / (1 + Math.min(speed, 25) * 0.014)
+    const nearGap = [...sim.track.segmentsIn(p.x - 35, p.x + 25)].some(segment => segment.features.some(f => f.kind === 'gap' && p.x > f.x - 22 && p.x < f.x + f.len + 5))
+    if (nearGap) tppm = Math.min(tppm, view.w / 25)
     this.x += (tx - this.x) * (1 - Math.exp(-dt * 5))
     this.y += (ty - this.y) * (1 - Math.exp(-dt * 3.5))
     this.ppm += (tppm - this.ppm) * (1 - Math.exp(-dt * 2))
@@ -105,12 +108,14 @@ export class Renderer {
       g.restore()
     }
     this.drawVehicle(g, sim, sx, sy, ppm)
+    this.surfaces(g, sim, sx, sy, ppm, x0, x1, true)
     this.eggs(g, sim, sx, sy, ppm)
     g.restore()
   }
 
   private sky(g: CanvasRenderingContext2D, view: View, cam: Camera, map: MapDef) {
     const { x, y, w, h } = view
+    if (drawBackdrop(g, map.id, x, y, w, h, cam.x * cam.ppm)) return
     const s = Math.min(w, h)
     const sky = g.createLinearGradient(0, y, 0, y + h)
     sky.addColorStop(0, map.sky[0])
@@ -255,7 +260,7 @@ export class Renderer {
     const dirt = g.createLinearGradient(0, view.y + view.h * 0.4, 0, bottom)
     dirt.addColorStop(0, map.dirt[0])
     dirt.addColorStop(1, map.dirt[1])
-    g.fillStyle = dirt
+    g.fillStyle = groundTexture(g, map.id, cam.ppm / 65, sx(0), sy(0)) ?? dirt
     g.beginPath()
     g.moveTo(pts[0], pts[1])
     for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1])
@@ -293,13 +298,13 @@ export class Renderer {
   }
 
   /** Mud (sand, snow drifts) and ice painted over the ground line. */
-  private surfaces(g: CanvasRenderingContext2D, sim: Sim, sx: Fn, sy: Fn, ppm: number, x0: number, x1: number) {
+  private surfaces(g: CanvasRenderingContext2D, sim: Sim, sx: Fn, sy: Fn, ppm: number, x0: number, x1: number, foreground = false) {
     const track = sim.track
     const step = 0.5
     let x = Math.floor(x0 / step) * step
     while (x < x1) {
       const kind = track.surfaceAt(x + step / 2)
-      if (kind === 'ground') {
+      if (kind === 'ground' || (foreground && kind !== 'mud' && kind !== 'snow')) {
         x += step
         continue
       }
@@ -314,8 +319,28 @@ export class Renderer {
         if (xx === a) g.moveTo(X, Y)
         else g.lineTo(X, Y)
       }
-      if (kind === 'mud') {
-        const [light, dark] = track.map.mud
+      if (kind === 'mud' || kind === 'snow') {
+        const [light, dark] = kind === 'snow' ? ['#ffffff', '#bed9eb'] : track.map.mud
+        // Solid bed below, soft surface above: submerged tires disappear into the mud.
+        g.save(); g.globalAlpha = foreground ? .82 : 1
+        g.beginPath()
+        for (let xx = a; xx <= x + 1e-9; xx += step) {
+          const Y = sy(track.height(xx) + track.softDepthAt(xx))
+          if (xx === a) g.moveTo(sx(xx), Y)
+          else g.lineTo(sx(xx), Y)
+        }
+        for (let xx = x; xx >= a - 1e-9; xx -= step) g.lineTo(sx(xx), sy(track.height(xx) - .08))
+        g.closePath(); g.fillStyle = light; g.fill()
+        g.beginPath()
+        for (let xx = a; xx <= x + 1e-9; xx += step) {
+          const ripple = Math.sin(xx * 9 + this.time * 3) * .015 * Math.min(1, track.softDepthAt(xx) * 8)
+          const Y = sy(track.height(xx) + track.softDepthAt(xx) + ripple)
+          if (xx === a) g.moveTo(sx(xx), Y)
+          else g.lineTo(sx(xx), Y)
+        }
+        g.strokeStyle = kind === 'snow' ? '#ffffff' : '#c7a27a'; g.lineWidth = Math.max(1, ppm * .025); g.stroke()
+        g.restore()
+        if (foreground) continue
         g.strokeStyle = dark
         g.lineWidth = ppm * 0.6
         g.stroke()
@@ -344,7 +369,17 @@ export class Renderer {
 
   /** A little warning sign before mud, ice and bridges, so the player sees what is coming. */
   private signs(g: CanvasRenderingContext2D, sim: Sim, sx: Fn, sy: Fn, ppm: number, x0: number, x1: number) {
-    const icon: Partial<Record<FeatureKind, string>> = { mud: sim.track.map.decor === 'pine' ? '❄️' : sim.track.map.decor === 'cactus' ? '🏜️' : '🟤', ice: '🧊', bridge: '🌉' }
+    for (const segment of sim.track.segmentsIn(x0 - 25, x1 + 25)) {
+      const first = segment.logs.find(log => log.crossing)
+      if (!first || first.x - 4 < x0 || first.x - 4 > x1) continue
+      const X = sx(first.x - 4), Y = sy(sim.track.height(first.x - 4))
+      g.fillStyle = '#775337'; g.fillRect(X - ppm * .04, Y - ppm * 1.7, ppm * .08, ppm * 1.7)
+      g.fillStyle = '#f5cf78'; g.strokeStyle = '#6c5035'; g.lineWidth = Math.max(1, ppm * .035)
+      g.beginPath(); g.roundRect(X - ppm * .65, Y - ppm * 2.1, ppm * 1.3, ppm * .65, ppm * .09); g.fill(); g.stroke()
+      g.fillStyle = '#62412a'; g.font = `800 ${Math.round(ppm * .33)}px system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle'
+      g.fillText('≋', X, Y - ppm * 1.78)
+    }
+    const icon: Partial<Record<FeatureKind, string>> = { gap: '↗', mud: '🟤', snow: '❄ï¸', pothole: '⚠ï¸', ice: '🧊', bridge: '🌉' }
     for (const seg of sim.track.segmentsIn(x0, x1 + 8)) {
       for (const f of seg.features) {
         const ch = icon[f.kind]
@@ -358,13 +393,14 @@ export class Renderer {
         g.strokeStyle = '#3d2b16'
         g.lineWidth = Math.max(1.5, ppm * 0.05)
         g.beginPath()
-        g.roundRect(X - ppm * 0.42, Y - ppm * 2.1, ppm * 0.84, ppm * 0.84, ppm * 0.12)
+        g.roundRect(X - ppm * (f.kind === 'gap' ? 1 : .42), Y - ppm * 2.1, ppm * (f.kind === 'gap' ? 2 : .84), ppm * .84, ppm * .12)
         g.fill()
         g.stroke()
         g.font = `${Math.round(ppm * 0.55)}px ${EMOJI_FONT}`
         g.textAlign = 'center'
         g.textBaseline = 'middle'
-        g.fillText(ch, X, Y - ppm * 1.66)
+        if (f.kind === 'gap') g.font = `800 ${Math.round(ppm * .34)}px system-ui`
+        g.fillText(f.kind === 'gap' ? `${f.gapWidth ?? 12} m ↗` : ch, X, Y - ppm * 1.66)
       }
     }
   }
@@ -420,8 +456,12 @@ export class Renderer {
       for (const r of seg.rocks) {
         if (r.x < x0 || r.x > x1) continue
         const X = sx(r.x)
-        const Y = sy(sim.track.height(r.x) + r.r * ROCK_LIFT)
+        const Y = sy(sim.track.height(r.x) + r.r * ROCK_LIFT + (r.lift ?? 0))
         const R = r.r * ppm
+        if (style === 'stone' || style === 'moonrock') {
+          drawRockArt(g, sim.track.spec.map, Math.floor(r.x * 13), X, Y, R)
+          continue
+        }
         const fill = { hay: '#e9c46a', stone: '#a1887f', snowball: '#f4f8ff', moonrock: '#9a9ca6' }[style]
         g.fillStyle = fill
         g.beginPath()
@@ -481,6 +521,17 @@ export class Renderer {
     const from = Math.max(0, Math.ceil((x0 - START_X) / 50) * 50)
     for (let m = from; START_X + m <= x1; m += 50) sign(START_X + m, m === 0 ? 'START' : `${m} m`, m === 0 ? '#ffd23f' : '#fff')
 
+    if (sim.track.spec.checkpoints?.length) {
+      for (const distance of sim.track.spec.checkpoints) {
+        const x = START_X + distance
+        if (x < x0 - 2 || x > x1 + 2) continue
+        const X = sx(x), Y = sy(sim.track.height(x))
+        g.strokeStyle = '#536845'; g.lineWidth = Math.max(2, ppm * .05)
+        g.beginPath(); g.moveTo(X, Y); g.lineTo(X, Y - ppm * 2.7); g.stroke()
+        g.fillStyle = sim.distance >= distance ? '#6dba65' : '#f3cb70'
+        g.beginPath(); g.moveTo(X, Y - ppm * 2.7); g.lineTo(X + ppm * 1.3, Y - ppm * 2.35); g.lineTo(X, Y - ppm * 2); g.closePath(); g.fill()
+      }
+    }
     const fx = sim.track.finishX
     if (fx !== null && fx > x0 - 2 && fx < x1 + 2) {
       const X = sx(fx)
@@ -621,10 +672,11 @@ export class Renderer {
       sim.wheels.forEach((wb, i) => {
         const p = wb.getPosition()
         const r = sim.geom.wheels[i].r
-        const mud = sim.track.surfaceAt(p.x) === 'mud'
+        const surface = sim.track.surfaceAt(p.x)
+        const mud = surface === 'mud' || surface === 'snow'
         if (p.y - r - sim.track.height(p.x) < 0.2 && Math.random() < (mud ? 0.9 : 0.5) && this.particles.length < 90) {
           this.particles.push({
-            color: mud ? mudColor : dustColor,
+            color: surface === 'snow' ? '235,247,255' : mud ? mudColor : dustColor,
             x: p.x - r * 0.6,
             y: p.y - r * 0.8,
             vx: -1 - Math.random() * 2,
@@ -702,3 +754,12 @@ export class Renderer {
     }
   }
 }
+
+
+
+
+
+
+
+
+

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+﻿import { describe, expect, it } from 'vitest'
 import { DT } from './config.ts'
 import { buildGeom, type VehicleShape } from './geom.ts'
 import { deliveryRun, endlessRun, LEVELS, levelRun, PULL_LOADS, pullRun, ROUTES, type RunSpec } from './modes.ts'
@@ -107,11 +107,16 @@ describe('Sim', () => {
     expect(sim.ended).toBe('fuel')
   })
 
-  it('collects coins and refuels at fuel cans on the endless track', () => {
-    const sim = simFor(endlessRun('farm'))
-    for (let i = 0; i < seconds(30) && !sim.ended; i++) sim.step(GAS)
-    expect(sim.coins).toBeGreaterThan(0)
-    expect(sim.distance > 240 ? sim.collected.size : 1).toBeGreaterThan(0)
+  it('refuels on the endless track without economy pickups', () => {
+    const sim = simOn({ ...flat(null), fuelEvery: 25 })
+    let refills = 0
+    for (let i = 0; i < seconds(60) && !sim.ended; i++) {
+      const angle = Math.atan2(Math.sin(sim.chassis.getAngle()), Math.cos(sim.chassis.getAngle()))
+      const input = sim.airborne ? { gas: angle < -0.25, brake: angle > 0.25 } : { gas: angle < 1, brake: false }
+      if (sim.step(input).fuel) refills++
+    }
+    expect(sim.coins).toBe(0)
+    expect(refills).toBeGreaterThan(0)
   })
 
   it('finishes a level when crossing the finish line', () => {
@@ -156,6 +161,7 @@ describe('Sim', () => {
     const muddy: TrackSpec = { ...flat(70), surfaces: [{ at: 20, len: 25, kind: 'mud' }] }
     const time = (design: WheelDesign) => {
       const sim = new Sim({ geom: designCar(design), track: muddy, mode: { kind: 'level' } })
+      sim.fuel = 1000
       for (let i = 0; i < seconds(60) && !sim.ended; i++) sim.step(GAS)
       expect(sim.ended).toBe('finish')
       return sim.time
@@ -174,3 +180,128 @@ describe('Sim', () => {
     expect(pull(heavy, true)).toBeGreaterThan(pull(designCar('offroad'), true) * 1.5)
   })
 })
+
+
+describe('gentle air controls', () => {
+  const airborneCar = () => {
+    const sim = simOn(flat(null))
+    for (const body of [sim.chassis, ...sim.wheels]) {
+      const position = body.getPosition()
+      body.setTransform({ x: position.x, y: position.y + 100 }, body.getAngle())
+    }
+    return sim
+  }
+  for (const input of [GAS, { gas: false, brake: true }]) {
+    it(`holds a small tilt instead of flipping with ${input.gas ? 'gas' : 'brake'}`, () => {
+      const sim = airborneCar()
+      let maxTilt = 0
+      for (let i = 0; i < seconds(2); i++) {
+        sim.step(input)
+        maxTilt = Math.max(maxTilt, Math.abs(sim.chassis.getAngle()))
+      }
+      expect(maxTilt).toBeLessThan(0.65)
+      expect(sim.flips).toBe(0)
+      expect(sim.chassis.getAngle() * (input.gas ? 1 : -1)).toBeGreaterThan(0.1)
+      const tilted = Math.abs(sim.chassis.getAngle())
+      for (let i = 0; i < seconds(1); i++) sim.step(NO_INPUT)
+      expect(Math.abs(sim.chassis.getAngle())).toBeLessThan(tilted / 2)
+    })
+  }
+  it('makes a short tap a small correction', () => {
+    const sim = airborneCar()
+    for (let i = 0; i < seconds(0.1); i++) sim.step(GAS)
+    expect(Math.abs(sim.chassis.getAngle())).toBeLessThan(0.1)
+  })
+  it('treats both pedals as neutral while airborne', () => {
+    const sim = airborneCar()
+    for (let i = 0; i < seconds(2); i++) sim.step({ gas: true, brake: true })
+    expect(Math.abs(sim.chassis.getAngle())).toBeLessThan(0.15)
+    expect(sim.flips).toBe(0)
+  })
+})
+
+
+describe('soft terrain depth', () => {
+  it('makes deeper mud slower for the same vehicle and tire design', () => {
+    const cross = (depth: number) => {
+      const track: TrackSpec = { ...flat(70), surfaces: [{ at: 20, len: 25, kind: 'mud', depth }] }
+      const sim = new Sim({ geom: designCar('classic'), track, mode: { kind: 'level' } })
+      sim.fuel = 1000
+      for (let i = 0; i < seconds(90) && !sim.ended; i++) sim.step(GAS)
+      return sim
+    }
+    const shallow = cross(0.1), medium = cross(0.4), deep = cross(0.7)
+    expect(shallow.ended).toBe('finish')
+    expect(medium.ended).toBe('finish')
+    expect(medium.time).toBeGreaterThan(shallow.time * 1.4)
+    expect(deep.ended).toBe('bogged')
+    expect(deep.distance).toBeLessThan(70)
+  })
+})
+
+describe('restarting in mud', () => {
+  const patch = (depth: number, startDistance: number, kind: 'mud' | 'snow' = 'mud') => new Sim({
+    geom: designCar('offroad'), mode: { kind: 'level' }, startDistance,
+    track: { ...flat(42), surfaces: [{ at: 14, len: 12, kind, depth }] },
+  })
+
+  it('loses drive in both directions when stopped with every hub in deep mud', () => {
+    for (const input of [GAS, { gas: false, brake: true }]) {
+      const sim = patch(0.95, 20)
+      for (let n = 0; n < seconds(0.6); n++) sim.step(NO_INPUT)
+      expect(sim.ended).toBeNull()
+      const start = sim.chassis.getPosition().x
+      for (let n = 0; n < seconds(2) && !sim.ended; n++) sim.step(input)
+      expect(sim.ended).toBe('bogged')
+      expect(Math.abs(sim.chassis.getPosition().x - start)).toBeLessThan(0.25)
+    }
+  })
+
+  it('can cross that patch with momentum and restart at a shallow edge or in snow', () => {
+    for (const sim of [patch(0.95, 0), patch(0.95, 14), patch(0.25, 20), patch(0.95, 20, 'snow')]) {
+      for (let n = 0; n < seconds(20) && !sim.ended; n++) sim.step(GAS)
+      expect(sim.ended).toBe('finish')
+    }
+  })
+})
+
+ describe('unpowered mud resistance', () => {
+  it('absorbs coasting momentum rather than letting a car roll freely out', () => {
+    const coast = (mud: boolean) => {
+      const sim = simOn({ ...flat(null), surfaces: mud ? [{ at: -10, len: 100, kind: 'mud', depth: .9 }] : [] })
+      for (let i = 0; i < seconds(.8); i++) sim.step(NO_INPUT)
+      const start = sim.chassis.getPosition().x
+      for (const body of [sim.chassis, ...sim.wheels]) body.setLinearVelocity({ x: 4, y: 0 })
+      for (let i = 0; i < seconds(1.5); i++) sim.step(NO_INPUT)
+      expect(Number.isFinite(sim.chassis.getPosition().x)).toBe(true)
+      return sim.chassis.getPosition().x - start
+    }
+    expect(coast(true)).toBeLessThan(coast(false) * .45)
+  })
+ })
+
+ describe('mud on an incline', () => {
+  it('holds an unpowered car inside a muddy downhill section', () => {
+    const sim = simOn({ ...flat(null), flat: false, difficulty: .25, surfaces: [{ at: 50, len: 100, kind: 'mud', depth: 1 }] })
+    let x = 75, steepest = 0
+    for (let at = 75; at < 110; at += .5) {
+      const slope = sim.track.height(at + .2) - sim.track.height(at - .2)
+      if (slope < steepest) { steepest = slope; x = at }
+    }
+    expect(steepest).toBeLessThan(-.01)
+    const dx = x - sim.chassis.getPosition().x
+    const dy = Math.max(...sim.wheels.map((wheel, i) => {
+      const p = wheel.getPosition()
+      return sim.track.height(p.x + dx) + sim.geom.wheels[i].r - p.y
+    }))
+    for (const body of [sim.chassis, ...sim.wheels]) {
+      const p = body.getPosition()
+      body.setTransform({ x: p.x + dx, y: p.y + dy + .03 }, body.getAngle())
+      body.setLinearVelocity({ x: 0, y: 0 })
+    }
+    for (let i = 0; i < seconds(3) && !sim.ended; i++) sim.step(NO_INPUT)
+    expect(Math.abs(sim.chassis.getPosition().x - x)).toBeLessThan(2)
+    expect(Math.abs(sim.chassis.getLinearVelocity().x)).toBeLessThan(.5)
+  })
+ })
+

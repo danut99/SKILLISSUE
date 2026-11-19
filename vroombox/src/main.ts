@@ -1,16 +1,17 @@
-import { registerSW } from 'virtual:pwa-register'
-import { endlessRun, type RunSpec } from './game/modes.ts'
+﻿import { registerSW } from 'virtual:pwa-register'
+import { ACTIVE_LEVELS, levelRun, provingGroundRun, type RunSpec } from './game/modes.ts'
 import { lang, randomName, t } from './i18n.ts'
-import { noteDrawn, progress, recordRun, saveProgress } from './progress.ts'
+import { progress, recordRun, saveProgress, upgradesFor } from './progress.ts'
 import { sampleVehicles } from './samples.ts'
 import { drawScreen, newSketch, sketchOf, type Sketch } from './screens/draw.ts'
-import { driveScreen } from './screens/drive.ts'
+import { driveScreen, type DriveResume } from './screens/drive.ts'
 import { engineScreen } from './screens/engine.ts'
 import { garageScreen } from './screens/garage.ts'
-import { homeScreen } from './screens/home.ts'
-import { deliveryScreen, endlessScreen, levelsScreen, pullScreen } from './screens/modes.ts'
-import type { Screen } from './screens/screen.ts'
+import type { Upgrades } from './game/upgrades.ts'
 import { workshopScreen } from './screens/workshop.ts'
+import { homeScreen } from './screens/home.ts'
+import { endlessScreen, levelsScreen } from './screens/modes.ts'
+import type { Screen } from './screens/screen.ts'
 import { listVehicles, saveVehicle } from './storage/garage.ts'
 import './styles.css'
 import { toast } from './util/dom.ts'
@@ -99,30 +100,59 @@ async function install() {
   go.home()
 }
 
-function play(run: RunSpec, back: () => void) {
-  show(driveScreen(vehicle, run, { menu: back, finish: recordRun, play: (next) => play(next, back) }))
+function play(run: RunSpec, back: () => void, checkpoint?: DriveResume) {
+    show(driveScreen(vehicle, run, { menu: back, finish: recordRun, workshop: go.workshop, play: (next) => play(next, back),
+    edit: run.kind === 'level' ? (at) => void editAtCheckpoint(run, back, at) : undefined,
+  }, checkpoint))
+}
+
+async function editAtCheckpoint(run: RunSpec, back: () => void, checkpoint: DriveResume) {
+  try {
+    const original = vehicle
+    const sketch = await sketchOf(original)
+    const returnToLevel = () => play(run, back, checkpoint)
+    const editor = drawScreen(sketch, { back: returnToLevel, next: (drawing) => {
+      void (async () => {
+        try {
+          const updated = buildVehicle(drawing, original.name, original.engine, original.sample ? null : original)
+          await saveWithSketch(updated, sketch)
+          if (updated.id !== original.id) progress.vehicleUpgrades[updated.id] = upgradesFor(original.id)
+          select(updated)
+          returnToLevel()
+        } catch { toast(t.saveFailed) }
+      })()
+    } })
+    show(editor)
+  } catch { toast(t.loadFailed) }
 }
 
 const go = {
   home() {
     show(
       homeScreen(vehicle, {
+        workshop: go.workshop,
         garage: go.garage,
         newVehicle: go.newVehicle,
         edit: vehicle.sample ? null : () => void go.edit(vehicle),
         levels: go.levels,
         endless: go.endless,
-        pull: go.pull,
-        delivery: go.delivery,
-        workshop: go.workshop,
         install: installEvent ? install : null,
       }),
       true,
     )
   },
+  workshop() { show(workshopScreen(vehicle, { back: go.garage, test: go.testDrive })) },
+  testDrive(setup: Upgrades) {
+    const run=provingGroundRun()
+    const current=upgradesFor(vehicle.id)
+    const changed=(['engine','tires','suspension'] as const).find(key=>setup[key]!==current[key])
+    run.testLabel=changed ? t.previewSetup(t.upgradeNames[changed],setup[changed]) : t.testCurrent
+    show(driveScreen(vehicle,run,{menu:go.workshop,finish:recordRun,play:()=>go.testDrive(setup)},undefined,setup))
+  },
   garage() {
     show(
       garageScreen(vehicle.id, {
+        workshop: go.workshop,
         back: go.home,
         newVehicle: go.newVehicle,
         select: (v) => {
@@ -140,15 +170,6 @@ const go = {
   },
   endless() {
     show(endlessScreen(vehicle.id, { back: go.home, play: (run) => play(run, go.endless) }))
-  },
-  pull() {
-    show(pullScreen({ back: go.home, play: (run) => play(run, go.pull) }))
-  },
-  delivery() {
-    show(deliveryScreen({ back: go.home, play: (run) => play(run, go.delivery) }))
-  },
-  workshop() {
-    show(workshopScreen({ back: go.home }))
   },
   newVehicle() {
     if (!draft || draft.editing) draft = { sketch: newSketch(), editing: null }
@@ -171,15 +192,13 @@ const go = {
     show(
       engineScreen(edited?.name ?? randomName(), edited?.engine ?? null, {
         back: go.draw,
-        done: (finalName, finalEngine) => {
+        done: async (finalName, finalEngine) => {
           const v = buildVehicle(drawing, finalName, finalEngine, edited)
           const sketch = draft?.sketch ?? null
+          await saveWithSketch(v, sketch)
           draft = null
-          const paid = noteDrawn()
-          if (paid) toast(t.missionPaid(paid), 2200)
           select(v)
-          play(endlessRun('farm'), go.home)
-          void saveWithSketch(v, sketch).catch(() => toast(t.saveFailed))
+          play(levelRun(ACTIVE_LEVELS[0]), go.home)
         },
       }),
     )
@@ -197,3 +216,7 @@ window.addEventListener('appinstalled', () => {
 })
 
 void restoreSelected().then(() => go.home())
+
+
+
+

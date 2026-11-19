@@ -1,4 +1,5 @@
 import { t } from '../i18n.ts'
+import { MAP_ORDER } from '../game/maps.ts'
 import { endlessBest } from '../progress.ts'
 import { sampleVehicles } from '../samples.ts'
 import { deleteVehicle, listVehicles } from '../storage/garage.ts'
@@ -8,6 +9,7 @@ import { topBar } from './menu.ts'
 import type { Screen } from './screen.ts'
 
 export type GarageNav = {
+  workshop(): void
   back(): void
   newVehicle(): void
   select(v: Vehicle): void
@@ -17,7 +19,7 @@ export type GarageNav = {
 export function garageScreen(selectedId: string, nav: GarageNav): Screen {
   const urls: string[] = []
   const bestLabel = (id: string) => {
-    const b = endlessBest(id, 'farm')
+    const b = Math.max(...MAP_ORDER.map(map => endlessBest(id, map)))
     return b > 0 ? t.best(b) : t.notPlayed
   }
   const card = (id: string, name: string, image: HTMLElement, onClick: () => void) =>
@@ -86,6 +88,7 @@ export function garageScreen(selectedId: string, nav: GarageNav): Screen {
       'div.wrap',
       {},
       topBar(t.chooseVehicle, nav.back),
+      el('button.btn.secondary', {type:'button',onclick:nav.workshop},t.workshop),
       el('button.btn.big', { type: 'button', onclick: () => nav.newVehicle() }, t.newVehicle),
       el('h2.section-title', {}, t.yourVehicles),
       emptyNote,

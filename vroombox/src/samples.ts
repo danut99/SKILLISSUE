@@ -120,7 +120,8 @@ function tractor(): Vehicle {
     outline,
     wheels: [
       { x: 80, y: 200, r: 70 },
-      { x: 282, y: 212, r: 44 },
+      // Both tires meet the ground at y = 270, keeping the chassis level.
+      { x: 282, y: 226, r: 44 },
     ],
     wheelStyle: 'own',
     wheelSprites: [tractorTire(), tractorTire()],

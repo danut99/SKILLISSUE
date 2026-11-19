@@ -28,7 +28,8 @@ describe('Track', () => {
     expect(early.every((f) => f.x >= START_X + FEATURE_START)).toBe(true)
     const late = [...endless.segmentsIn(1500, 3000)].flatMap((s) => s.features)
     expect(late.length).toBeGreaterThan(5)
-    expect(late.some((f) => f.kind === 'pit')).toBe(true)
+    expect(late.some((f) => f.kind === 'pothole')).toBe(true)
+    expect(late.some((f) => f.kind === 'mud')).toBe(true)
   })
 
   it('gives every level three stars, each right after a ramp and high enough to need a jump', () => {

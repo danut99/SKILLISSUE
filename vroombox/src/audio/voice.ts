@@ -16,10 +16,11 @@ export function micAvailable(): boolean {
  * Records for `seconds`, reporting the live level (0..1), and returns a seamless engine loop,
  * or null when nothing loud enough was heard. Throws when microphone access is refused.
  */
-export async function recordEngine(seconds: number, onLevel: (level: number) => void): Promise<VoiceEngineData | null> {
+export async function recordEngine(seconds: number, onLevel: (level: number) => void, signal?: AbortSignal): Promise<VoiceEngineData | null> {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
   })
+  if (signal?.aborted) { stream.getTracks().forEach((track) => track.stop()); return null }
   let raf = 0
   try {
     const c = audio.ctx
@@ -45,9 +46,14 @@ export async function recordEngine(seconds: number, onLevel: (level: number) => 
       rec.onstop = () => resolve()
     })
     rec.start()
-    await new Promise((r) => setTimeout(r, seconds * 1000))
+    await new Promise<void>((resolve) => {
+      const finish = () => { clearTimeout(timer); signal?.removeEventListener('abort', finish); resolve() }
+      const timer = setTimeout(finish, seconds * 1000)
+      signal?.addEventListener('abort', finish, { once: true })
+    })
     rec.stop()
     await stopped
+    if (signal?.aborted) return null
     cancelAnimationFrame(raf)
     onLevel(0)
     source.disconnect()

@@ -1,14 +1,16 @@
-/**
+﻿/**
  * Ghosts: the input log of your best finish on a level, per vehicle. The simulation is deterministic,
  * so replaying those inputs with the same vehicle and upgrades re-drives that exact run next to you.
  */
+import { courseRevisionOf } from './game/config.ts'
 import type { VehicleGeom } from './game/geom.ts'
 import type { Upgrades } from './game/upgrades.ts'
 
 type Saved = { sig: string; time: number; upgrades: Upgrades; inputs: string }
 export type Ghost = { time: number; upgrades: Upgrades; inputs: Uint8Array }
 
-const key = (levelRef: string, vehicleId: string) => `vroombox:ghost:${levelRef}:${vehicleId}`
+// Replay inputs only on the same course revision.
+const key = (levelRef: string, vehicleId: string) => `vroombox:ghost:v${courseRevisionOf(Number(levelRef))}:${levelRef}:${vehicleId}`
 
 /** Changes whenever the vehicle's physics shape changes (an edited vehicle gets a new ghost). */
 export function vehicleSig(geom: VehicleGeom): string {
@@ -61,3 +63,5 @@ export function saveGhost(levelRef: string, vehicleId: string, sig: string, time
     return false
   }
 }
+
+

@@ -1,7 +1,7 @@
-/**
+﻿/**
  * What the drawing changes in the physics, so how a vehicle is drawn matters:
  * - the wheel design (each has its own grip, speed, push, bounce and mud handling),
- * - the wheel size (big wheels: higher top speed and they roll over things; small ones push harder),
+ * - the wheel size (big wheels: slower but better at rolling over obstacles; medium wheels favor speed),
  * - the body size (a bigger body is heavier: slower to speed up, but it pulls more),
  * - the wheelbase (long = steady, short = flips easily).
  */
@@ -33,12 +33,12 @@ export const TRAITS: Record<WheelDesign, WheelTrait> = {
 
 export const traitOf = (design: WheelDesign | undefined): WheelTrait => TRAITS[design ?? 'classic'] ?? TRAITS.classic
 
-/** Radius (m) of an "average" wheel: smaller pushes harder, bigger goes faster. */
+/** Radius (m) of an "average" wheel: large tires trade top speed and acceleration for obstacle clearance. */
 const REF_RADIUS = 0.45
 
 export function sizeFactors(r: number): { speed: number; force: number } {
-  const speed = clamp((r / REF_RADIUS) ** 0.3, 0.8, 1.25)
-  return { speed, force: 1 / speed }
+  const speed = clamp((REF_RADIUS / r) ** 0.65, 0.56, 1.10)
+  return { speed, force: clamp((REF_RADIUS / r) ** 0.25, 0.78, 1.08) }
 }
 
 /** Chassis mass (kg) from the hull area (m²): every vehicle is the same length, so a taller, bulkier drawing weighs more. */
@@ -66,3 +66,4 @@ export function vehicleStats(area: number, wheels: readonly StatWheel[]): Stats 
     steady: norm(base, 0.25, 0.9),
   }
 }
+

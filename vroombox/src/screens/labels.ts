@@ -1,15 +1,16 @@
-import { MAPS } from '../game/maps.ts'
+﻿import { MAPS } from '../game/maps.ts'
 import type { LevelDef, RunSpec } from '../game/modes.ts'
 import { t } from '../i18n.ts'
 
 export function modeLabel(run: RunSpec): string {
+  if(run.testDrive) return run.testLabel ?? t.testDrive
   const map = run.track.map
   const mapText = `${MAPS[map].emoji} ${t.mapNames[map]}`
   switch (run.kind) {
     case 'endless':
-      return `♾️ ${mapText}`
+      return `♾ï¸ ${mapText}`
     case 'level':
-      return `${t.level} ${run.ref} · ${mapText}`
+      return `${t.level} · ${mapText}`
     case 'pull':
       return `🚜 ${run.mode.kind === 'pull' ? run.mode.load.emoji : ''} ${t.loadNames[run.ref] ?? ''}`
     case 'delivery':
@@ -46,3 +47,5 @@ export function goalProgress(l: LevelDef, r: { time: number; flips: number; brak
       return `🪙 ${Math.min(r.coins, l.goal.n)}/${l.goal.n}`
   }
 }
+
+

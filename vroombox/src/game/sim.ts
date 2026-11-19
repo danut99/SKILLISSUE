@@ -1,4 +1,4 @@
-import { Box, Chain, Circle, Polygon, RopeJoint, Vec2, WheelJoint, World, type Body, type Contact } from 'planck'
+﻿import { Box, Chain, Circle, Polygon, RopeJoint, Vec2, WheelJoint, World, type Body, type Contact } from 'planck'
 import { clipAbove, inflate, polygonArea, simplifyClosed, type Pt } from '../geometry/poly.ts'
 import * as C from './config.ts'
 import type { VehicleGeom } from './geom.ts'
@@ -20,9 +20,9 @@ export type ModeSpec =
   | { kind: 'pull'; load: PullLoad }
   | { kind: 'delivery'; eggs: number }
 
-export type SimConfig = { geom: VehicleGeom; track: TrackSpec; mode: ModeSpec; upgrades?: Upgrades }
+export type SimConfig = { startDistance?: number; geom: VehicleGeom; track: TrackSpec; mode: ModeSpec; upgrades?: Upgrades }
 
-export type EndKind = 'roof' | 'flip' | 'stuck' | 'fuel' | 'finish' | 'eggs' | 'stall' | 'fullpull'
+export type EndKind = 'roof' | 'flip' | 'stuck' | 'bogged' | 'fuel' | 'finish' | 'eggs' | 'stall' | 'fullpull'
 
 export type StepEvents = {
   landing: number
@@ -88,6 +88,11 @@ export class Sim {
   private readonly collectR: number
   readonly sledStartX: number = 0
   private readonly chunks = new Map<number, Body[]>()
+  private chassisContacts = 0
+  private readonly wheelContacts = new Map<Body,number>()
+  gapImpact: {farX:number;height:number} | null = null
+  get chassisGrounded():boolean {return this.chassisContacts>0}
+  get groundedWheelCount():number {return [...this.wheelContacts.values()].filter(n=>n>0).length}
   private groundContacts = 0
   private roofHit = false
   private readonly eggHits = new Set<Body>()
@@ -99,6 +104,7 @@ export class Sim {
   private progress: number
   /** Steps spent holding GAS since the last bit of forward progress. Braking/reversing never counts. */
   private stuckGasSteps = 0
+  private settledMudSteps = 0
   private stillSteps = 0
   private readonly events: StepEvents = { landing: 0, flip: false, coins: 0, fuel: false, star: false, eggsLost: 0, ended: null }
 
@@ -114,10 +120,11 @@ export class Sim {
 
     const wall = this.world.createBody({ type: 'static' })
     wall.createFixture(new Box(0.5, 25, new Vec2(C.WALL_X - 0.5, 20), 0), { friction: 0.4, userData: 'wall' satisfies Tag })
-    this.ensureChunks(C.START_X)
+    const spawnX = C.START_X + (config.startDistance ?? 0)
+    this.ensureChunks(spawnX)
 
     const lowest = Math.min(...geom.hull.map((p) => p.y), ...geom.wheels.map((w) => w.y - w.r))
-    const pos = new Vec2(C.START_X, this.track.height(C.START_X) - lowest + C.SPAWN_CLEARANCE)
+    const pos = new Vec2(spawnX, Math.max(this.track.height(spawnX) - lowest, ...geom.wheels.map(w => this.track.height(spawnX + w.x) - w.y + w.r)) + C.SPAWN_CLEARANCE)
     this.chassis = this.world.createBody({ type: 'dynamic', position: pos, angularDamping: 0.05 })
     this.chassis.createFixture(new Polygon(geom.hull.map((p) => new Vec2(p.x, p.y))), {
       density: geom.mass / geom.area,
@@ -295,22 +302,50 @@ export class Sim {
     const dir = !powered ? 0 : input.gas ? -1 : C.REVERSE_FACTOR
     const revs = this.revs(input.gas && this.engineOn)
     this.mudWheels = 0
+    let buriedWheels = 0
+    const nearlyStopped = this.chassis.getLinearVelocity().length() < 0.45
     for (let i = 0; i < this.joints.length; i++) {
       const wheel = this.wheels[i]
-      const sink = this.inMud(i) ? this.wheelMud[i] : 0
+      const soft = this.surface(wheel.getPosition().x)
+      const depth = this.track.softDepthAt(wheel.getPosition().x)
+      const radius = Math.max(0.1, this.geom.wheels[i].r)
+      const submerged = Math.max(0, this.track.height(wheel.getPosition().x) + depth - (wheel.getPosition().y - radius))
+      const immersion = Math.min(1.8, Math.min(depth, submerged) / radius)
+      // Once mud covers a stationary hub, the tire loses its purchase on the bed.
+      // Tires still on the bank can pull the vehicle out.
+      const buried = soft === 'mud' && nearlyStopped && depth >= 0.45 && immersion >= 1.05
+      if (buried) buriedWheels++
+      const sink = this.inMud(i) ? (0.12 + this.wheelMud[i] * 0.88) * (0.35 + immersion) * (soft === 'snow' ? 0.65 : 1) : 0
       if (sink > 0) {
         // Mud holds the wheel back (drag) and the tire slips (less push). Off-road tires barely notice.
         this.mudWheels++
         const v = wheel.getLinearVelocity()
-        wheel.applyForceToCenter(new Vec2((-v.x * C.MUD_DRAG * sink * this.totalMass) / this.wheels.length, 0), true)
+        // Viscous drag plus a yield resistance: mud bleeds momentum even downhill.
+        // Cap resistance per step so it cannot reverse a wheel or inject energy.
+        const share = this.totalMass / this.wheels.length
+        const drag = Math.min(Math.abs(v.x) * C.MUD_DRAG * sink + (powered ? 0 : sink * 4.5), Math.abs(v.x) / C.DT * .65)
+        wheel.applyForceToCenter(new Vec2(-Math.sign(v.x) * drag * share, 0), true)
+        if ((!powered || buried) && Math.abs(this.chassis.getLinearVelocity().x) < .7) {
+          const x = wheel.getPosition().x
+          const slope = (this.track.height(x + .15) - this.track.height(x - .15)) / .3
+          // A submerged tire's static resistance can hold the car on an incline.
+          const hold = Math.min(1, immersion * 1.5)
+          this.chassis.applyForceToCenter(new Vec2(-this.track.map.gravity * slope / (1 + slope * slope) * share * hold, 0), true)
+        }
       }
       this.joints[i].setMotorSpeed(dir * this.wheelSpeed[i])
-      this.joints[i].setMaxMotorTorque(powered ? this.wheelTorque[i] * (1 - C.MUD_SLIP * sink) * (input.gas ? revs : 1) : this.wheelIdle[i])
+      const wheelTorque = powered ? this.wheelTorque[i] * (1 - Math.min(0.85, C.MUD_SLIP * sink)) * (input.gas ? revs : 1) : this.wheelIdle[i]
+      // Spinning a free wheel must not kick the whole drawing into a backflip.
+      this.joints[i].setMaxMotorTorque(buried ? 0 : wheelTorque * (this.airborne ? 0.08 : 1))
     }
-    if (this.airborne && powered) {
-      // In the air GAS spins backwards and BRAKE forwards, toward a set spin rate: every vehicle flips the same, whatever its size.
+    this.settledMudSteps = buriedWheels === this.wheels.length && buriedWheels > 0 && !this.airborne ? this.settledMudSteps + 1 : 0
+    if (this.airborne) {
+      // Hold a pedal to lean slightly; release to settle toward level instead of continuing to spin.
       const I = this.chassis.getInertia()
-      const target = (input.gas ? 1 : -1) * this.airTorque
+      const tilt = powered && input.gas !== input.brake ? (input.gas ? 1 : -1) * C.AIR_TILT : 0
+      const delta = tilt - this.chassis.getAngle()
+      const error = Math.atan2(Math.sin(delta), Math.cos(delta))
+      const target = Math.max(-this.airTorque, Math.min(this.airTorque, error * C.AIR_RESPONSE))
       const torque = (target - this.chassis.getAngularVelocity()) * I * C.AIR_RESPONSE
       const cap = I * C.AIR_ACCEL
       this.chassis.applyTorque(Math.max(-cap, Math.min(cap, torque)), true)
@@ -374,6 +409,7 @@ export class Sim {
       else if (mode.kind === 'pull' && this.pulled >= C.PULL_FULL) end = 'fullpull'
       else if (this.roofHit) end = 'roof'
       else if (this.upsideSteps * C.DT >= C.FLIP_TIME) end = 'flip'
+      else if (this.settledMudSteps * C.DT >= 0.6) end = 'bogged'
       else if (mode.kind === 'delivery' && this.eggs.length === 0) end = 'eggs'
       else if (mode.kind === 'pull' && this.stuckGasSteps * C.DT >= C.STALL_TIME) end = 'stall'
       else if (this.stillSteps * C.DT >= C.FUEL_OUT_TIME) end = 'fuel'
@@ -399,8 +435,8 @@ export class Sim {
   /** The tire is on (or in) mud. */
   private inMud(i: number): boolean {
     const p = this.wheels[i].getPosition()
-    if (this.surface(p.x) !== 'mud') return false
-    return p.y - this.geom.wheels[i].r - this.track.height(p.x) < 0.15
+    if (!['mud', 'snow'].includes(this.surface(p.x))) return false
+    return p.y - this.geom.wheels[i].r - this.track.height(p.x) - this.track.softDepthAt(p.x) < 0.15
   }
 
   private surface(x: number): Surface {
@@ -427,6 +463,19 @@ export class Sim {
     if (groundA === groundB) return
     const other = groundA ? fb : fa
     const tag = groundA ? tb : ta
+    if (!other.isSensor() && (groundA ? ta : tb) !== 'wall') {
+      if(other.getBody() === this.chassis) this.chassisContacts = Math.max(0,this.chassisContacts+delta)
+      if(this.wheels.includes(other.getBody())) this.wheelContacts.set(other.getBody(),Math.max(0,(this.wheelContacts.get(other.getBody())??0)+delta))
+      if(delta>0 && (other.getBody()===this.chassis || this.wheels.includes(other.getBody()))) {
+        const p=other.getBody().getPosition()
+        for(const segment of this.track.segmentsIn(p.x-35,p.x+3)) for(const f of segment.features) {
+          if(f.kind!=='gap')continue
+          const farX=f.x+f.len*(f.gapWidth===undefined?.64:.25+f.gapWidth/f.len)
+          const height=this.track.base(f.x)
+          if(Math.abs(p.x-farX)<2 && p.y<height+.15) this.gapImpact={farX,height}
+        }
+      }
+    }
     const isWall = (groundA ? ta : tb) === 'wall'
     const groundBody = (groundA ? fa : fb).getBody()
     if (delta > 0 && this.planks.get(groundBody) === -1) this.planks.set(groundBody, this.stepCount)
@@ -517,21 +566,22 @@ export class Sim {
       // Ghost vertices stop wheels from catching on the seams between chains.
       chain.setPrevVertex(new Vec2(a - step, h(a - step)))
       chain.setNextVertex(new Vec2(b + step, h(b + step)))
-      ground.createFixture(chain, { friction: kind === 'ice' ? C.ICE_FRICTION : this.track.map.friction, userData: 'ground' satisfies Tag })
+      ground.createFixture(chain, { friction: kind === 'ice' ? C.ICE_FRICTION : kind === 'snow' ? 0.5 : this.track.map.friction, userData: 'ground' satisfies Tag })
       a = b
     }
     const bodies = [ground]
     for (const seg of this.track.segmentsIn(x0, x1)) {
       for (const r of seg.rocks) {
         if (r.x < x0 || r.x >= x1) continue
-        const rock = this.world.createBody({ type: 'static', position: new Vec2(r.x, h(r.x) + r.r * C.ROCK_LIFT) })
+        const rock = this.world.createBody({ type: 'static', position: new Vec2(r.x, h(r.x) + r.r * C.ROCK_LIFT + (r.lift ?? 0)) })
         rock.createFixture(new Circle(r.r), { friction: 0.8, userData: 'ground' satisfies Tag })
         bodies.push(rock)
       }
       for (const l of seg.logs) {
         if (l.x < x0 || l.x >= x1) continue
         // Asleep until touched, so it waits on its spot; then it rolls and gets pushed around.
-        const log = this.world.createBody({ type: 'dynamic', position: new Vec2(l.x, h(l.x) + l.r), awake: false, angularDamping: 0.4 })
+        const centerY = h(l.x) + l.r * (l.lodged ? 0.55 : 1) + (l.lift ?? 0)
+        const log = this.world.createBody({ type: l.lodged ? 'static' : 'dynamic', position: new Vec2(l.x, centerY), awake: false, angularDamping: l.crossing ? 1.8 : 0.4, linearDamping: l.crossing ? 0.65 : 0 })
         log.createFixture(new Circle(l.r), { density: C.LOG_MASS / (Math.PI * l.r * l.r), friction: 0.9, restitution: 0.05, userData: 'ground' satisfies Tag })
         this.props.push({ body: log, kind: 'log', w: l.r, h: l.r })
         bodies.push(log)
@@ -545,7 +595,7 @@ export class Sim {
           const y = this.track.bridgeY(f, mid) - C.PLANK_THICK / 2
           const plank = this.world.createBody({ type: 'static', position: new Vec2(mid, y), angle: Math.atan2(this.track.bridgeY(f, p1) - this.track.bridgeY(f, p0), w) })
           plank.createFixture(new Box(w / 2, C.PLANK_THICK / 2), { density: C.PLANK_MASS / (w * C.PLANK_THICK), friction: 0.9, userData: 'ground' satisfies Tag })
-          this.planks.set(plank, -1)
+          if (!f.landmark) this.planks.set(plank, -1)
           this.props.push({ body: plank, kind: 'plank', w, h: C.PLANK_THICK })
           bodies.push(plank)
         }
@@ -554,3 +604,10 @@ export class Sim {
     return bodies
   }
 }
+
+
+
+
+
+
+

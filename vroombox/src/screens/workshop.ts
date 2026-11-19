@@ -1,27 +1,39 @@
-import { MAX_UPGRADE, UPGRADE_KEYS } from '../game/upgrades.ts'
+import type { Vehicle } from '../vehicle.ts'
+import { drawVehicleThumb } from '../vehicle.ts'
+import {upgradeComparison} from '../game/upgradeComparison.ts'
+import { MAX_UPGRADE, UPGRADE_KEYS, type Upgrades } from '../game/upgrades.ts'
 import { t } from '../i18n.ts'
-import { buyUpgrade, progress, upgradeCost } from '../progress.ts'
+import { buyUpgrade, progress, upgradeCost, upgradesFor } from '../progress.ts'
 import { el, toast } from '../util/dom.ts'
 import { topBar } from './menu.ts'
 import type { Screen } from './screen.ts'
 
-export function workshopScreen(nav: { back(): void }): Screen {
+export function workshopScreen(vehicle: Vehicle, nav: { back(): void; test(setup:Upgrades): void }): Screen {
   const wrap = el('div.wrap')
   const render = () => {
     wrap.replaceChildren(
       topBar(t.workshopTitle, nav.back),
+      el('h2.section-title', {}, vehicle.name),
+      drawVehicleThumb(vehicle, 240, 140),
+      el('div.pill', {}, t.coinsPill(progress.coins)),
       el('p.note', {}, t.workshopHint),
+      el('p.note', {}, t.wheelTradeoff),
+      el('button.btn.secondary', {type:'button',onclick:()=>nav.test(upgradesFor(vehicle.id))},t.testCurrent),
+      el('p.note', {}, t.testDriveFree),
+      el('p.note', {}, t.percentBaseline),
       ...UPGRADE_KEYS.map((key) => {
-        const level = progress.upgrades[key]
-        const cost = upgradeCost(key)
+        const setup = upgradesFor(vehicle.id)
+        const level = setup[key]
+        const labels = {force:t.forceMetric,speed:t.speedMetric,grip:t.gripMetric,damping:t.dampingMetric,air:t.airMetric}
+        const cost = upgradeCost(key, vehicle.id)
         const bar = el('div.upbar', {}, ...Array.from({ length: MAX_UPGRADE }, (_, i) => el(i < level ? 'span.on' : 'span')))
         const buy = el(
           'button.btn',
           {
             type: 'button',
-            disabled: cost === null,
+            disabled: cost === null || progress.coins < cost,
             onclick: () => {
-              if (buyUpgrade(key)) {
+              if (buyUpgrade(key, vehicle.id)) {
                 toast(t.bought)
                 render()
               } else toast(t.notEnough, 1800)
@@ -33,7 +45,9 @@ export function workshopScreen(nav: { back(): void }): Screen {
         return el(
           'div.upcard',
           {},
-          el('div.upinfo', {}, el('div.upname', {}, t.upgradeNames[key]), el('div.note.left', {}, t.upgradeDesc[key]), bar),
+          el('div.upinfo', {}, el('div.upname', {}, t.upgradeNames[key]), el('div.note.left', {}, t.upgradeDesc[key]), bar,
+            cost !== null ? el('div.upgrade-comparison', {}, el('strong',{},t.comparison), ...upgradeComparison(setup,key).map(m=>el('div',{},`${labels[m.key]}: ${m.before}% → ${m.after}%`))) : null,
+            cost !== null ? el('button.btn.secondary.small', {type:'button',onclick:()=>nav.test({...setup,[key]:level+1})},t.testNext) : null),
           buy,
         )
       }),

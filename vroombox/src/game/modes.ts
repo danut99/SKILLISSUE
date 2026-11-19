@@ -1,10 +1,10 @@
-import { MAP_ORDER, type MapId } from './maps.ts'
+﻿import { MAP_ORDER, type MapId } from './maps.ts'
 import type { ModeSpec, PullLoad } from './sim.ts'
 import { Track, type TrackSpec } from './track.ts'
 
 export type RunKind = 'endless' | 'level' | 'pull' | 'delivery'
 /** ref: map id (endless), level id, pull load id or route id. */
-export type RunSpec = { kind: RunKind; ref: string; track: TrackSpec; mode: ModeSpec }
+export type RunSpec = { testDrive?: boolean; testLabel?: string; kind: RunKind; ref: string; track: TrackSpec; mode: ModeSpec }
 
 /** The third star of a level: beat the time, do flips, never brake, or grab coins. */
 export type LevelGoal = { kind: 'par' } | { kind: 'flips'; n: number } | { kind: 'nobrake' } | { kind: 'coins'; n: number }
@@ -52,7 +52,7 @@ function goalFor(j: number, m: number, track: TrackSpec, length: number): LevelG
   }
 }
 
-export const LEVELS: LevelDef[] = MAP_ORDER.flatMap((map, m) =>
+export const LEVELS: LevelDef[] = (['farm', 'desert', 'snow', 'moon'] as MapId[]).flatMap((map, m) =>
   [0, 1, 2, 3, 4].map((j) => {
     const id = m * 5 + j + 1
     const boss = j === 4
@@ -62,10 +62,16 @@ export const LEVELS: LevelDef[] = MAP_ORDER.flatMap((map, m) =>
   }),
 )
 
+/** One approachable course per season, with separate records from the legacy campaign. */
+export const ACTIVE_LEVELS: LevelDef[] = [LEVELS[0], LEVELS[5], LEVELS[15], LEVELS[10]].map((level, index) => ({
+  ...level, id: 101 + index, length: 480, difficulty: 0.18, par: index === 0 ? 55 : 100, boss: false,
+  stars: starSpots(480), goal: { kind: 'par' },
+}))
+
 export const PULL_LOADS: PullLoad[] = [
   { id: 'piano', emoji: '🎹', base: 40, growth: 60 },
   { id: 'cow', emoji: '🐄', base: 69, growth: 60 },
-  { id: 'sofa', emoji: '🛋️', base: 92, growth: 80 },
+  { id: 'sofa', emoji: '🛋ï¸', base: 92, growth: 80 },
   { id: 'whale', emoji: '🐋', base: 100, growth: 80 },
   { id: 'house', emoji: '🏠', base: 100, growth: 80 },
 ]
@@ -82,13 +88,13 @@ export function endlessRun(map: MapId): RunSpec {
   return {
     kind: 'endless',
     ref: map,
-    track: { map, seed: 777 + MAP_ORDER.indexOf(map), finish: null, difficulty: 0, growth: 650, fuelEvery: 230, coins: true },
+    track: { map, seed: 777 + MAP_ORDER.indexOf(map), finish: null, difficulty: 0, growth: 650, fuelEvery: 150, coins: false },
     mode: { kind: 'endless' },
   }
 }
 
 function levelTrack(l: Omit<LevelDef, 'goal'>): TrackSpec {
-  return { map: l.map, seed: l.seed, finish: l.length, difficulty: l.difficulty, growth: null, stars: l.stars, fuelEvery: 150, coins: true, boss: l.boss }
+  return { firstCourse: l.id === 101, map: l.map, seed: l.seed, finish: l.length, difficulty: l.difficulty, growth: null, stars: l.stars, fuelEvery: 120, coins: l.id < 100, boss: l.boss, checkpoints: l.id >= 100 ? [100, 200, 300, 400] : undefined }
 }
 
 export function levelRun(l: LevelDef): RunSpec {
@@ -148,4 +154,10 @@ export function deliveryStars(total: number, delivered: number, finished: boolea
 
 export function pullStars(meters: number): number {
   return meters >= 100 ? 3 : meters >= 65 ? 2 : meters >= 30 ? 1 : 0
+}
+
+
+
+export function provingGroundRun(): RunSpec {
+ return {testDrive:true,kind:'level',ref:'test-drive',mode:{kind:'level'},track:{provingGround:true,map:'farm',seed:1,finish:190,difficulty:0,growth:null,coins:false,fuelEvery:null,checkpoints:[55,95,130]}}
 }

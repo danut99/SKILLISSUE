@@ -1,12 +1,13 @@
-import { audio, createEngine, sfxCoin, sfxCrack, sfxCrash, sfxFlip, sfxLand, sfxPickup, sfxWin, type EngineSound } from '../audio/audio.ts'
+﻿import { audio, createEngine, sfxCoin, sfxCrack, sfxCrash, sfxLand, sfxPickup, sfxWin, type EngineSound } from '../audio/audio.ts'
 import { CLIP_GAME_VIEW, CLIP_H, CLIP_W, ClipRecorder, clipSupported, drawClipFrame, shareOrSave, type Clip, type ClipInfo } from '../clip/clip.ts'
+import {failureDiagnosis} from '../game/failureDiagnosis.ts'
 import * as C from '../game/config.ts'
-import { LEVELS, type RunSpec } from '../game/modes.ts'
+import { ACTIVE_LEVELS, goalMet, type RunSpec } from '../game/modes.ts'
 import { Camera, Renderer, type View } from '../game/render.ts'
 import { decodeInput, encodeInput, NO_INPUT, Sim, type EndKind, type Input } from '../game/sim.ts'
-import type { Upgrades } from '../game/upgrades.ts'
+import { type Upgrades } from '../game/upgrades.ts'
 import { t } from '../i18n.ts'
-import { endlessBest, levelTimeOf, progress, pullBestOf, type Outcome, type Reward } from '../progress.ts'
+import { upgradesFor, endlessBest, levelTimeOf, pullBestOf, type Outcome, type Reward } from '../progress.ts'
 import { autoSizeCanvas, el, toast, vibrate } from '../util/dom.ts'
 import { ctx2d, makeCanvas } from '../util/image.ts'
 import { loadGhost, saveGhost, vehicleSig, type Ghost } from '../ghost.ts'
@@ -14,7 +15,10 @@ import { geomOf, type Vehicle } from '../vehicle.ts'
 import { goalLabel, goalProgress, modeLabel, starRow } from './labels.ts'
 import type { Screen } from './screen.ts'
 
+export type DriveResume = { distance: number; stars: number; collected: number[] }
 export type DriveNav = {
+  edit?(checkpoint: DriveResume): void
+  workshop?(): void
   menu(): void
   /** Saves the outcome and returns the reward to show. */
   finish(outcome: Outcome): Reward
@@ -25,7 +29,7 @@ const HARD_LANDING = 7
 const MAX_STEPS_PER_FRAME = 4
 const SUCCESS: EndKind[] = ['finish', 'fullpull']
 
-type RunResult = Outcome & { reward: Reward; inputs: Uint8Array; endStep: number; prevBest: number }
+type RunResult = Outcome & { startState: DriveResume; startDistance: number; reward: Reward; inputs: Uint8Array; endStep: number; prevBest: number }
 
 function endTitle(end: EndKind, run: RunSpec): string {
   switch (end) {
@@ -34,6 +38,8 @@ function endTitle(end: EndKind, run: RunSpec): string {
       return t.crashed
     case 'stuck':
       return t.stuck
+    case 'bogged':
+      return t.bogged
     case 'fuel':
       return t.noFuel
     case 'finish':
@@ -53,7 +59,7 @@ function bigText(r: Outcome): string {
     case 'endless':
       return t.meters(Math.floor(r.distance))
     case 'level':
-      return r.end === 'finish' ? t.seconds(r.time) : `${Math.floor(r.distance)} / ${finish} m`
+      return r.end === 'finish' && !r.resumed ? t.seconds(r.time) : `${Math.floor(r.distance)} / ${finish} m`
     case 'pull':
       return `${r.pulled.toFixed(1)} m`
     case 'delivery':
@@ -61,11 +67,23 @@ function bigText(r: Outcome): string {
   }
 }
 
-export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Screen {
+export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resumeAt?: DriveResume, previewUpgrades?: Upgrades): Screen {
   const canvas = el('canvas.game')
   const g = ctx2d(canvas)
-  const upgrades: Upgrades = { ...progress.upgrades }
-  const makeSim = () => new Sim({ geom: geomOf(vehicle), track: run.track, mode: run.mode, upgrades })
+  const upgrades: Upgrades = {...(previewUpgrades ?? upgradesFor(vehicle.id))}
+  const hasCheckpoints = !!run.track.checkpoints?.length
+  let saved: DriveResume = resumeAt ?? { distance: 0, stars: 0, collected: [] }
+  let checkpoint = saved.distance
+  let resumed = checkpoint > 0
+  let attemptStart = checkpoint
+  let attemptState = { ...saved, collected: [...saved.collected] }
+  const makeSim = () => {
+    const fresh = new Sim({ startDistance: attemptStart, geom: geomOf(vehicle), track: run.track, mode: run.mode, upgrades })
+    if (run.testDrive) fresh.fuel = Infinity
+    fresh.stars = saved.stars
+    for (const id of saved.collected) fresh.collected.add(id)
+    return fresh
+  }
   const bestFor = () => (run.kind === 'endless' ? endlessBest(vehicle.id, run.track.map) : run.kind === 'pull' ? pullBestOf(run.ref) : 0)
   let best = bestFor()
   let sim = makeSim()
@@ -81,29 +99,44 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
   })
 
   const hudMain = el('div.pill', {})
-  const hudCoins = el('div.pill.coin', {})
-  const hudExtra = el('div.pill.dim', {})
+  const hudCoins = el('div.pill.coin', { hidden: true })
+  const hudExtra = el('div.pill.dim', { hidden: true })
+  const speedDigits = el('span.speed-digits', {}, '0')
+  const speedFill = el('span.speed-fill')
+  const speedometer = el('div.speedometer', { role: 'group', ariaLabel: t.statNames.speed },
+    speedDigits, el('span.speed-unit', {}, 'km/h'),
+    el('span.speed-scale', { ariaHidden: 'true' }, speedFill))
   const fuelFill = el('div')
   const fuelBar = el('div.fuel', {}, el('span', {}, '⛽'), el('div.fuel-track', {}, fuelFill))
-  fuelBar.hidden = run.kind === 'pull'
-  const level = run.kind === 'level' ? (LEVELS.find((l) => String(l.id) === run.ref) ?? null) : null
+  fuelBar.hidden = run.kind === 'pull' || !!run.testDrive
+  const level = run.kind === 'level' ? (ACTIVE_LEVELS.find((l) => String(l.id) === run.ref) ?? null) : null
   const revNeedle = el('div.rev-needle')
   const revLabel = el('span.rev-label', {}, t.revs)
   const revBar = el('div.revs', {}, revLabel, el('div.rev-track', {}, el('div.rev-green'), revNeedle))
   revBar.hidden = run.kind !== 'pull'
   const hint = el('div.drive-hint', {}, t.holdGas)
+  const checkpointHint = el('div.checkpoint-hint', { hidden: !hasCheckpoints })
   const gasBtn = el('button.pedal.gas', { type: 'button' }, t.gas)
   const brakeBtn = el('button.pedal.brake', { type: 'button' }, t.brake)
+  const pauseBtn = el('button.topbtn.pausebtn', { type: 'button', onclick: () => pauseRun(), title: t.paused, ariaLabel: t.paused }, t.pause)
+  const checkpointRetryBtn = el('button.checkpoint-retry', { type: 'button', hidden: !run.track.firstCourse, onclick: () => startRun(), ariaLabel: t.retryAt(checkpoint) }, '↺')
+  const soundBtn = el('button.topbtn.soundbtn', { type: 'button', onclick: () => { audio.toggleMute(); updateSound() } })
+  function updateSound() { soundBtn.textContent = audio.muted ? '🔇' : '🔊'; soundBtn.setAttribute('aria-label', audio.muted ? t.soundOff : t.soundOn) }
+  updateSound()
   const closeBtn = el('button.topbtn', { type: 'button', onclick: () => nav.menu() }, '✕')
   const root = el(
     'div.drive',
     {},
     canvas,
-    el('div.hud', {}, el('div.hud-row', {}, hudMain, hudCoins, hudExtra), fuelBar, revBar),
+    el('div.hud', {}, el('div.hud-row', {}, hudMain, hudCoins, hudExtra), fuelBar, revBar, checkpointHint),
     hint,
     closeBtn,
+    pauseBtn,
+    soundBtn,
+    checkpointRetryBtn,
     brakeBtn,
     gasBtn,
+    speedometer,
   )
 
   const input: Input = { gas: false, brake: false }
@@ -115,10 +148,49 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
   let load = 0
   let throttle = 0
   let running = false
+  let disposed = false
+  let paused = false
+  let pauseOverlay: HTMLElement | null = null
+  let resultTimer = 0
+  function clearInput() {
+    input.gas = input.brake = false
+    gasBtn.classList.remove('on')
+    brakeBtn.classList.remove('on')
+  }
+  function resumeRun() {
+    if (disposed || document.hidden || !paused) return
+    paused = false
+    pauseOverlay?.remove()
+    pauseOverlay = null
+    clearInput()
+    audio.unlock()
+    engine = createEngine(vehicle.engine)
+    acc = 0
+    last = performance.now()
+    raf = requestAnimationFrame(frame)
+  }
+  function pauseRun() {
+    if (!running || paused || disposed) return
+    paused = true
+    clearInput()
+    cancelAnimationFrame(raf)
+    engine?.stop()
+    engine = null
+    pauseOverlay = el('div.pause-overlay', {}, el('div.pause-card', {},
+      el('h2', {}, t.paused),
+      el('button.btn.big', { type: 'button', onclick: resumeRun }, t.resume),
+      hasCheckpoints ? el('button.btn.secondary', { type: 'button', onclick: () => startRun() }, t.retryAt(checkpoint)) : null,
+      hasCheckpoints && nav.edit ? el('button.btn.secondary', { type: 'button', onclick: () => nav.edit?.(saved) }, t.editAndRetry) : null,
+      el('button.btn.secondary', { type: 'button', onclick: () => nav.menu() }, run.testDrive ? t.workshop : t.menu)))
+    root.append(pauseOverlay)
+  }
+  const onVisibility = () => { if (document.hidden) pauseRun() }
+  window.addEventListener('blur', pauseRun)
+  document.addEventListener('visibilitychange', onVisibility)
   let lowFuelWarned = false
   let result: { overlay: HTMLElement; cancel(): void } | null = null
   let wakeLock: { release(): Promise<void> } | null = null
-  const hudText = { main: '', coins: '', extra: '' }
+  const hudText = { main: '', coins: '', extra: '', speed: '', hint: '' }
 
   function setText(node: HTMLElement, key: keyof typeof hudText, text: string) {
     if (hudText[key] !== text) {
@@ -129,13 +201,29 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
   }
 
   function updateHud() {
+    const speed = Math.round(Math.abs(sim.chassis.getLinearVelocity().x) * 3.6)
+    if (String(speed) !== hudText.speed) {
+      setText(speedDigits, 'speed', String(speed))
+      speedFill.style.transform = `scaleX(${Math.min(1, speed / (C.TOP_SPEED * 3.6))})`
+    }
+    if (hasCheckpoints) {
+      const x = sim.chassis.getPosition().x
+      let message = run.testDrive ? t.testDriveFree : sim.time < 4 ? (resumed ? t.checkpointFinishHint : t.levelCheckpointHint) : ''
+      for (const segment of sim.track.segmentsIn(x - 40, x + 20)) {
+        if (segment.logs.some(log => log.crossing && x >= log.x - 14 && x < log.x + 6)) message = t.logCrossingHint
+        const gap = segment.features.find(f => f.kind === 'gap' && x >= f.x - 16 && x < f.x + f.len)
+        if (gap) message = gap.gapWidth === 8 ? t.firstJumpHint : t.jumpHint
+        if (segment.features.some(f => f.kind === 'ice' && x >= f.x - 12 && x < f.x)) message = t.adviceIce
+      }
+      setText(checkpointHint, 'hint', message)
+    }
     const finish = run.track.finish
     setText(
       hudMain,
       'main',
       run.kind === 'pull' ? `${sim.pulled.toFixed(1)} m` : finish ? `${Math.floor(sim.distance)} / ${finish} m` : t.meters(Math.floor(sim.distance)),
     )
-    setText(hudCoins, 'coins', run.kind === 'pull' ? '' : `🪙 ${sim.coins * C.COIN_VALUE}`)
+    setText(hudCoins, 'coins', '')
     if (run.kind === 'pull') {
       revNeedle.style.left = `${Math.round(sim.rpm * 100)}%`
       const spinning = sim.rpm > C.RPM_GREEN[1]
@@ -144,14 +232,14 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
     }
     const extra =
       level
-        ? `⭐ ${sim.stars}/${run.track.stars?.length ?? 0} · ${goalProgress(level, sim)}`
+        ? `⭐ ${sim.stars}/${level.stars.length}${resumed ? '' : ' · ' + goalProgress(level, sim)}`
         : run.kind === 'delivery'
           ? `🥚 ${sim.eggs.length}/${sim.eggsTotal}`
           : best > 0
             ? `🏆 ${run.kind === 'pull' ? best.toFixed(1) : Math.round(best)} m`
             : ''
     setText(hudExtra, 'extra', extra)
-    if (sim.fuelMax !== Infinity) {
+    if (!run.testDrive && sim.fuelMax !== Infinity) {
       const pct = sim.fuel / sim.fuelMax
       fuelFill.style.width = `${Math.round(pct * 100)}%`
       fuelBar.classList.toggle('low', pct < 0.2)
@@ -167,6 +255,7 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
       e.preventDefault()
       btn.setPointerCapture(e.pointerId)
       audio.unlock()
+      if (paused || !running) return
       set(true)
       btn.classList.add('on')
     }
@@ -187,10 +276,15 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
   const BRAKE_KEYS = ['ArrowLeft', 'ArrowDown', 'KeyA', 'KeyS']
   const onKey = (e: KeyboardEvent) => {
     const down = e.type === 'keydown'
+    if (down && (e.code === 'Escape' || e.code === 'KeyP')) {
+      e.preventDefault()
+      if (paused) resumeRun(); else pauseRun()
+      return
+    }
+    if (paused) return
     if (GAS_KEYS.includes(e.code)) input.gas = down
     else if (BRAKE_KEYS.includes(e.code)) input.brake = down
     else if (down && e.code === 'KeyR') startRun()
-    else if (down && e.code === 'Escape') nav.menu()
     else return
     if (down) audio.unlock()
     gasBtn.classList.toggle('on', input.gas)
@@ -200,13 +294,21 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
   window.addEventListener('keydown', onKey)
   window.addEventListener('keyup', onKey)
 
-  function startRun() {
+  function startRun(fromBeginning = false) {
+    if (disposed) return
+    clearTimeout(resultTimer)
+    paused = false
+    pauseOverlay?.remove()
+    pauseOverlay = null
     result?.cancel()
     result?.overlay.remove()
     result = null
     best = bestFor()
+    if (sim.stepCount > 0 && !fromBeginning) resumed = checkpoint > 0
+    attemptStart = checkpoint
+    attemptState = { ...saved, collected: [...saved.collected] }
     sim = makeSim()
-    ghost = run.kind === 'level' ? loadGhost(run.ref, vehicle.id, sig) : null
+    ghost = run.kind === 'level' && !run.testDrive && !resumed ? loadGhost(run.ref, vehicle.id, sig) : null
     ghostSim = ghost ? new Sim({ geom: geomOf(vehicle), track: run.track, mode: run.mode, upgrades: ghost.upgrades }) : null
     renderer = new Renderer(vehicle)
     cam.snap(sim, view)
@@ -223,14 +325,14 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
     engine = createEngine(vehicle.engine)
     running = true
     updateHud()
-    toast(level ? `${modeLabel(run)} · ★★★ ${goalLabel(level)}${ghost ? ` · ${t.ghostHint}` : ''}` : modeLabel(run), 2400)
+    if (!resumed) toast(ghost ? t.ghostHint : modeLabel(run), 1600)
     last = performance.now()
     cancelAnimationFrame(raf)
     raf = requestAnimationFrame(frame)
   }
 
   function frame(now: number) {
-    if (!running) return
+    if (!running || paused || disposed) return
     const dt = Math.min(0.05, (now - last) / 1000)
     last = now
     acc += dt
@@ -243,6 +345,11 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
       }
       log[sim.stepCount] = encodeInput(input)
       const ev = sim.step(input)
+      if (hasCheckpoints && !ev.ended && !sim.airborne) {
+        const position = sim.chassis.getPosition().x - C.START_X
+        const reached = [...(run.track.checkpoints ?? [])].reverse().find(at => position >= at) ?? 0
+        if (reached > checkpoint) { checkpoint = reached; saved = { distance: reached, stars: sim.stars, collected: [...sim.collected] }; sfxPickup(); vibrate(25); toast(t.checkpointReached, 2200) }
+      }
       if (ghost && ghostSim && ghostSim.stepCount < ghost.inputs.length) ghostSim.step(decodeInput(ghost.inputs[ghostSim.stepCount]))
       acc -= C.DT
       steps++
@@ -260,11 +367,6 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
         sfxCrack()
         toast(t.eggToast, 900)
         vibrate(40)
-      }
-      if (ev.flip) {
-        sfxFlip()
-        toast(t.flipToast, 900)
-        vibrate(15)
       }
       if (ev.landing > HARD_LANDING) {
         sfxLand(ev.landing)
@@ -298,6 +400,7 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
     else if (kind === 'roof' || kind === 'flip' || kind === 'eggs') sfxCrash()
     vibrate(success ? [40, 40, 40] : [80, 40, 160])
     const outcome: Outcome = {
+      resumed,
       run,
       vehicleId: vehicle.id,
       end: kind,
@@ -312,12 +415,12 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
       braked: sim.braked,
     }
     const prevBest = best
-    if (run.kind === 'level' && kind === 'finish') saveGhost(run.ref, vehicle.id, sig, sim.time, upgrades, log.slice(0, sim.stepCount))
+    if (run.kind === 'level' && !run.testDrive && !resumed && kind === 'finish') saveGhost(run.ref, vehicle.id, sig, sim.time, upgrades, log.slice(0, sim.stepCount))
     const reward = nav.finish(outcome)
     reward.missions.forEach((m, i) => setTimeout(() => toast(`🎯 ${t.mission(m.kind, m.target)} ✅`, 2200), 900 + i * 1400))
-    const res: RunResult = { ...outcome, reward, inputs: log.slice(0, sim.stepCount), endStep: sim.stepCount, prevBest }
-    setTimeout(() => {
-      if (!running && !result) showResult(res)
+    const res: RunResult = { startState: attemptState, startDistance: attemptStart, ...outcome, reward, inputs: log.slice(0, sim.stepCount), endStep: sim.stepCount, prevBest }
+    resultTimer = window.setTimeout(() => {
+      if (!disposed && !running && !result) showResult(res)
     }, 650)
   }
 
@@ -330,7 +433,6 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
       if (r.best && res.end === 'finish') parts.push(t.newBest)
       else if (bt !== null) parts.push(t.bestTime(bt))
     } else if (res.run.kind === 'pull') parts.push(r.best ? t.newBest : t.bestPull(r.bestValue))
-    if (res.flips > 0) parts.push(t.flips(res.flips))
     return parts.join(' · ')
   }
 
@@ -339,7 +441,8 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
     const clipView = el('div.clipview', {}, clipCanvas)
     const shareBtn = el('button.btn', { type: 'button', disabled: true }, t.makingClip(0))
     const success = SUCCESS.includes(res.end)
-    const showStars = res.run.kind !== 'endless'
+    const advice = !success ? failureAdvice() : ''
+    const showStars = !run.testDrive && res.run.kind !== 'endless'
     let clip: Clip | null = null
     let videoUrl = ''
     const nextRun = res.reward.next
@@ -352,18 +455,26 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
         {},
         el('div.result-title', {}, endTitle(res.end, run)),
         el('div.result-dist', {}, bigText(res)),
-        showStars ? el('div.result-stars', {}, starRow(res.reward.stars)) : null,
-        el('div.result-sub', {}, subLine(res)),
-        el('div.result-coins', {}, t.coinsEarned(res.reward.coins)),
+        level && success ? el('div.result-goals', {},
+          el('div', {}, '★ ', t.finishGoal),
+          el('div', {}, res.stars >= level.stars.length ? '★ ' : '☆ ', t.collectedGoal(res.stars, level.stars.length)),
+          el('div', {}, !res.resumed && goalMet(level, res) ? '★ ' : '☆ ', res.resumed ? t.checkpointFinishHint : goalLabel(level))) :
+          showStars && !level ? el('div.result-stars', {}, starRow(res.reward.stars)) : null,
+        el('div.result-sub', {}, advice || subLine(res)),
+        hasCheckpoints && !success && nav.edit ? el('button.btn.big', { type: 'button', onclick: () => nav.edit?.(saved) }, t.editAndRetry) : null,
+
         nextRun && (success || res.reward.stars > 0)
           ? el('button.btn.big', { type: 'button', onclick: () => nav.play(nextRun) }, t.nextRun)
           : null,
         el(
           'div.row',
           {},
-          el('button.btn.secondary', { type: 'button', onclick: () => startRun() }, t.retry),
-          el('button.btn.ghost', { type: 'button', onclick: () => nav.menu() }, t.menu),
+          el('button.btn.secondary', { type: 'button', onclick: () => startRun() }, hasCheckpoints ? t.retryAt(checkpoint) : t.retry),
+          el('button.btn.ghost', { type: 'button', onclick: () => nav.menu() }, run.testDrive ? t.workshop : t.menu),
         ),
+        hasCheckpoints && checkpoint > 0 ? el('button.btn.ghost', { type: 'button', onclick: () => { checkpoint = 0; saved = { distance: 0, stars: 0, collected: [] }; resumed = false; startRun(true) } }, t.trailRestart) : null,
+        run.testDrive ? el('div.result-sub', {}, t.testDriveFree) : el('div.result-sub', {}, t.coinsEarned(res.reward.coins)),
+        nav.workshop ? el('button.btn.secondary', {type:'button',onclick:nav.workshop},t.workshop) : null,
         shareBtn,
       ),
     )
@@ -379,8 +490,13 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
       name: vehicle.name,
       label: modeLabel(run),
       big: bigText(res),
-      sub: showStars ? starRow(res.reward.stars) : res.flips > 0 ? t.flips(res.flips) : '',
+      sub: showStars ? starRow(res.reward.stars) : '',
       slowmo: false,
+    }
+    if (run.testDrive) {
+      shareBtn.remove(); clipView.remove();
+      result = {overlay,cancel() {}}
+      return
     }
     const replay = playReplay(res, clipCanvas, info, (p) => {
       if (!clip) shareBtn.textContent = t.makingClip(p)
@@ -406,13 +522,38 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
     }
   }
 
+  function failureAdvice(): string {
+    const diagnosis = failureDiagnosis(sim)
+    if(diagnosis) return {'hit-bank':t.hitBank,'fell-gap':t.fellGap,'belly-ground':t.bellyGround,'wheelspin':t.slipping}[diagnosis]
+    if (sim.ended === 'bogged') return t.adviceBogged
+    if (sim.ended === 'fuel') return t.adviceFuel
+    const x = sim.chassis.getPosition().x
+    for (const segment of sim.track.segmentsIn(x - 32, x + 3)) {
+      if (segment.features.some(f => f.kind === 'gap' && x >= f.x && x < f.x + f.len * 0.65)) return t.jumpHint
+    }
+    if (sim.ended === 'roof' || sim.ended === 'flip') return t.adviceRoof
+    for (const wheel of sim.wheels) {
+      const surface = sim.track.surfaceAt(wheel.getPosition().x)
+      if (surface === 'mud') return t.adviceMud
+      if (surface === 'snow') return t.adviceSnow
+      if (surface === 'ice') return t.adviceIce
+    }
+    if (sim.props.some(p => p.kind === 'log' && Math.abs(p.body.getPosition().x - x) < 3)) return t.logCrossingHint
+    for (const segment of sim.track.segmentsIn(x - 3, x + 3)) {
+      if (segment.rocks.some(r => Math.abs(r.x - x) < 2 + r.r)) return t.adviceRock
+    }
+    return t.adviceStuck
+  }
+
   /** Re-simulates the run from the input log and films the last seconds, slow-mo at the end. */
   function playReplay(res: RunResult, clipCanvas: HTMLCanvasElement, info: ClipInfo, onProgress: (pct: number) => void, onDone: (clip: Clip | null) => void) {
     let cancelled = false
     let frameId = 0
     let sound: EngineSound | null = null
     const recorder = new ClipRecorder()
-    const rsim = new Sim({ geom: geomOf(vehicle), track: run.track, mode: run.mode, upgrades })
+    const rsim = new Sim({ startDistance: res.startDistance, geom: geomOf(vehicle), track: run.track, mode: run.mode, upgrades })
+    rsim.stars = res.startState.stars
+    for (const id of res.startState.collected) rsim.collected.add(id)
     const rcam = new Camera()
     const rren = new Renderer(vehicle)
     const gc = ctx2d(clipCanvas)
@@ -515,7 +656,12 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
   return {
     el: root,
     destroy: () => {
+      disposed = true
       running = false
+      clearTimeout(resultTimer)
+      window.removeEventListener('blur', pauseRun)
+      document.removeEventListener('visibilitychange', onVisibility)
+      pauseOverlay?.remove()
       cancelAnimationFrame(raf)
       result?.cancel()
       engine?.stop()
@@ -528,3 +674,6 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav): Scre
     },
   }
 }
+
+
+
