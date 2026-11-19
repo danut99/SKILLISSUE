@@ -2636,3 +2636,40 @@ body.creator-clean .companion-intro,
 body.creator-clean .game-layout .responsive-section,
 body.creator-clean .board-col,
 body.creator-clean .score-challenge { display: none !important; }
+
+/* Name + account bar under today's stats on the home page: one compact line */
+/* Stats row and name bar share one column, so they always have the same width. */
+.hero-status { display: grid; width: fit-content; max-width: 100%; margin: 12px auto 0; }
+.hero-status .meta { margin: 0 !important; width: auto !important; }
+.home-identity { margin: 8px 0 0; text-align: left; min-width: 0; }
+@media (max-width: 540px) { .hero-status { width: 100%; } }
+.home-identity .guest-progress { margin: 0; padding: 4px 10px; gap: 4px 10px; border-width: 1px; border-color: var(--line); background: #101d3380; }
+.home-identity .guest-progress .nickname-control { flex: 1 1 auto; }
+.home-identity .guest-progress .nick-status { font-size: 0; gap: 4px 6px; }
+.home-identity .guest-progress .nick-status b { font-size: 19px; }
+.home-identity .guest-progress .link-btn { min-height: 34px; padding: 2px 8px; font-size: 16px; }
+.home-identity .guest-progress-note { display: none; }
+.home-identity .guest-progress-save > summary { min-height: 34px; padding: 3px 10px; font-size: 17px; }
+.home-identity .guest-account-link { display: flex; align-items: center; }
+.home-identity .home-save { min-height: 34px; padding: 3px 10px; font-size: 17px; text-decoration: none; display: inline-flex; align-items: center; }
+.home-identity .guest-progress { flex-wrap: nowrap; }
+.home-identity .nickname-control { min-width: 0; }
+/* "playing as" label and the button text collapse to keep one line on phones */
+.home-identity .nick-status { font-size: 0; flex-wrap: nowrap; min-width: 0; }
+.home-identity .nick-status b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-identity .nick-status b::before { content: '👤 '; font-size: 16px; }
+.home-identity .change-name-button { font-size: 0 !important; min-height: 34px; padding: 2px 8px; flex: 0 0 auto; }
+.home-identity .change-name-button::before { content: '✏️'; font-size: 17px; }
+.home-identity .home-save, .home-identity .guest-progress-save { flex: 0 0 auto; white-space: nowrap; }
+/* Desktop hero grid: stats + name bar sit together in the right-hand "status" column. */
+.home .hero .hero-status { grid-area: status; justify-self: center; align-self: center; margin: 0; }
+.home .hero .hero-status .meta { grid-area: auto; justify-self: stretch; }
+@media (min-width: 541px) { .home .hero { grid-template-areas: "roast status"; } }
+/* Name bar polish: everything centered on one line, nothing sticking out of the frame. */
+.home-identity .guest-progress { align-items: center; padding: 6px 8px 6px 12px; min-height: 48px; }
+.home-identity .home-save,
+.home-identity .guest-progress-save > summary { box-shadow: 2px 2px 0 #000; margin: 0 2px 2px 0; min-height: 32px; transform: none; }
+.home-identity .change-name-button { border-color: var(--line); }
+@media (min-width: 541px) {
+  .home-identity .guest-progress .nick-status { font-size: 15px; }
+}

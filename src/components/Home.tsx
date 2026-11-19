@@ -103,12 +103,15 @@ export function Home({ date, onPlay }: Props) {
           </motion.span>
         </button>
 
+        <div className="hero-status">
         <div className="meta">
           <span className="pill hero-progress"><span className="hero-stat-label">TODAY #{dayNumber(date)}</span> {MODES.filter(m => modeDay(days, date, m).tries.length > 0).length}/3 played</span>
           {liveStreak > 0 && <span className="pill">🔥 {liveStreak} day streak</span>}
           <span className="pill">
             <span className="hero-stat-label">NEXT RESET</span> <Countdown />
           </span>
+        </div>
+        <HomeIdentity date={date} />
         </div>
       </header>
 
@@ -187,13 +190,7 @@ export function Home({ date, onPlay }: Props) {
 
       {playedAny && <div className="home-account">
         <ReturnPoll date={date} compact />
-        <GuestProgressPrompt date={date} />
       </div>}
-      {authStatus === 'linked' && <section className="guest-progress" aria-label="Your name and account">
-        <NicknameControl date={date} />
-        <a className="link-btn" href="#me">My account</a>
-        <p className="guest-progress-note">Your progress is saved to your account.</p>
-      </section>}
 
       <details className="home-more" open={location.hash === '#more'}>
         <summary>&#9656; more games &amp; modes</summary>
@@ -328,5 +325,21 @@ function FeaturedCut({ date, onPlay }: { date: string; onPlay: () => void }) {
         {best ? <><small>best {fmtResult('cut', best)}</small>{left > 0 ? 'try again ▶' : 'out of tries'}</> : <>cut it ▶</>}
       </span>
     </motion.button>
+  );
+}
+
+/** Always-visible name + account bar: change your name, or save progress to an account. */
+function HomeIdentity({ date }: { date: string }) {
+  const status = useAuth(s => s.status);
+  if (status === 'anon') return <div className="home-identity"><GuestProgressPrompt date={date} /></div>;
+  return (
+    <div className="home-identity">
+      <section className="guest-progress" aria-label="Your name and account">
+        <NicknameControl date={date} />
+        {status === 'linked'
+          ? <a className="link-btn" href="#me">✓ saved · My account</a>
+          : <a className="btn btn-primary home-save" href="#me">💾 Save progress</a>}
+      </section>
+    </div>
   );
 }

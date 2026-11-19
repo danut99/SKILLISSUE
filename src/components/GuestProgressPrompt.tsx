@@ -12,7 +12,7 @@ export function GuestProgressPrompt({ date }: { date: string }) {
     <div className="guest-account-link">
     <p className="guest-progress-note">Keep your name and progress on every device.</p>
     <details className="guest-progress-save">
-      <summary>Link Google / Log in</summary>
+      <summary>💾 Save progress</summary>
       <AccountCard compact />
     </details>
     </div>
