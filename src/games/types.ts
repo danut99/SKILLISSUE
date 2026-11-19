@@ -43,6 +43,8 @@ export interface Game {
   key?: (e: KeyboardEvent) => void;
   update?: (now: number) => void;
   render: (c: CanvasRenderingContext2D, now: number) => void;
+  /** Same scene without HUD/prompts/companions, for full-screen video clips. */
+  renderClip?: (c: CanvasRenderingContext2D, now: number) => void;
   destroy?: () => void;
   /** cut: show the #1 player's line after you're out of tries */
   setGhost?: (line: number[] | null) => void;

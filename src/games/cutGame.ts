@@ -1,4 +1,4 @@
-import { CUT_CHARACTERS, cutCharacterIndex, paintCutFace, type CutMood } from '../lib/cutCharacters';
+import { CUT_CHARACTERS, cutCharacterIndex, halfMood, paintCutFace, paintHalfFace, type CutMood } from '../lib/cutCharacters';
 import { drawResultCompanion } from './resultCompanion';
 import { sfx } from '../lib/audio';
 import { rngFor } from '../lib/daily';
@@ -91,7 +91,11 @@ interface Piece {
   pct: number;
   centroid: Pt;
   dir: 1 | -1;
+  /** Each half gets its own face, placed at its roomiest interior point. */
+  face: { p: Pt; d: number };
 }
+/** Halves look shocked for a beat, then react to how fair the split was. */
+const SHOCK_MS = 380;
 
 export function createCutGame(api: GameApi, options?: { complexity?: number; partyShape?: DrawShape }): Game {
   const design = dailyShape(api.date, options?.complexity, options?.partyShape);
@@ -159,8 +163,8 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
     const posPct = Math.round((sp.posArea / sp.total) * 1000) / 10;
     const negPct = Math.round((100 - posPct) * 10) / 10;
     pieces = [
-      { poly: sp.pos, pct: posPct, centroid: polygonCentroid(sp.pos), dir: 1 },
-      { poly: sp.neg, pct: negPct, centroid: polygonCentroid(sp.neg), dir: -1 },
+      { poly: sp.pos, pct: posPct, centroid: polygonCentroid(sp.pos), dir: 1, face: innerPoint(sp.pos, 6) },
+      { poly: sp.neg, pct: negPct, centroid: polygonCentroid(sp.neg), dir: -1, face: innerPoint(sp.neg, 6) },
     ];
     // unit normal pointing to the positive side
     const d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
@@ -177,6 +181,99 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
     sfx.slice();
     resultSound = setTimeout(() => (score >= 95 ? sfx.ding() : score < 70 ? sfx.fail() : sfx.pop()), 350);
     api.finish({ score, detail: { a: lo, b: hi, cutCharacter:design.character, line: [a.x, a.y, b.x, b.y].map(Math.round) }, display });
+  }
+
+  /** `clean`: no prompts, roast or companion (used for full-screen video clips). */
+  function draw(c: CanvasRenderingContext2D, now: number, clean: boolean) {
+    paper(c);
+    if (state !== 'done') {
+      drawBlob(c, poly);
+      c.save();
+      pathPoly(c, poly);
+      c.clip();
+      drawFace(c, state === 'dragging', false);
+      c.restore();
+    } else {
+      const t = easeOut(clamp((now - cutAt) / 600, 0, 1));
+      for (const pc of pieces) {
+        const off = 16 * t * pc.dir;
+        c.save();
+        c.translate(pc.centroid.x + normal.x * off, pc.centroid.y + normal.y * off);
+        c.rotate(0.05 * t * pc.dir);
+        c.translate(-pc.centroid.x, -pc.centroid.y);
+        drawBlob(c, pc.poly);
+        const other = pieces.find((q) => q !== pc) ?? pc;
+        const since = now - cutAt;
+        const smaller = pc.pct < other.pct || (pc.pct === other.pct && pc.dir < 0);
+        paintHalfFace(c, pc.face.p, clamp(pc.face.d / 32, 0.5, 1.3), since < SHOCK_MS ? 'shocked' : halfMood(score, smaller), other.face.p, since - SHOCK_MS);
+        c.restore();
+      }
+      for (const pc of pieces) {
+        const off = 16 * t * pc.dir;
+        const label = `${pc.pct.toFixed(1)}%`;
+        // Under each half's face, so the reaction and the number read together.
+        const below = 34 * clamp(pc.face.d / 32, 0.5, 1.3) + 22;
+        text(c, label, pc.face.p.x + normal.x * off, pc.face.p.y + below + normal.y * off, {
+          size: 34,
+          color: '#fff',
+          outline: 6,
+          alpha: clamp((now - cutAt - 200) / 300, 0, 1),
+        });
+      }
+      // slash flash
+      const flash = 1 - clamp((now - cutAt) / 350, 0, 1);
+      if (flash > 0 && A && B) {
+        const [e1, e2] = extend(A, B);
+        c.strokeStyle = `rgba(255,255,255,${flash})`;
+        c.lineWidth = 4;
+        c.beginPath();
+        c.moveTo(e1.x, e1.y);
+        c.lineTo(e2.x, e2.y);
+        c.stroke();
+      }
+      if (ghost && !clean) {
+        const [g1, g2] = extend({ x: ghost[0], y: ghost[1] }, { x: ghost[2], y: ghost[3] });
+        c.save();
+        c.setLineDash([8, 6]);
+        c.strokeStyle = C.yellow;
+        c.lineWidth = 2;
+        c.beginPath();
+        c.moveTo(g1.x, g1.y);
+        c.lineTo(g2.x, g2.y);
+        c.stroke();
+        c.restore();
+        text(c, "👑 #1's cut", W / 2, 520, { size: 24, color: C.yellow, outline: 4 });
+      }
+      if (!clean) {
+        text(c, roastFor('cut', { score, detail: {}, at: 0 }), W / 2, 104, { size: 25, maxWidth: W - 32 });
+        drawResultCompanion(c, score, 'cut', display);
+      }
+    }
+
+    if (state === 'dragging' && A && B) {
+      const [e1, e2] = extend(A, B);
+      c.save();
+      c.setLineDash([10, 8]);
+      c.strokeStyle = 'rgba(232,241,255,0.35)';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.moveTo(e1.x, e1.y);
+      c.lineTo(e2.x, e2.y);
+      c.stroke();
+      c.restore();
+      c.strokeStyle = C.cyan;
+      c.lineWidth = 4;
+      c.lineCap = 'round';
+      c.beginPath();
+      c.moveTo(A.x, A.y);
+      c.lineTo(B.x, B.y);
+      c.stroke();
+    }
+
+    if (state === 'ready' && !clean) {
+      text(c, 'CUT IT 50 / 50', W / 2, 92, { size: 40, color: C.pink, outline: 5 });
+      text(c, design.character === undefined ? 'drag one straight line' : design.name, W / 2, 124, { size: 22, color: C.muted });
+    }
   }
 
   return {
@@ -207,93 +304,7 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
       }
       cut(A, B);
     },
-    render(c, now) {
-      paper(c);
-      if (state !== 'done') {
-        drawBlob(c, poly);
-        c.save();
-        pathPoly(c, poly);
-        c.clip();
-        drawFace(c, state === 'dragging', false);
-        c.restore();
-      } else {
-        const t = easeOut(clamp((now - cutAt) / 600, 0, 1));
-        for (const pc of pieces) {
-          const off = 16 * t * pc.dir;
-          c.save();
-          c.translate(pc.centroid.x + normal.x * off, pc.centroid.y + normal.y * off);
-          c.rotate(0.05 * t * pc.dir);
-          c.translate(-pc.centroid.x, -pc.centroid.y);
-          drawBlob(c, pc.poly);
-          c.save();
-          pathPoly(c, pc.poly);
-          c.clip();
-          drawFace(c, false, true);
-          c.restore();
-          c.restore();
-        }
-        for (const pc of pieces) {
-          const off = 16 * t * pc.dir + 10 * pc.dir;
-          const label = `${pc.pct.toFixed(1)}%`;
-          text(c, label, pc.centroid.x + normal.x * off, pc.centroid.y + normal.y * off, {
-            size: 34,
-            color: '#fff',
-            outline: 6,
-            alpha: clamp((now - cutAt - 200) / 300, 0, 1),
-          });
-        }
-        // slash flash
-        const flash = 1 - clamp((now - cutAt) / 350, 0, 1);
-        if (flash > 0 && A && B) {
-          const [e1, e2] = extend(A, B);
-          c.strokeStyle = `rgba(255,255,255,${flash})`;
-          c.lineWidth = 4;
-          c.beginPath();
-          c.moveTo(e1.x, e1.y);
-          c.lineTo(e2.x, e2.y);
-          c.stroke();
-        }
-        if (ghost) {
-          const [g1, g2] = extend({ x: ghost[0], y: ghost[1] }, { x: ghost[2], y: ghost[3] });
-          c.save();
-          c.setLineDash([8, 6]);
-          c.strokeStyle = C.yellow;
-          c.lineWidth = 2;
-          c.beginPath();
-          c.moveTo(g1.x, g1.y);
-          c.lineTo(g2.x, g2.y);
-          c.stroke();
-          c.restore();
-          text(c, "👑 #1's cut", W / 2, 520, { size: 24, color: C.yellow, outline: 4 });
-        }
-        text(c, roastFor('cut', { score, detail: {}, at: 0 }), W / 2, 104, { size: 25, maxWidth: W - 32 });
-        drawResultCompanion(c, score, 'cut', display);
-      }
-
-      if (state === 'dragging' && A && B) {
-        const [e1, e2] = extend(A, B);
-        c.save();
-        c.setLineDash([10, 8]);
-        c.strokeStyle = 'rgba(232,241,255,0.35)';
-        c.lineWidth = 2;
-        c.beginPath();
-        c.moveTo(e1.x, e1.y);
-        c.lineTo(e2.x, e2.y);
-        c.stroke();
-        c.restore();
-        c.strokeStyle = C.cyan;
-        c.lineWidth = 4;
-        c.lineCap = 'round';
-        c.beginPath();
-        c.moveTo(A.x, A.y);
-        c.lineTo(B.x, B.y);
-        c.stroke();
-      }
-
-      if (state === 'ready') {
-        text(c, 'CUT IT 50 / 50', W / 2, 92, { size: 40, color: C.pink, outline: 5 });
-        text(c, design.character === undefined ? 'drag one straight line' : design.name, W / 2, 124, { size: 22, color: C.muted });
-      }
-    },
+    render(c, now) { draw(c, now, false); },
+    renderClip(c, now) { draw(c, now, true); },
   };
 }

@@ -31,9 +31,8 @@ export function balanceSnapshot(date: string, support: number): HTMLCanvasElemen
 export async function renderBalanceCard(date: string, attempt: BalanceAttempt, snapshot?: HTMLCanvasElement | null): Promise<Blob> {
   await document.fonts.ready;
   const painter = createClipPainter(snapshot ?? balanceSnapshot(date, attempt.support), 'balance');
-  await painter.ready;
-  painter.freeze();
-  painter.paint('result', { mode: 'balance', attempt: balanceClipAttempt(attempt) });
+  painter.reveal({ mode: 'balance', attempt: balanceClipAttempt(attempt) });
+  painter.paint();
   return new Promise((resolve, reject) => painter.canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not create image.')), 'image/png'));
 }
 

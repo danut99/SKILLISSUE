@@ -2523,3 +2523,116 @@ body.low-power .home-account .guest-progress::after { display: none; }
     font-size: 17px;
   }
 }
+
+/* ---------- Focused home: Cut first, everything else tucked away ---------- */
+.featured-cut { flex-direction: column; align-items: center; text-align: center; gap: 6px; margin: 10px 0 0; padding: 30px 16px 18px; border-color: var(--accent); }
+.featured-cut .fc-blob { width: min(220px, 58vw); height: auto; max-height: 190px; filter: drop-shadow(5px 5px 0 #000); }
+.featured-cut .fc-pupil { animation: fc-look 3.2s ease-in-out infinite; }
+.featured-cut .fc-slice { opacity: .55; animation: fc-slice 2.4s ease-in-out infinite; }
+.featured-cut .gc-title { font-size: clamp(40px, 11vw, 56px); }
+.featured-cut .gc-tag { font-size: 20px; max-width: 34ch; }
+.featured-cut .gc-cta { align-self: stretch; font-size: 30px; padding: 8px 12px; margin-top: 6px; }
+.featured-cut .gc-cta { white-space: normal; overflow-wrap: anywhere; }
+.featured-cut .gc-cta small { display: block; font-size: 18px; line-height: 1.1; opacity: .85; }
+@keyframes fc-look { 0%, 100% { transform: translate(0, 0); } 30% { transform: translate(-7px, 3px); } 60% { transform: translate(3px, -4px); } }
+@keyframes fc-slice { 0%, 100% { opacity: .25; } 50% { opacity: .8; } }
+@media (prefers-reduced-motion: reduce) { .featured-cut .fc-pupil, .featured-cut .fc-slice { animation: none; } }
+
+.also-today { margin: 18px 0 0; }
+.also-today .eyebrow, .home-levels .eyebrow { color: var(--muted); font-size: 15px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 6px; }
+.also-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mini-card { flex-direction: column; align-items: center; text-align: center; gap: 4px; margin: 0; padding: 22px 8px 10px; }
+.mini-card .gc-title { font-size: 26px; }
+.mini-card .gc-tag { font-size: 16px; line-height: 1.1; }
+.mini-card .gc-tries { font-size: 11px; letter-spacing: 1px; }
+.mini-card .gc-cta { align-self: stretch; font-size: 20px; padding: 3px 6px; }
+
+.home-more { margin: 22px 0 0; border: 2px solid var(--line); background: var(--panel-2); }
+.home-more > summary { cursor: pointer; padding: 10px 14px; font-size: 22px; color: var(--cyan); list-style: none; }
+.home-more > summary::-webkit-details-marker { display: none; }
+.home-more[open] > summary { border-bottom: 2px solid var(--line); }
+.home-more > :not(summary) { margin-left: 12px; margin-right: 12px; }
+.home-more > :last-child { margin-bottom: 12px; }
+.home-levels { margin-top: 12px; display: grid; gap: 6px; }
+.home-level-link { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 2px solid var(--line); background: var(--panel); color: var(--text); text-decoration: none; font-size: 20px; }
+.home-level-link span { color: var(--accent); }
+.home-level-link small { margin-left: auto; color: var(--muted); font-size: 16px; }
+.home-level-link:hover { border-color: var(--accent); }
+.main-col > .how2 { margin: 12px 0 0; max-width: none; text-align: left; border: 2px solid var(--line); background: var(--panel-2); }
+.main-col > .how2 > summary { display: block; width: auto; margin: 0; text-align: left; padding: 10px 14px; border: 0; font-size: 22px; letter-spacing: 0; color: var(--cyan); }
+.main-col > .how2[open] > summary { border-bottom: 2px solid var(--line); }
+.main-col > .how2 > ul, .main-col > .how2 > .how-save { margin: 12px; }
+
+@media (min-width: 900px) {
+  .featured-cut { margin-top: 0; padding: 38px 24px 22px; }
+  .featured-cut .fc-blob { width: 260px; max-height: 240px; }
+  .featured-cut .gc-cta { align-self: center; min-width: 320px; }
+  .mini-card { padding: 30px 14px 14px; }
+  .mini-card .gc-title { font-size: 32px; }
+  .mini-card .gc-tag { font-size: 19px; }
+}
+
+/* ---------- Install (PWA) card ---------- */
+.install-card { display: flex; align-items: center; gap: 12px; width: 100%; margin: 18px 0 0; padding: 12px 14px; text-align: left; cursor: pointer; font-family: var(--font); color: var(--text); background: var(--panel); border-color: var(--cyan); }
+.install-card:hover { filter: brightness(1.08); }
+.install-icon { font-size: 34px; line-height: 1; }
+.install-copy { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.install-copy b { font-weight: normal; font-size: 22px; color: var(--cyan); line-height: 1.05; }
+.install-copy small { color: var(--muted); font-size: 17px; line-height: 1.1; }
+.install-card .btn { flex: 0 0 auto; pointer-events: none; }
+.install-ios { border-color: var(--cyan); text-align: left; }
+.install-ios h2 { margin: 0 0 8px; color: var(--cyan); font-weight: normal; text-align: center; }
+.install-ios ol { margin: 0 0 16px; padding-left: 22px; font-size: 20px; line-height: 1.3; }
+.install-ios li + li { margin-top: 6px; }
+.install-ios b { color: var(--yellow); font-weight: normal; }
+.install-share { display: inline-block; padding: 0 5px; border: 1px solid var(--line); color: var(--cyan); }
+.install-ios .btn { display: block; width: 100%; }
+
+/* ---------- Creator studio (#creator) ---------- */
+.creator { max-width: 760px; margin: 0 auto; }
+.creator-title { text-align: center; color: var(--pink); font-weight: normal; font-size: 40px; margin: 12px 0 0; }
+.creator h3 { margin: 0 0 8px; font-weight: normal; font-size: 26px; color: var(--cyan); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.creator p { margin: 6px 0; font-size: 20px; line-height: 1.25; }
+.creator .muted { color: var(--muted); }
+.creator-off { text-align: center; }
+.creator-off h2 { color: var(--pink); font-weight: normal; margin: 0 0 8px; }
+.creator-today { border-color: var(--pink); }
+.creator-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+.creator-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.creator-head h3 { margin: 0; }
+.creator-check { display: flex; align-items: center; gap: 8px; font-size: 20px; margin: 6px 0; cursor: pointer; }
+.creator-check input { width: 20px; height: 20px; accent-color: var(--pink); flex: 0 0 auto; }
+.creator-field { display: grid; gap: 4px; font-size: 18px; color: var(--muted); margin-top: 10px; }
+.creator-field input { font: 22px var(--font); padding: 6px 10px; background: var(--panel-2); color: var(--text); border: 2px solid var(--line); }
+.creator-field input:focus { outline: none; border-color: var(--cyan); }
+.creator-tabs { display: flex; gap: 4px; }
+.creator-tabs button { font: 18px var(--font); padding: 3px 10px; background: var(--panel-2); color: var(--muted); border: 2px solid var(--line); cursor: pointer; }
+.creator-tabs button[aria-pressed="true"] { color: #02121a; background: var(--cyan); border-color: #000; }
+.creator-caption { display: flex; gap: 10px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
+.creator-caption pre { flex: 1; min-width: 0; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 17px/1.25 system-ui, sans-serif; color: var(--text); }
+.creator-game { padding: 10px 0; border-top: 1px solid var(--line); }
+.creator-clips { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.creator-clip { display: grid; gap: 4px; font-size: 17px; padding: 6px; border: 2px solid var(--line); background: var(--panel-2); }
+.creator-clip.best { border-color: #7dff9b; }
+.creator-clip video, .creator-compiled video { width: 100%; aspect-ratio: 9 / 16; background: #000; }
+.creator-clip .creator-row { margin-top: 0; gap: 8px; }
+.creator-clip .btn { padding: 2px 10px; font-size: 18px; }
+.creator-compiled { display: grid; gap: 8px; max-width: 260px; margin: 8px 0 12px; }
+.creator-calendar { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.creator-calendar li { display: grid; grid-template-columns: auto 92px auto 1fr; align-items: center; gap: 10px; padding: 6px 10px; border: 2px solid var(--line); background: var(--panel-2); font-size: 19px; }
+.creator-calendar li.today { border-color: var(--pink); background: #ff5d8f14; }
+.creator-calendar li.past { opacity: .55; }
+.creator-calendar li.done .cal-idea b { text-decoration: line-through; color: var(--muted); }
+.creator-calendar input { width: 20px; height: 20px; accent-color: var(--pink); }
+.cal-date, .cal-idea { display: grid; line-height: 1.05; }
+.cal-date small, .cal-idea small { color: var(--muted); font-size: 15px; }
+.cal-idea b { font-weight: normal; color: var(--text); }
+
+/* Clean recording mode: only the game on screen. */
+body.creator-clean .ad-banner,
+body.creator-clean .topbar-right,
+body.creator-clean .result-companion,
+body.creator-clean .companion-intro,
+body.creator-clean .game-layout .responsive-section,
+body.creator-clean .board-col,
+body.creator-clean .score-challenge { display: none !important; }

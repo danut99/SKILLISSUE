@@ -11,6 +11,8 @@ import { createDrawGame } from '../games/drawGame';
 import { createLockedGame } from '../games/lockedGame';
 import type { AttemptResult, Game, GameApi } from '../games/types';
 import { clipRecorder } from '../lib/clip';
+import { dayNumber } from '../lib/daily';
+import { creatorClipOptions, saveCreatorClip } from '../lib/creator';
 import { snapshotCanvas } from '../lib/shareCard';
 import { grantBonusRemote, recordAttempt, syncAfterLimit, type Board } from '../lib/leaderboard';
 import { recordChallengeAttempt } from '../lib/trackedChallenges';
@@ -116,7 +118,8 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
           tag('played', mode);
         }
         setPlaying(true);
-        if (canvasRef.current) clipRecorder.start(canvasRef.current, mode);
+        const game = gameRef.current;
+        if (canvasRef.current) clipRecorder.start(canvasRef.current, mode, creatorClipOptions(mode, date), game?.renderClip?.bind(game), dayNumber(date));
       },
       cancelClip: () => {
         clipRecorder.cancel();
@@ -124,6 +127,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
       },
       finish: (res: AttemptResult) => {
         const attempt: Attempt = { score: res.score, detail: res.detail, at: Date.now() };
+        clipRecorder.reveal({ mode, attempt });
         usePlayer.getState().addAttempt(date, mode, attempt, archived);
         const band = scoreBand(res.score);
         track(`game_finish_${mode}`);
@@ -146,6 +150,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
           const frozen = snapshotCanvas(canvasRef.current);
           if (frozen) setSnapshot(frozen);
           void clipRecorder.stop({ mode, attempt }).then(recorded => {
+            if (recorded) void saveCreatorClip({ date, mode, score: attempt.score, label: fmtResult(mode, attempt), at: attempt.at, ...recorded });
             if (!disposed) setClip(recorded);
           });
         }, CLIP_RESULT_DURATION[mode]);

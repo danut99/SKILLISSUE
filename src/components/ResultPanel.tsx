@@ -4,11 +4,12 @@ import { brakeFeedback } from '../lib/brakeChallenge';
 import { useState } from 'react';
 import { MODE_INFO, MODES, REWARDED_ADS, type Mode } from '../config';
 import { saveClip } from '../lib/clip';
+import { clipCaption, clipWebsite } from '../lib/clipScenes';
 import { useAuth } from '../lib/auth';
 import { GuestProgressPrompt } from './GuestProgressPrompt';
 import { GuestAccountNudge } from './GuestAccountNudge';
 import { NicknameControl } from './NicknameControl';
-import { copyText, badgeFor, emojiRow, fmtResult, roastFor, shareText, toneFor } from '../lib/scoring';
+import { copyText, badgeFor, emojiRow, fmtResult, roastFor, toneFor } from '../lib/scoring';
 import { bestAttempt, maxTries, modeDay, triesLeft, usePlayer, type Attempt } from '../lib/store';
 import { toast, useUi } from '../lib/ui';
 import { track } from '../lib/clarity';
@@ -67,8 +68,12 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
     if (!clip || !shown) return;
     track(`clip_save_${mode}`);
     const name = `skill-issue-${mode}-${fmtResult(mode, shown).replace(/[^\w.]+/g, '_')}.${clip.ext}`;
-    const r = await saveClip(clip.blob, name, shareText(date, ranks, mode));
-    if (r === 'downloaded') toast('Clip saved 🎬 Upload it to TikTok!');
+    const caption = clipCaption(mode, fmtResult(mode, shown), clipWebsite(), !archived);
+    // Copy without awaiting so the share sheet still opens inside the tap's user gesture.
+    const copied = navigator.clipboard?.writeText(caption).then(() => true, () => false) ?? Promise.resolve(false);
+    const r = await saveClip(clip.blob, name, caption);
+    if (r === 'cancelled') return;
+    toast(await copied ? 'Clip ready 🎬 Caption copied, paste it in TikTok!' : 'Clip saved 🎬 Upload it to TikTok!');
   }
 
   return (

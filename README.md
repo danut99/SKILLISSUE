@@ -61,6 +61,7 @@ Daily content comes from a **UTC-date-seeded PRNG** (`xmur3` + `mulberry32`) →
 - **Score**: `100 − |pct − 50| × 4` (49.8/50.2 → 99.2).
 - Missing the blob doesn't cost a try.
 - After your last try: the **#1 player's cut** appears as a dashed gold line ("👑 #1's cut").
+- After the cut each half gets its own face (`paintHalfFace` in `src/lib/cutCharacters.ts`): a shocked beat, then the small half cries and the big half smirks; ≥ 90 both look relieved; ≥ 99 heart eyes. Percentages sit under each face.
 
 ### 🚗 BRAKE! (`src/games/brakeGame.ts`)
 - Daily road (☀️ dry / 🌧️ wet / 🧊 black ice), speed 55–100 km/h and wall distance (`brakeParams(date)`).
@@ -84,9 +85,11 @@ Daily content comes from a **UTC-date-seeded PRNG** (`xmur3` + `mulberry32`) →
 |---|---|---|
 | **Share card + socials** | `lib/shareCard.ts`, `components/ShareModal.tsx` | "📤 share" draws a 1080×1920 PNG card (logo, test #, the actual game frame, result, roast, badge, emoji row, rank, "played by", "can you beat me? → link"). "Share my day" on home makes a 3-test summary card. Buttons: **TikTok / Instagram** (no web share links exist, so they open the phone's native share sheet with the image, or download + copy text on desktop), plus [react-share](https://github.com/nygardk/react-share) links for Facebook, X, WhatsApp, Telegram, Threads, Bluesky, Reddit; also save image / copy text. |
 | **Share result** | `shareText()` in `scoring.ts` | Copies a Wordle-style text: `SKILL ISSUE #1 🫠 / 🎯 Draw: 96.2% 🟨🟩 (#4 today) / … / 🏆 287.4/300 · #12 worldwide / link` |
-| **Save clip for TikTok** | `src/lib/clip.ts` | Each try is recorded from the canvas (`captureStream` + `MediaRecorder`, mp4 if supported else webm) **with the game sound**. The clip includes the result stamp, roast and `SKILL ISSUE #N` watermark. On phones it opens the native share sheet (→ TikTok/Instagram/WhatsApp); on desktop it downloads the file. 100% in-browser, no server. |
+| **Save clip for TikTok** | `src/lib/clip.ts`, `src/lib/clipScenes.ts` | TikTok-style clip of each try, **with the game sound**: the game full screen (Cut uses a clean render without HUD/roast/companion via `Game.renderClip`), one short challenge line in TikTok's caption style (rotates daily), then at the moment of truth a big reaction (SO CLOSE 😭 / ROBBERY 💀 / PERFECT 🤯) + the result, held ~1s so the clip loops (≈4–6s total). Small site watermark at the top. Saving also copies a paste-ready caption (`clipCaption()`: daily hook, result, comment prompt, site, hashtags) because TikTok drops shared text. On phones it opens the native share sheet; on desktop it downloads. 100% in-browser. |
 | **Bottom ad banner** | `src/components/AdBanner.tsx` | Fixed 320×50 slot, space reserved in CSS → zero layout shift. Instructions for AdSense/Adsterra in the file. |
 | **Rewarded ad (+1 try)** | `src/components/RewardedAdModal.tsx` | **Disabled for now** (`REWARDED_ADS = false` in `config.ts`). Currently a 5-second placeholder. Replace with a real rewarded unit and call `onReward()` from its "reward granted" callback. |
+| **Creator studio** (secret) | `#creator`, `lib/creator.ts`, `lib/compilation.ts`, `components/CreatorPage.tsx` | For the game's own TikTok/Instagram account. Open `#creator` once on your phone and tap "Turn on". Then: every try is kept as a clip on the device (IndexedDB, 3 days); "Make 5-tries video" stitches today's tries (each trimmed to its action + reveal, ending on "BEST OF 5"); three caption styles to copy; a 14-day content calendar (Cut most days) with a posted checkbox; recording settings: clean screen (hides ads/companions/leaderboards), "Day N of trying…" series line, or a custom hook. Not linked anywhere; players never see it. |
+| **Install as app (PWA)** | `lib/install.ts`, `components/InstallButton.tsx`, `public/sw.js` | "📲 Get the SKILL ISSUE app" card under the games. Android/desktop Chrome: native install prompt. iPhone: Share → Add to Home Screen steps. TikTok/Instagram in-app browsers: "open in browser first" steps. Hidden once installed. Service worker (production only): pages network-first with offline fallback, hashed `/assets/*` cache-first, `/art/` + icons stale-while-revalidate. Bump `CACHE` in `sw.js` to wipe old caches. |
 | **Confetti** | `GameScreen.tsx` | On scores ≥ 95 (off in low-power mode). |
 | **Streak rewards** | `CAR_SKINS` in `config.ts`, garage in ⚙️ | BRAKE! car skins unlock at 3/7/14/30-day best streak. |
 | **Settings & stats** | `SettingsModal.tsx` | Low-power, colorblind (🟧🟦⬛ emoji + orange/blue palette), share-link toggle, my stats, garage. |
@@ -230,7 +233,7 @@ skill-issue/
     │   ├── canvas.ts          # drawing helpers (grid, scanlines, banner stamp, text)
     │   ├── drawGame.ts | cutGame.ts | brakeGame.ts | lockedGame.ts
     ├── components/            # React UI
-    │   ├── Home.tsx           # game cards, total, Grand Master board, account card
+    │   ├── Home.tsx           # focused home: big featured Cut card, Draw/Brake below, extras in "more games & modes"
     │   ├── GameScreen.tsx     # one attempt = one game instance; result timing; clip; ads
     │   ├── GameCanvas.tsx     # render loop + pointer/keyboard → game
     │   ├── ResultPanel.tsx    # score, badge, retry/ad/next, clip, share, nickname

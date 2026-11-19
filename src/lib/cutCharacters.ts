@@ -87,3 +87,71 @@ export function paintCutFace(c:CanvasRenderingContext2D,center:Pt,scale:number,m
  if(mood==='happy'||mood==='smug'){c.fillStyle='#ff759b88';c.fillRect(x-27*s,y+5*s,8*s,4*s);c.fillRect(x+20*s,y+5*s,8*s,4*s);}
  c.restore();
 }
+
+export type HalfMood = 'shocked' | 'cry' | 'smug' | 'relieved' | 'love';
+
+/** How a half reacts to the split: the small piece wails, the big one gloats; fair cuts make both happy. */
+export function halfMood(score: number, isSmaller: boolean): Exclude<HalfMood, 'shocked'> {
+ if (score >= 99) return 'love';
+ if (score >= 90) return 'relieved';
+ return isSmaller ? 'cry' : 'smug';
+}
+
+function heart(c: CanvasRenderingContext2D, x: number, y: number, r: number) {
+ c.beginPath();
+ c.moveTo(x, y + r * .9);
+ c.bezierCurveTo(x - r * 1.6, y - r * .2, x - r * .7, y - r * 1.3, x, y - r * .45);
+ c.bezierCurveTo(x + r * .7, y - r * 1.3, x + r * 1.6, y - r * .2, x, y + r * .9);
+ c.fill();
+}
+
+/** Face for one half after the cut. `t` = ms since the reaction started (drives tears/hearts). `look` = where the pupils point. */
+export function paintHalfFace(c: CanvasRenderingContext2D, center: Pt, scale: number, mood: HalfMood, look: Pt, t: number) {
+ const s = clamp(scale, .5, 1.3); const { x, y } = center;
+ const ink = '#142039';
+ c.save(); c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = ink; c.lineWidth = 2.4 * s;
+ for (const side of [-1, 1]) {
+  const ex = x + side * 14 * s, ey = y - 8 * s;
+  if (mood === 'cry') {
+   // squeezed-shut eyes + two streams of tears
+   c.beginPath(); c.moveTo(ex - 8 * s, ey - 2 * s); c.lineTo(ex, ey + 3 * s); c.lineTo(ex + 8 * s, ey - 2 * s); c.stroke();
+   c.fillStyle = '#77dcff';
+   for (let i = 0; i < 3; i++) {
+    const k = ((t / 420 + i / 3) % 1);
+    c.beginPath(); c.ellipse(ex + side * 3 * s, ey + 6 * s + k * 34 * s, 3 * s, 5 * s, 0, 0, Math.PI * 2);
+    c.globalAlpha = 1 - k * .7; c.fill(); c.globalAlpha = 1;
+   }
+  } else if (mood === 'relieved') {
+   c.beginPath(); c.arc(ex, ey + 3 * s, 7 * s, Math.PI * 1.15, Math.PI * 1.85); c.stroke();
+  } else if (mood === 'love') {
+   c.fillStyle = '#ff3d6e'; heart(c, ex, ey, 9 * s);
+  } else {
+   const shocked = mood === 'shocked';
+   c.beginPath(); c.ellipse(ex, ey, (shocked ? 10 : 9) * s, (shocked ? 12 : 11) * s, 0, 0, Math.PI * 2);
+   c.fillStyle = '#fffdf5'; c.fill(); c.stroke();
+   c.save(); c.clip();
+   const angle = Math.atan2(look.y - ey, look.x - ex);
+   c.fillStyle = ink; c.beginPath(); c.arc(ex + Math.cos(angle) * 4 * s, ey + Math.sin(angle) * 4 * s, (shocked ? 2.5 : 4) * s, 0, Math.PI * 2); c.fill();
+   if (mood === 'smug') { c.fillStyle = ink; c.fillRect(ex - 12 * s, ey - 14 * s, 24 * s, 11 * s); }
+   c.restore();
+   if (mood === 'smug') { c.beginPath(); c.moveTo(ex - 10 * s, ey - 3 * s); c.lineTo(ex + 10 * s, ey - 3 * s); c.stroke(); }
+  }
+ }
+ c.fillStyle = ink; c.lineWidth = 2.6 * s; c.beginPath();
+ if (mood === 'shocked') c.ellipse(x, y + 13 * s, 5 * s, 7 * s, 0, 0, Math.PI * 2);
+ else if (mood === 'cry') { c.ellipse(x, y + 15 * s, 9 * s, 7 * s + Math.sin(t / 90) * 1.5 * s, 0, 0, Math.PI * 2); c.fill(); }
+ else if (mood === 'smug') { c.moveTo(x - 9 * s, y + 12 * s); c.quadraticCurveTo(x + 2 * s, y + 18 * s, x + 11 * s, y + 7 * s); }
+ else if (mood === 'relieved') c.arc(x, y + 8 * s, 7 * s, .15 * Math.PI, .85 * Math.PI);
+ else { c.arc(x, y + 5 * s, 11 * s, .1 * Math.PI, .9 * Math.PI); c.closePath(); c.fill(); }
+ c.stroke();
+ if (mood === 'smug' || mood === 'love') { c.fillStyle = '#ff759b88'; c.fillRect(x - 27 * s, y + 5 * s, 8 * s, 4 * s); c.fillRect(x + 20 * s, y + 5 * s, 8 * s, 4 * s); }
+ if (mood === 'relieved') { c.fillStyle = '#77dcff'; c.beginPath(); c.ellipse(x + 30 * s, y - 14 * s, 3 * s, 6 * s, -.25, 0, Math.PI * 2); c.fill(); }
+ if (mood === 'love') {
+  c.fillStyle = '#ff3d6e';
+  for (let i = 0; i < 3; i++) {
+   const k = ((t / 1400 + i / 3) % 1);
+   c.globalAlpha = 1 - k; heart(c, x + (i - 1) * 22 * s + Math.sin(t / 300 + i) * 4 * s, y - 30 * s - k * 50 * s, 6 * s); c.globalAlpha = 1;
+  }
+ }
+ c.restore();
+}

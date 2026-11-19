@@ -23,6 +23,9 @@ import { NicknameControl } from './NicknameControl';
 import { pixelArtUrl, preloadPixelCars } from '../lib/pixelAssets';
 import { dailyDrawShape } from '../lib/drawShapes';
 import { PixelIcon } from './PixelIcon';
+import { InstallButton } from './InstallButton';
+import { dailyShape } from '../games/cutGame';
+import { polygonCentroid } from '../lib/geometry';
 
 /** Challenging / mocking one-liners under the logo. Random per visit, tap for another. */
 const TAGLINES = [
@@ -47,7 +50,6 @@ export function Home({ date, onPlay }: Props) {
   const playerCounts = useGamePlayerCounts();
   const lowPower = usePlayer(s => s.settings.lowPower);
   const reducedMotion = useReducedMotion();
-  const [gameModes, setGameModes] = useState<Record<string, 'daily' | 'level'>>({});
   const levelOwner = useAuth(s => s.userId);
   const authStatus = useAuth(s => s.status);
   const levelState = useLevels();
@@ -108,123 +110,44 @@ export function Home({ date, onPlay }: Props) {
             <span className="hero-stat-label">NEXT RESET</span> <Countdown />
           </span>
         </div>
-        <div className="home-hero-actions"><ReturnPoll date={date} compact />
-        <details className="how2" id="how" open={location.hash === '#how'}>
-          <summary>&#9656; how to play</summary>
-          <ul>
-            <li>3 stupid tests a day. same for everyone on earth.</li>
-            <li>5 tries each. only your best counts.</li>
-            <li>draw today's shape in one stroke. cut today's shape 50/50. nail today's driving objective.</li>
-            <li>out of tries? come back tomorrow. or cope.</li>
-            <li>every try is saved to the global top 10 under a random silly name. change it anytime.</li>
-            <li>play daily to grow your &#128293; streak and unlock cars.</li>
-            <li>new tests every day at 00:00 UTC.</li>
-          </ul>
-          <div className="how-save">
-            <b>where is your progress saved?</b>
-            <p>
-              <span className="tag guest">guest</span> right now everything (name, streak, scores, cars) lives only on <b>this device &amp; browser</b>.
-              Clear your browser or switch phones and it's gone.
-            </p>
-            <p>
-              <span className="tag acc">account</span> sign in with email (free, no password) and your progress is tied to your account, so
-              you can continue on <b>any device</b>.
-            </p>
-            <a className="btn btn-primary how-cta" href="#me">
-              save my progress
-            </a>
-          </div>
-        </details>
-        </div>
       </header>
 
       <div className="with-board">
       <div className="main-col">
 
-      <div className="home-account">
-        <GuestProgressPrompt date={date} />
-        {authStatus === 'linked' && <section className="guest-progress" aria-label="Your name and account">
-          <NicknameControl date={date} />
-          <a className="link-btn" href="#me">My account</a>
-          <p className="guest-progress-note">Your progress is saved to your account.</p>
-        </section>}
-      </div>
-      <div className="cards">
-      {MODES.map((m, i) => {
-        const levelMode = gameModes[m] === 'level';
-        const level = levelRows.find(row => row.mode === m) ?? { level: 1, used: 0, records: [] };
-        const md = modeDay(days, date, m);
-        const best = bestAttempt(md);
-        const info = MODE_INFO[m];
-        const dots = emojiRow(md) + '⬜'.repeat(Math.max(0, maxTries(md) - md.tries.length));
-        return (
-          <div className="game-mode-card" key={m} style={{ ['--accent' as string]: info.color }}>
-          <div className="game-mode-switch" role="group" aria-label={`${info.title} mode`}>
-            <button aria-pressed={!levelMode} onClick={() => setGameModes(s => ({...s, [m]: 'daily'}))}>Daily</button><button aria-pressed={levelMode} onClick={() => setGameModes(s => ({...s, [m]: 'level'}))}>Levels</button>
-          </div>
-          <motion.button
-            className="game-card px-box"
-            style={{ ['--accent' as string]: info.color }}
-            onClick={() => { track(`home_card_${m}`); if (levelMode) location.hash = `levels/${m}`; else onPlay(m); }}
-            initial={{ opacity: 0, x: i % 2 ? 30 : -30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.08 * i }}
-            whileHover={{ rotate: i % 2 ? 1 : -1, scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-          >
-            <span className="gc-num">test 0{i + 1}</span>
-            <GamePlayerCount count={playerCounts[m]} />
-            <div className="gc-emoji"><PixelIcon name={m} size={64} /></div>
-            <div className="gc-body">
-              <div className="gc-title">{info.title}</div>
-              <div className="gc-tag">{levelMode ? `Reach 85+. ${LEVEL_TRIES} tries per level. Pass to advance.` : m === 'draw' ? `Today's ${dailyDrawShape(date)}. One stroke. No excuses.` : info.tagline}</div>
-              <div className="gc-tries">{levelMode ? level.level > levelCount(m) ? 'All levels cleared' : `Level ${level.level} / ${levelCount(m)} - ${Math.max(0,LEVEL_TRIES-level.used)} tries left` : <><span aria-hidden="true">{dots}</span><span className="gc-attempt-label">{triesLeft(md)} tries left</span></>}</div>
-              {levelMode && <div className="gc-level-stars">&#9733; {(level.records ?? []).reduce((sum, r) => sum + r.stars, 0)} / {levelCount(m) * 3}</div>}
-            </div>
-            <div className={`gc-cta ${best ? 'played' : ''}`}>
-              {levelMode ? (level.level > levelCount(m) ? 'Ladder cleared' : level.used >= LEVEL_TRIES ? 'Come back tomorrow' : `Play level ${level.level}`) : best ? (
-                <>
-                  <small>best</small> {fmtResult(m, best)}
-                </>
-              ) : (
-                <>play ▶</>
-              )}
-            </div>
-          </motion.button>
-          </div>
-        );
-      })}
-      </div>
+      <FeaturedCut date={date} onPlay={() => { track('home_card_cut'); onPlay('cut'); }} />
 
-      <LeagueCard date={date} />
-      <RecentChampions date={date} />
-
-      <a className="card px-box balance-promo" href="#balance">
-        <GamePlayerCount count={playerCounts.balance} />
-        <PixelIcon name="balance" size={64} />
-        <div><span className="party-beta">Playable beta</span><h2>BALANCE!</h2><p>One plank. Two creatures. Find the balance point.</p></div>
-        <span className="btn btn-primary">Try Balance! &#8594;</span>
-      </a>
-
-      <a className="card px-box balance-promo count-promo" href="#count">
-        <GamePlayerCount count={playerCounts.count} />
-        <PixelIcon name="count" size={64} />
-        <div><span className="party-beta">New challenge</span><h2>COUNT FAST</h2><p>A quick flash. How many dots? Five rounds to prove your eyes work.</p></div>
-        <span className="btn btn-primary">Play Count Fast →</span>
-      </a>
-
-      <a className="card px-box home-party party-promo" href="#party" aria-labelledby="home-party-title">
-        <div className="party-promo-main">
-          <div className="party-promo-copy">
-            <div className="party-promo-heading"><h2 id="home-party-title">PARTY MODE</h2><span className="party-beta">Beta</span></div>
-            <p className="party-promo-hook">Who's the skill issue in your group?</p>
-            <p className="party-promo-details">2&ndash;8 players &middot; Draw, Cut &amp; Car &middot; Play together</p>
-          </div>
-          <div className="party-promo-icons" aria-hidden="true"><PixelIcon name="draw" size={42} /><PixelIcon name="cut" size={42} /><PixelIcon name="brake" size={42} /></div>
-          <span className="btn btn-primary party-promo-link">Play with friends <span aria-hidden="true">&#8594;</span></span>
+      <div className="also-today">
+        <div className="eyebrow">also today</div>
+        <div className="also-cards">
+          {MODES.filter(m => m !== 'cut').map((m, i) => {
+            const md = modeDay(days, date, m);
+            const best = bestAttempt(md);
+            const info = MODE_INFO[m];
+            return (
+              <motion.button
+                key={m}
+                className="game-card px-box mini-card"
+                style={{ ['--accent' as string]: info.color }}
+                onClick={() => { track(`home_card_${m}`); onPlay(m); }}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 + 0.08 * i }}
+                whileTap={{ scale: 0.97 }}
+              >
+                <GamePlayerCount count={playerCounts[m]} />
+                <PixelIcon name={m} size={48} />
+                <span className="gc-title">{info.title}</span>
+                <span className="gc-tag">{m === 'draw' ? `Today's ${dailyDrawShape(date)}. One stroke.` : info.tagline}</span>
+                <span className="gc-tries" aria-hidden="true">{emojiRow(md) + '⬜'.repeat(Math.max(0, maxTries(md) - md.tries.length))}</span>
+                <span className={`gc-cta ${best ? 'played' : ''}`}>{best ? <><small>best</small> {fmtResult(m, best)}</> : <>play ▶</>}</span>
+              </motion.button>
+            );
+          })}
         </div>
-        <div className="party-promo-footer"><PartyStats /><small>In testing &mdash; you may run into bugs.</small></div>
-      </a>
+      </div>
+
+      <InstallButton />
 
       {playedAny && (
         <div className="card px-box total-card">
@@ -262,6 +185,90 @@ export function Home({ date, onPlay }: Props) {
         </div>
       )}
 
+      {playedAny && <div className="home-account">
+        <ReturnPoll date={date} compact />
+        <GuestProgressPrompt date={date} />
+      </div>}
+      {authStatus === 'linked' && <section className="guest-progress" aria-label="Your name and account">
+        <NicknameControl date={date} />
+        <a className="link-btn" href="#me">My account</a>
+        <p className="guest-progress-note">Your progress is saved to your account.</p>
+      </section>}
+
+      <details className="home-more" open={location.hash === '#more'}>
+        <summary>&#9656; more games &amp; modes</summary>
+
+        <div className="home-levels">
+          <div className="eyebrow">level ladders</div>
+          {MODES.map(m => {
+            const level = levelRows.find(row => row.mode === m) ?? { level: 1, used: 0, records: [] };
+            const done = level.level > levelCount(m);
+            return <a key={m} className="home-level-link" href={`#levels/${m}`} style={{ ['--accent' as string]: MODE_INFO[m].color }}>
+              <PixelIcon name={m} size={28} />
+              <span>{MODE_INFO[m].name}</span>
+              <small>{done ? 'all cleared' : `level ${level.level}/${levelCount(m)} · ${Math.max(0, LEVEL_TRIES - level.used)} tries`}</small>
+            </a>;
+          })}
+        </div>
+
+        <a className="card px-box balance-promo" href="#balance">
+          <GamePlayerCount count={playerCounts.balance} />
+          <PixelIcon name="balance" size={64} />
+          <div><span className="party-beta">Playable beta</span><h2>BALANCE!</h2><p>One plank. Two creatures. Find the balance point.</p></div>
+          <span className="btn btn-primary">Try Balance! &#8594;</span>
+        </a>
+
+        <a className="card px-box balance-promo count-promo" href="#count">
+          <GamePlayerCount count={playerCounts.count} />
+          <PixelIcon name="count" size={64} />
+          <div><span className="party-beta">New challenge</span><h2>COUNT FAST</h2><p>A quick flash. How many dots? Five rounds to prove your eyes work.</p></div>
+          <span className="btn btn-primary">Play Count Fast →</span>
+        </a>
+
+        <a className="card px-box home-party party-promo" href="#party" aria-labelledby="home-party-title">
+          <div className="party-promo-main">
+            <div className="party-promo-copy">
+              <div className="party-promo-heading"><h2 id="home-party-title">PARTY MODE</h2><span className="party-beta">Beta</span></div>
+              <p className="party-promo-hook">Who's the skill issue in your group?</p>
+              <p className="party-promo-details">2&ndash;8 players &middot; Draw, Cut &amp; Car &middot; Play together</p>
+            </div>
+            <div className="party-promo-icons" aria-hidden="true"><PixelIcon name="draw" size={42} /><PixelIcon name="cut" size={42} /><PixelIcon name="brake" size={42} /></div>
+            <span className="btn btn-primary party-promo-link">Play with friends <span aria-hidden="true">&#8594;</span></span>
+          </div>
+          <div className="party-promo-footer"><PartyStats /><small>In testing &mdash; you may run into bugs.</small></div>
+        </a>
+
+        <LeagueCard date={date} />
+        <RecentChampions date={date} />
+      </details>
+
+      <details className="how2" id="how" open={location.hash === '#how'}>
+          <summary>&#9656; how to play</summary>
+          <ul>
+            <li>3 stupid tests a day. same for everyone on earth.</li>
+            <li>5 tries each. only your best counts.</li>
+            <li>draw today's shape in one stroke. cut today's shape 50/50. nail today's driving objective.</li>
+            <li>out of tries? come back tomorrow. or cope.</li>
+            <li>every try is saved to the global top 10 under a random silly name. change it anytime.</li>
+            <li>play daily to grow your &#128293; streak and unlock cars.</li>
+            <li>new tests every day at 00:00 UTC.</li>
+          </ul>
+          <div className="how-save">
+            <b>where is your progress saved?</b>
+            <p>
+              <span className="tag guest">guest</span> right now everything (name, streak, scores, cars) lives only on <b>this device &amp; browser</b>.
+              Clear your browser or switch phones and it's gone.
+            </p>
+            <p>
+              <span className="tag acc">account</span> sign in with email (free, no password) and your progress is tied to your account, so
+              you can continue on <b>any device</b>.
+            </p>
+            <a className="btn btn-primary how-cta" href="#me">
+              save my progress
+            </a>
+          </div>
+        </details>
+
       {authStatus !== 'anon' && <AccountCard />}
       </div>
 
@@ -277,5 +284,47 @@ export function Home({ date, onPlay }: Props) {
       </p>
       <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} date={date} />
     </section>
+  );
+}
+
+/** The hero game: today's Cut blob, big and front and center. */
+function FeaturedCut({ date, onPlay }: { date: string; onPlay: () => void }) {
+  const days = usePlayer(s => s.days);
+  const md = modeDay(days, date, 'cut');
+  const best = bestAttempt(md);
+  const left = triesLeft(md);
+  const info = MODE_INFO.cut;
+  const shape = dailyShape(date);
+  const c = polygonCentroid(shape.poly);
+  const points = shape.poly.map(p => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const xs = shape.poly.map(p => p.x), ys = shape.poly.map(p => p.y);
+  const pad = 24;
+  const box = { x: Math.min(...xs) - pad, y: Math.min(...ys) - pad, w: Math.max(...xs) - Math.min(...xs) + pad * 2, h: Math.max(...ys) - Math.min(...ys) + pad * 2 };
+  return (
+    <motion.button
+      className="game-card px-box featured-cut"
+      style={{ ['--accent' as string]: info.color }}
+      onClick={onPlay}
+      initial={{ opacity: 0, scale: 0.94 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ type: 'spring', stiffness: 220, damping: 18 }}
+      whileTap={{ scale: 0.98 }}
+    >
+      <span className="gc-num">today's main event</span>
+      <svg className="fc-blob" viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`} aria-hidden="true">
+        <polygon points={points} fill={shape.color} stroke="#000" strokeWidth="8" strokeLinejoin="round" />
+        {[-22, 22].map(dx => <g key={dx}>
+          <circle cx={c.x + dx} cy={c.y - 10} r="17" fill="#fff" stroke="#000" strokeWidth="5" />
+          <circle className="fc-pupil" cx={c.x + dx + 4} cy={c.y - 6} r="7" fill="#000" />
+        </g>)}
+        <line className="fc-slice" x1={box.x} y1={box.y + box.h * .9} x2={box.x + box.w} y2={box.y + box.h * .1} stroke="#fff" strokeWidth="5" strokeDasharray="14 10" />
+      </svg>
+      <span className="gc-title">{info.title}</span>
+      <span className="gc-tag">One cut. Exactly 50/50. Everyone on earth gets this blob today.</span>
+      <span className="gc-tries"><span aria-hidden="true">{emojiRow(md) + '⬜'.repeat(Math.max(0, maxTries(md) - md.tries.length))}</span> <span className="gc-attempt-label">{left} tries left</span></span>
+      <span className={`gc-cta ${best ? 'played' : ''}`}>
+        {best ? <><small>best {fmtResult('cut', best)}</small>{left > 0 ? 'try again ▶' : 'out of tries'}</> : <>cut it ▶</>}
+      </span>
+    </motion.button>
   );
 }

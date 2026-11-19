@@ -5,8 +5,10 @@ import './index.css';
 import { identify, initClarity, tag } from './lib/clarity';
 import { useAuth } from './lib/auth';
 import { usePlayer } from './lib/store';
+import { initInstall } from './lib/install';
 
 initClarity();
+initInstall();
 
 // Re-identify whenever the nickname or the logged-in account changes (Supabase id wins over the local id).
 let lastIdentity = '';

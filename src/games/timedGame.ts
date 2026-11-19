@@ -59,6 +59,7 @@ export function createTimedGame(mode: Mode, factory: (api: GameApi) => Game, api
         c.fillStyle = left <= 2 ? C.red : C.cyan; c.fillRect(40, 595, (W - 80) * left / seconds, 6);
       }
     },
+    renderClip: game.renderClip && ((c, now) => game.renderClip!(c, now)),
     setGhost: line => game.setGhost?.(line),
     destroy() { disposed = true; clearTimeout(timeout); if (!expired) game.destroy?.(); },
   };

@@ -25,10 +25,12 @@ import { usePlayer } from './lib/store';
 import { whenAuthReady, useAuth } from './lib/auth';
 import { toast, useUi } from './lib/ui';
 import { tag, track } from './lib/clarity';
+import { useCreator } from './lib/creator';
 
 const PartyPage = lazy(() => import('./components/PartyPage').then(module => ({ default: module.PartyPage })));
 
-const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party', 'levels', 'balance', 'count', 'league'] as const;
+const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party', 'levels', 'balance', 'count', 'league', 'creator'] as const;
+const CreatorPage = lazy(() => import('./components/CreatorPage').then(module => ({ default: module.CreatorPage })));
 const ChallengePreview = import.meta.env.DEV
   ? lazy(() => import('./components/ChallengesPage').then(module => ({ default: module.ChallengesPage })))
   : null;
@@ -54,6 +56,8 @@ export default function App() {
   const muted = usePlayer((s) => s.muted);
   const toggleMuted = usePlayer((s) => s.toggleMuted);
   const toastState = useUi((s) => s.toast);
+  const creatorClean = useCreator((s) => s.enabled && s.clean);
+  useEffect(() => { document.body.classList.toggle('creator-clean', creatorClean); }, [creatorClean]);
   const [toastVisible, setToastVisible] = useState(false);
 
   useEffect(() => {
@@ -157,6 +161,8 @@ export default function App() {
       <main id="app" key={settings.colorblind ? 'cb' : 'std'}>
         {mode === 'challenges' ? (
           ChallengePreview ? <Suspense fallback={<p>Loading preview…</p>}><ChallengePreview today={date} /></Suspense> : <Home date={date} onPlay={navigate} />
+        ) : mode === 'creator' ? (
+          <Suspense fallback={<p>Loading studio…</p>}><CreatorPage date={date} onPlay={navigate} /></Suspense>
         ) : mode === 'league' ? (
           <LeaguePage date={date} />
         ) : mode === 'count' ? (

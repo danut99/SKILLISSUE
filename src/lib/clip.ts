@@ -1,61 +1,76 @@
 import { sfx } from './audio';
-import type { ClipMode } from './clipScenes';
+import { CLIP_GAMEPLAY_MS, CLIP_HOLD_MS, createClipPainter, type ClipMode, type ClipOptions, type ClipResult } from './clipScenes';
 
-import { CLIP_GAMEPLAY_MS, CLIP_RESULT_MS, CLIP_OUTRO_MS, createClipPainter, type ClipResult } from './clipScenes';
-
-type ClipSession = { rec: MediaRecorder; chunks: Blob[]; mime: string; stream: MediaStream; frame: number; timer: ReturnType<typeof setTimeout>; paint: ReturnType<typeof createClipPainter>['paint']; freeze: () => void; finishing: boolean; stopped: boolean };
-/** Composes a short vertical video with safe-area result and challenge scenes. */
+/** Where the action sits inside the recorded video (ms), so compilations can cut straight to it. */
+export interface ClipTiming { markMs: number; gameplayEndMs: number }
+export interface RecordedClip { blob: Blob; ext: string; timing: ClipTiming }
+/** Draws the game without its HUD (timer, prompts, companions) in 360×640 stage units. */
+export type CleanRender = (c: CanvasRenderingContext2D, now: number) => void;
+type Painter = ReturnType<typeof createClipPainter>;
+type ClipSession = { rec: MediaRecorder; chunks: Blob[]; mime: string; stream: MediaStream; frame: number; timer: ReturnType<typeof setTimeout>; painter: Painter; startedAt: number; markMs: number; finishing: boolean; stopped: boolean; draw: () => void };
+export function pickClipMime(){return ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(type=>MediaRecorder.isTypeSupported(type))??'';}
+/** Records the game full screen as a short TikTok-style clip with its sound. */
 class ClipRecorder {
  private session:ClipSession|null=null;
  get supported(){return typeof MediaRecorder!=='undefined'&&typeof HTMLCanvasElement!=='undefined'&&typeof HTMLCanvasElement.prototype.captureStream==='function';}
- private pickMime(){return ['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(type=>MediaRecorder.isTypeSupported(type))??'';}
- start(source:HTMLCanvasElement, mode:ClipMode='draw'){
+ private elapsed(session:ClipSession){return Math.min(performance.now()-session.startedAt,CLIP_GAMEPLAY_MS);}
+ /** `clean` renders the game without HUD for the video; otherwise the on-screen canvas is used as-is. */
+ start(source:HTMLCanvasElement, mode:ClipMode='draw', options:ClipOptions={}, clean?:CleanRender, seed=0){
   if(!this.supported)return;
   this.cancel();
   try{
-   const painter=createClipPainter(source,mode);painter.paint('gameplay');
+   let frameSource=source;
+   let renderClean=()=>{};
+   if(clean){
+    const stage=document.createElement('canvas');stage.width=720;stage.height=1280;
+    const g=stage.getContext('2d')!;
+    renderClean=()=>{g.setTransform(2,0,0,2,0,0);clean(g,performance.now());};
+    frameSource=stage;
+   }
+   const painter=createClipPainter(frameSource,mode,options,seed);
+   const draw=()=>{renderClean();painter.paint();};
+   draw();
    const stream=painter.canvas.captureStream(30);sfx.ensure();
    sfx.dest?.stream.getAudioTracks().forEach(track=>stream.addTrack(track.clone()));
-   const mime=this.pickMime();
-   const rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:4_000_000}:undefined);
-   const session:ClipSession={rec,chunks:[],mime,stream,frame:0,timer:0 as unknown as ReturnType<typeof setTimeout>,paint:painter.paint,freeze:painter.freeze,finishing:false,stopped:false};
+   const mime=pickClipMime();
+   const rec=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:5_000_000}:undefined);
+   const session:ClipSession={rec,chunks:[],mime,stream,frame:0,timer:0 as unknown as ReturnType<typeof setTimeout>,painter,startedAt:performance.now(),markMs:-1,finishing:false,stopped:false,draw};
    this.session=session;
    rec.ondataavailable=event=>{if(event.data.size)session.chunks.push(event.data);};
    rec.start();
    // Match the capture rate instead of painting at the display's 60–120 Hz.
    let lastPaint=performance.now();
-   const loop=(now:number)=>{if(session.stopped||session.finishing)return;if(now-lastPaint>=1000/30){painter.paint('gameplay');lastPaint=now-(now-lastPaint)%(1000/30);}session.frame=requestAnimationFrame(loop);};
+   const loop=(now:number)=>{
+    if(session.stopped)return;
+    if(now-lastPaint>=1000/30){draw();lastPaint=now-(now-lastPaint)%(1000/30);}
+    session.frame=requestAnimationFrame(loop);
+   };
    session.frame=requestAnimationFrame(loop);
    // Pause rather than discard the result if an attempt lasts longer than 8s.
-   session.timer=setTimeout(()=>{if(rec.state==='recording'&&!session.finishing){rec.pause();cancelAnimationFrame(session.frame);}},CLIP_GAMEPLAY_MS);
+   session.timer=setTimeout(()=>{if(rec.state==='recording'&&!session.finishing&&session.markMs<0)rec.pause();},CLIP_GAMEPLAY_MS);
   }catch(error){console.warn('Clip recording unavailable',error);this.cancel();}
  }
- stop(result?:ClipResult):Promise<{blob:Blob;ext:string}|null>{
+ /** The moment of truth: swap the challenge line for the result and reaction. */
+ reveal(result:ClipResult){
+  const session=this.session;if(!session||session.markMs>=0)return;
+  if(session.rec.state==='paused')session.rec.resume();
+  session.markMs=this.elapsed(session);
+  session.painter.reveal(result);
+ }
+ /** Keeps recording the result for a moment, then ends the clip. */
+ stop(result?:ClipResult):Promise<RecordedClip|null>{
   const session=this.session;if(!session)return Promise.resolve(null);
-  this.session=null;session.finishing=true;clearTimeout(session.timer);cancelAnimationFrame(session.frame);
+  this.session=null;session.finishing=true;clearTimeout(session.timer);
+  if(result){if(session.markMs<0)session.markMs=this.elapsed(session);session.painter.reveal(result);}
+  const hold=result?CLIP_HOLD_MS:0;
+  const timing:ClipTiming={markMs:session.markMs<0?this.elapsed(session):session.markMs,gameplayEndMs:this.elapsed(session)+hold};
   return new Promise(resolve=>{
    let settled=false;
-   const cleanup=()=>{session.stopped=true;cancelAnimationFrame(session.frame);clearTimeout(session.timer);session.stream.getTracks().forEach(track=>track.stop());};
-   const done=(value:{blob:Blob;ext:string}|null)=>{if(settled)return;settled=true;cleanup();resolve(value);};
-   session.rec.onstop=()=>{const type=(session.mime||'video/webm').split(';')[0];const blob=new Blob(session.chunks,{type});done(blob.size?{blob,ext:type.includes('mp4')?'mp4':'webm'}:null);};
+   const done=(value:RecordedClip|null)=>{if(settled)return;settled=true;session.stopped=true;cancelAnimationFrame(session.frame);clearTimeout(session.timer);session.stream.getTracks().forEach(track=>track.stop());resolve(value);};
+   session.rec.onstop=()=>{const type=(session.mime||'video/webm').split(';')[0];const blob=new Blob(session.chunks,{type});done(blob.size?{blob,ext:type.includes('mp4')?'mp4':'webm',timing}:null);};
    session.rec.onerror=()=>done(null);
-   const end=()=>{if(session.rec.state==='inactive'){done(null);return;}session.rec.stop();};
-   if(!result){end();return;}
-   session.freeze();
-   session.stream.getAudioTracks().forEach(track=>{track.enabled=false;});
-   session.paint('result',result);
    if(session.rec.state==='paused')session.rec.resume();
-   let lastClosingPaint=performance.now();
-   const outro=()=>{
-    if(session.stopped)return;
-    // The closing card is static. Refresh occasionally for canvas capture and
-    // late-loading artwork, rather than rebuilding it on every display frame.
-    const now=performance.now();
-    if(now-lastClosingPaint>=250){session.paint('result',result);lastClosingPaint=now;}
-    session.frame=requestAnimationFrame(outro);
-   };
-   session.frame=requestAnimationFrame(outro);
-   session.timer=setTimeout(end,CLIP_RESULT_MS+CLIP_OUTRO_MS);
+   session.timer=setTimeout(()=>{if(session.rec.state==='inactive')done(null);else session.rec.stop();},hold);
   });
  }
  cancel(){
