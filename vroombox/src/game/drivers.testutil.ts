@@ -21,7 +21,20 @@ export function carefulDriver(pace: (x: number) => number): Driver {
     const p = sim.chassis.getPosition()
     const v = sim.chassis.getLinearVelocity()
     const angle = sim.chassis.getAngle()
-    const slopeAt = (x: number) => Math.atan2(sim.track.height(x + 0.5) - sim.track.height(x - 0.5), 1)
+    // The driving surface: the ground, or the top of any stone or bedded log lying on it.
+    const surface = (x: number) => {
+      let y = sim.track.height(x)
+      for (const seg of sim.track.segmentsIn(x - 2, x + 2)) {
+        for (const r of [...seg.rocks, ...seg.logs]) {
+          const dx = Math.abs(r.x - x)
+          if (dx >= r.r) continue
+          const center = sim.track.height(r.x) + (seg.rocks.includes(r) ? r.r * 0.1 : r.r * (r.lodged ? 0.55 : 1)) + (r.lift ?? 0)
+          y = Math.max(y, center + Math.sqrt(r.r * r.r - dx * dx))
+        }
+      }
+      return y
+    }
+    const slopeAt = (x: number) => Math.atan2(surface(x + 0.6) - surface(x - 0.6), 1.2)
     if (sim.airborne) {
       const h = Math.max(0, p.y - sim.track.height(p.x))
       const aim = slopeAt(p.x + Math.max(0, v.x) * Math.min(1, Math.sqrt((2 * h) / 10)))
@@ -52,6 +65,13 @@ export function carefulDriver(pace: (x: number) => number): Driver {
         return { gas: false, brake: v.x > 0.2 }
       }
     }
+    // Wait on level ground for a rolling barrel to pass rather than meeting it on the climb.
+    const barrelComing = sim.props.some((pr) => {
+      if (pr.kind !== 'barrel') return false
+      const bp = pr.body.getPosition()
+      return bp.x > p.x && bp.x < p.x + 14 && pr.body.getLinearVelocity().x < -0.5
+    })
+    if (barrelComing && Math.abs(slopeAt(p.x + 2)) < 0.12) return { gas: false, brake: v.x > 0.2 }
     if (pitch > 0.7) return { gas: false, brake: true }
     if (pitch > 0.4) return { gas: false, brake: false }
     const target = pace(p.x)

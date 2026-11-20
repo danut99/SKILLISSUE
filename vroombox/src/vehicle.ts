@@ -6,7 +6,15 @@ import type { PlacedWheel } from './util/objectimage.ts'
 import { blobToCanvas, canvasToBlob, ctx2d, makeCanvas } from './util/image.ts'
 import { stripWhiteRim } from './util/sticker.ts'
 
-export type EngineData = { kind: 'synth' } | { kind: 'voice'; sampleRate: number; pcm: Float32Array }
+/** One recorded engine sound. */
+export type VoiceClip = { sampleRate: number; pcm: Float32Array }
+/**
+ * synth: the built-in engine. voice: the player's own sounds. `sampleRate`/`pcm` is the accelerating loop
+ * (always there; older vehicles only have this one); idle and decel are optional loops.
+ */
+export type EngineData =
+  | { kind: 'synth' }
+  | { kind: 'voice'; sampleRate: number; pcm: Float32Array; idle?: VoiceClip; decel?: VoiceClip }
 /** own: the wheels drawn in the picture spin (wheelSprites) · classic: generated wheels (ready-made vehicles) */
 export type WheelStyle = 'own' | 'classic'
 

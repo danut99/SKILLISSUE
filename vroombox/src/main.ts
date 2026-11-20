@@ -1,4 +1,5 @@
-﻿import { registerSW } from 'virtual:pwa-register'
+﻿import { audio } from './audio/audio.ts'
+import { registerSW } from 'virtual:pwa-register'
 import { ACTIVE_LEVELS, levelRun, type RunSpec } from './game/modes.ts'
 import { lang, randomName, t } from './i18n.ts'
 import { progress, recordRun, saveProgress, upgradesFor } from './progress.ts'
@@ -210,6 +211,8 @@ window.addEventListener('appinstalled', () => {
   if (onHome) go.home()
 })
 
+// Load the engine sound early so the first run already has it (the audio context starts on the first tap).
+void audio.prepareEngine()
 void restoreSelected().then(() => go.home())
 
 

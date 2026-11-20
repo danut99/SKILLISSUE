@@ -34,4 +34,6 @@ export function drawbridgeSignal(t: number): DrawbridgeSignal {
 
 export const BARREL_R = 0.3
 export const BARREL_MASS = 3
+/** Seconds a barrel stays in play. */
+export const BARREL_LIFE = 9
 export const SEESAW_TILT = 0.2

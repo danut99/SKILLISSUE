@@ -1,7 +1,6 @@
 import { audio } from './audio.ts'
+import type { VoiceClip } from '../vehicle.ts'
 import { extractLoop, rms } from './loop.ts'
-
-export type VoiceEngineData = { kind: 'voice'; sampleRate: number; pcm: Float32Array }
 
 export function micAvailable(): boolean {
   return (
@@ -16,7 +15,7 @@ export function micAvailable(): boolean {
  * Records for `seconds`, reporting the live level (0..1), and returns a seamless engine loop,
  * or null when nothing loud enough was heard. Throws when microphone access is refused.
  */
-export async function recordEngine(seconds: number, onLevel: (level: number) => void, signal?: AbortSignal): Promise<VoiceEngineData | null> {
+export async function recordClip(seconds: number, onLevel: (level: number) => void, signal?: AbortSignal): Promise<VoiceClip | null> {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
   })
@@ -65,8 +64,8 @@ export async function recordEngine(seconds: number, onLevel: (level: number) => 
       const d = decoded.getChannelData(ch)
       for (let i = 0; i < d.length; i++) mono[i] += d[i] / decoded.numberOfChannels
     }
-    const loop = extractLoop(mono, decoded.sampleRate)
-    return loop ? { kind: 'voice', sampleRate: decoded.sampleRate, pcm: loop } : null
+    const pcm = extractLoop(mono, decoded.sampleRate)
+    return pcm ? { sampleRate: decoded.sampleRate, pcm } : null
   } finally {
     cancelAnimationFrame(raf)
     stream.getTracks().forEach((tr) => tr.stop())

@@ -390,7 +390,7 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
     const powered = sim.engineOn && (input.gas || input.brake)
     throttle += ((powered ? 1 : 0) - throttle) * Math.min(1, dt * 8)
     load += ((sim.engineOn ? sim.engineLoad() : 0) - load) * Math.min(1, dt * 10)
-    engine?.update(load, throttle)
+    engine?.update({ load, throttle, reverse: sim.engineOn && input.brake && !input.gas, airborne: sim.airborne })
     cam.follow(sim, view, dt)
     renderer.draw(g, view, cam, sim, run.kind === 'endless' ? best : 0, dt, input.gas ? 1 : 0, ghostSim)
     updateHud()
@@ -565,6 +565,8 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
     let cancelled = false
     let frameId = 0
     let sound: EngineSound | null = null
+    // The replay is filmed with its engine sound, but the player should not hear a run that is already over.
+    let releaseSpeakers: (() => void) | null = null
     const recorder = new ClipRecorder()
     const rsim = new Sim({ startDistance: res.startDistance, geom: geomOf(vehicle), track: run.track, mode: run.mode, upgrades })
     rsim.stars = res.startState.stars
@@ -592,6 +594,7 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
 
     const play = () => {
       rcam.snap(rsim, CLIP_GAME_VIEW)
+      releaseSpeakers = audio.silenceSpeakers()
       sound = createEngine(vehicle.engine)
       const recording = clipSupported() && recorder.start(clipCanvas)
       let racc = 0
@@ -624,7 +627,7 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
         const powered = rsim.engineOn && (cur.gas || cur.brake)
         rthrottle += ((powered ? 1 : 0) - rthrottle) * Math.min(1, dt * 8)
         rload += ((rsim.engineOn ? rsim.engineLoad() : 0) - rload) * Math.min(1, dt * 10)
-        sound?.update(rload * (slow ? 0.7 : 1), rthrottle)
+        sound?.update({ load: rload * (slow ? 0.7 : 1), throttle: rthrottle, reverse: rsim.engineOn && cur.brake && !cur.gas, airborne: rsim.airborne })
         rcam.follow(rsim, CLIP_GAME_VIEW, dt * scale)
         info.slowmo = slow
         drawClipFrame(gc, info, (v) => rren.draw(gc, v, rcam, rsim, run.kind === 'endless' ? res.prevBest : 0, dt * scale, cur.gas ? 1 : 0))
@@ -641,6 +644,8 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
     const finish = async (recording: boolean) => {
       sound?.stop()
       sound = null
+      // Let the engine fade out of the recording before the speakers come back.
+      setTimeout(() => releaseSpeakers?.(), 400)
       const made = recording ? await recorder.stop() : null
       if (!cancelled) onDone(made)
     }
@@ -653,6 +658,7 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
         recorder.abort()
         sound?.stop()
         sound = null
+        releaseSpeakers?.()
       },
     }
   }

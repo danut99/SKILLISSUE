@@ -11,9 +11,8 @@ const springLevels = ACTIVE_LEVELS.filter((l) => l.course)
 const runOf = (id: CourseId) => levelRun(springLevels.find((l) => l.course === id)!)
 
 describe('spring levels reward control over a held gas pedal', () => {
-  it('come in three tiers that get longer and ask for more', () => {
-    expect(springLevels.map((l) => l.tier)).toEqual([1, 2, 3])
-    expect(springLevels.map((l) => l.length)).toEqual([300, 350, 400])
+  it('come in five tiers, easy to extreme', () => {
+    expect(springLevels.map((l) => l.tier)).toEqual([1, 2, 3, 4, 5])
   })
 
   for (const level of springLevels) {
@@ -28,8 +27,11 @@ describe('spring levels reward control over a held gas pedal', () => {
         }
       })
 
-      // The hard level's big stones and logs need big wheels.
-      const fit = course.tier === 3 ? [builds.tractor, builds.classic, builds.offroad, boxGeom(70)] : Object.values(builds)
+      // From the hard level on, big stones, boulder ridges and logs need big wheels.
+      const fit =
+        course.tier >= 4 ? [boxGeom(70), boxGeom(70, 'offroad')]
+        : course.tier === 3 ? [builds.tractor, builds.classic, builds.offroad, boxGeom(70)]
+        : Object.values(builds)
       it('lets a careful driver finish with every reasonable build and every star, without upgrades', () => {
         for (const geom of fit) {
           const sim = drive(geom, run, carefulDriver(course.pace))
@@ -39,7 +41,7 @@ describe('spring levels reward control over a held gas pedal', () => {
       })
 
       it('keeps the time star for confident driving', () => {
-        for (const geom of [builds.tractor, builds.classic]) {
+        for (const geom of fit.slice(0, 2)) {
           expect(drive(geom, run, carefulDriver(course.pace)).time).toBeGreaterThan(level.par)
           const confident = drive(geom, run, carefulDriver((x) => course.pace(x) * 1.2))
           expect(confident.ended).toBe('finish')
@@ -53,9 +55,17 @@ describe('spring levels reward control over a held gas pedal', () => {
     })
   }
 
-  it('asks small wheels for a redesign on the hard level only', () => {
+  it('needs a purpose-drawn vehicle for the two hardest levels: the stock tractor cannot finish them', () => {
+    for (const id of ['spring4', 'spring5'] as const) {
+      expect(drive(builds.tractor, runOf(id), carefulDriver(COURSES[id].pace)).ended).not.toBe('finish')
+    }
+  })
+
+  it('asks small wheels for a redesign from the hard level on', () => {
     expect(drive(builds.cookie, runOf('spring2'), carefulDriver(COURSES.spring2.pace)).ended).toBe('finish')
-    expect(drive(builds.cookie, runOf('spring3'), carefulDriver(COURSES.spring3.pace)).ended).not.toBe('finish')
+    for (const id of ['spring3', 'spring4', 'spring5'] as const) {
+      expect(drive(builds.cookie, runOf(id), carefulDriver(COURSES[id].pace)).ended).not.toBe('finish')
+    }
   })
 
   it('lets sport tires through the easy level but sinks them in the deeper mud later', () => {

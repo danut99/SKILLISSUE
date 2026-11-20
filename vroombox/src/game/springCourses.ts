@@ -1,19 +1,19 @@
-import { rockShelf, timberPile } from './obstacles.ts'
+import { boulderRidge, logField, rockShelf, timberPile } from './obstacles.ts'
 import type { Feature, Gadget, Pickup, Rock, Segment } from './track.ts'
 
 /** The three hand-built Spring levels, easy to hard. Every one rewards control over a held gas pedal. */
-export type CourseId = 'spring1' | 'spring2' | 'spring3'
+export type CourseId = 'spring1' | 'spring2' | 'spring3' | 'spring4' | 'spring5'
 
 /** What each stretch asks of the driver; drives the on-screen hint, shown a little before `from`. */
-export type SpringSkill = 'air' | 'ramp' | 'crawl' | 'crest' | 'bridge' | 'mud' | 'jump' | 'rhythm' | 'seesaw' | 'drawbridge' | 'barrels'
+export type SpringSkill = 'air' | 'ramp' | 'crawl' | 'crest' | 'bridge' | 'mud' | 'jump' | 'rhythm' | 'seesaw' | 'drawbridge' | 'barrels' | 'logs' | 'boulders'
 export type Section = { from: number; to: number; skill: SpringSkill }
 /** A star `above` the ground at `ref` (usually the takeoff point). */
 export type StarSpot = { x: number; ref: number; above: number }
 
 export type Course = {
   id: CourseId
-  /** 1 = easy, 2 = medium, 3 = hard. */
-  tier: 1 | 2 | 3
+  /** 1 = easy .. 5 = extreme. */
+  tier: 1 | 2 | 3 | 4 | 5
   length: number
   /** Time star (seconds). */
   par: number
@@ -179,7 +179,7 @@ const spring2 = course({
 
 /** Hard: big stones and logs, tall whoops, a deep ditch jump, a seesaw, the big star ramp, a second crest and bridge, a pit, deep mud and the barrel climb. Needs big wheels. */
 const spring3 = course({
-  id: 'spring3', tier: 3, length: 400, par: 80,
+  id: 'spring3', tier: 3, length: 400, par: 77,
   calm: [[72, 94], [104, 122], [134, 166], [240, 264], [274, 292], [356, 376]],
   hills: (x) => 3.5 * (smooth(204, 220, x) - smooth(226, 236, x)) + 4 * (smooth(334, 352, x) - smooth(376, 388, x)),
   features: [
@@ -198,7 +198,7 @@ const spring3 = course({
     { kind: 'seesaw', x: 113, len: 8 },
     { kind: 'kicker', x: 140, len: 7, h: 2.5 },
     { kind: 'kicker', x: 220, len: 4, h: 1 },
-    { kind: 'barrels', x: 362, every: 4.5 },
+    { kind: 'barrels', x: 362, every: 6 },
     { kind: 'kicker', x: 366, len: 6, h: 1.2 },
   ],
   rocks: [
@@ -234,5 +234,127 @@ const spring3 = course({
   ],
 })
 
-export const COURSES: Record<CourseId, Course> = { spring1, spring2, spring3 }
-export const SPRING_COURSES: Course[] = [spring1, spring2, spring3]
+/**
+ * Very hard: a slow crawl. Tall boulder ridges with cracks and drops, a log field on a climb with logs that roll
+ * back down, deep mud, a falling bridge, a big ditch ramp, a drawbridge and barrels. Little fuel. Needs big wheels.
+ */
+const spring4 = course({
+  id: 'spring4', tier: 4, length: 400, par: 107,
+  calm: [[28, 48], [50, 72], [76, 96], [106, 124], [150, 166], [210, 234], [236, 262], [264, 294], [300, 330], [332, 352]],
+  // A climb carrying the log field up to a ledge at the 200 m checkpoint, then the final climb to the barrels.
+  hills: (x) => 2.5 * (smooth(166, 188, x) - smooth(198, 212, x)) + 4 * smooth(360, 378, x),
+  features: [
+    { kind: 'mud', x: 128, len: 16, h: 0.6 },
+    { kind: 'bridge', x: 218, len: 14, h: 3.2, collapse: true },
+    { kind: 'pothole', x: 247, len: 7, h: 1.2 },
+    { kind: 'bridge', x: 312, len: 12, h: 3.2, drawbridge: true },
+  ],
+  gadgets: [
+    { kind: 'seesaw', x: 116, len: 8 },
+    { kind: 'kicker', x: 191, len: 4, h: 1 },
+    { kind: 'kicker', x: 239, len: 7, h: 2.4 },
+    { kind: 'drawbridge', x: 312, len: 12 },
+    { kind: 'barrels', x: 392, every: 4.5 },
+  ],
+  rocks: [
+    ...boulderRidge(30, [0.4, 0.8, 1.2, 1, 1.4, 1.8, 1.4, 0.9, 0.5]),
+    // Crack in the middle, then a tall top and a stepped drop.
+    ...boulderRidge(80, [0.4, 0.8, 1.2, 1.6, 2, 2.4, 1.95, 2.4, 2.8, 3.2, 2.4, 1.6, 0.8], 1.05),
+    ...boulderRidge(152, [0.5, 0.9, 1.3, 1.8, 2.3, 2.8, 2, 1, 0.4]),
+    ...boulderRidge(266, [0.4, 0.8, 1.2, 1.6, 2, 2.5, 3, 3.5, 3, 3.5, 2.8, 2, 1.2, 0.5]),
+    ...boulderRidge(337, [0.5, 0.9, 1.4, 1.9, 2.4, 2.9, 1.8, 0.8]),
+  ],
+  logs: [...logField(54, 8, 0.5), ...logField(170, 10, 0.4, 0.8), ...timberPile(290, 0.9)],
+  fuel: [150, 300],
+  stars: [
+    { x: 89.5, ref: 89.5, above: 4.5 },
+    { x: 250, ref: 239, above: 4.5 },
+    { x: 343, ref: 343, above: 4.2 },
+  ],
+  sections: [
+    { from: 28, to: 42, skill: 'boulders' },
+    { from: 50, to: 70, skill: 'logs' },
+    { from: 76, to: 94, skill: 'boulders' },
+    { from: 106, to: 122, skill: 'seesaw' },
+    { from: 124, to: 144, skill: 'mud' },
+    { from: 148, to: 164, skill: 'boulders' },
+    { from: 166, to: 190, skill: 'logs' },
+    { from: 212, to: 232, skill: 'bridge' },
+    { from: 234, to: 256, skill: 'ramp' },
+    { from: 262, to: 284, skill: 'boulders' },
+    { from: 286, to: 293, skill: 'crawl' },
+    { from: 302, to: 326, skill: 'drawbridge' },
+    { from: 333, to: 347, skill: 'boulders' },
+    { from: 352, to: 382, skill: 'barrels' },
+  ],
+  paceSteps: [
+    [0, 8], [28, 2.5], [42, 4], [50, 2.5], [70, 5], [76, 2], [96, 6], [106, 3], [122, 6], [146, 2], [164, 4], [168, 2],
+    [194, 6], [206, 9], [232, 8.5], [256, 5], [262, 2], [294, 6], [333, 2], [348, 6], [378, 7],
+  ],
+})
+
+/**
+ * Extreme: towering boulder ridges with a knife-edge top, cracks and drops, long log fields (one on a climb),
+ * a crest ramp, a falling bridge, deep mud, a huge ramp, the big gap, a drawbridge and barrels, on very little fuel.
+ */
+const spring5 = course({
+  id: 'spring5', tier: 5, length: 450, par: 110,
+  calm: [[24, 50], [54, 80], [80, 100], [136, 166], [166, 200], [204, 234], [276, 292], [306, 352], [356, 384], [384, 398]],
+  hills: (x) =>
+    4 * (smooth(104, 120, x) - smooth(126, 134, x)) + 3 * (smooth(234, 252, x) - smooth(262, 272, x)) + 4 * smooth(414, 432, x),
+  features: [
+    { kind: 'bridge', x: 140, len: 14, h: 3.2, collapse: true },
+    { kind: 'mud', x: 168, len: 16, h: 0.7 },
+    { kind: 'pothole', x: 216, len: 8, h: 1.3 },
+    { kind: 'gap', x: 318, len: 32, h: 4.5, gapWidth: 8, lip: 3 },
+    { kind: 'bridge', x: 366, len: 12, h: 3.2, drawbridge: true },
+    { kind: 'pit', x: 386, len: 8, h: 0.8 },
+  ],
+  gadgets: [
+    { kind: 'kicker', x: 120, len: 4, h: 1 },
+    { kind: 'kicker', x: 208, len: 7, h: 2.5 },
+    { kind: 'seesaw', x: 284, len: 8 },
+    { kind: 'drawbridge', x: 366, len: 12 },
+    { kind: 'barrels', x: 446, every: 4 },
+  ],
+  rocks: [
+    ...boulderRidge(28, [0.5, 0.9, 1.4, 1.9, 2.4, 1.9, 2.4, 2.9, 2.1, 1.3, 0.5]),
+    // The tallest ridge: a knife-edge top, a crack and a stepped drop.
+    ...boulderRidge(80.5, [0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 3.7, 3.2, 3.6, 2.8, 2, 1.2, 0.5], 0.93),
+    ...boulderRidge(185, [0.6, 1.1, 1.6, 2.1, 1.2, 0.5]),
+    ...boulderRidge(406, [0.5, 1, 1.5, 2, 2.5, 3, 2.2, 1.2, 0.5]),
+    ...boulderRidge(434, [0.4, 0.9, 1.4, 0.9, 0.4]),
+  ],
+  logs: [...logField(58, 12, 0.5, 1.05), ...logField(236, 10, 0.4, 0.85), ...timberPile(256, 1)],
+  fuel: [150, 300],
+  stars: [
+    { x: 88.5, ref: 88.5, above: 5.8 },
+    { x: 219, ref: 208, above: 4.6 },
+    { x: 330, ref: 318, above: 4.4 },
+  ],
+  sections: [
+    { from: 24, to: 40, skill: 'boulders' },
+    { from: 54, to: 76, skill: 'logs' },
+    { from: 78, to: 96, skill: 'boulders' },
+    { from: 110, to: 134, skill: 'crest' },
+    { from: 136, to: 156, skill: 'bridge' },
+    { from: 164, to: 184, skill: 'mud' },
+    { from: 185, to: 193, skill: 'boulders' },
+    { from: 204, to: 228, skill: 'ramp' },
+    { from: 232, to: 260, skill: 'logs' },
+    { from: 274, to: 292, skill: 'seesaw' },
+    { from: 304, to: 345, skill: 'jump' },
+    { from: 356, to: 380, skill: 'drawbridge' },
+    { from: 384, to: 394, skill: 'crawl' },
+    { from: 402, to: 416, skill: 'boulders' },
+    { from: 418, to: 444, skill: 'barrels' },
+  ],
+  paceSteps: [
+    [0, 8], [24, 2.5], [40, 4], [54, 2.5], [78, 2], [97, 6], [116, 3], [134, 9.5], [158, 6], [184, 2], [194, 7],
+    [202, 9], [230, 4], [234, 2.5], [262, 5], [274, 3], [294, 7], [300, 11], [345, 7], [384, 3], [396, 5], [402, 2],
+    [416, 6], [432, 2.5], [444, 5],
+  ],
+})
+
+export const COURSES: Record<CourseId, Course> = { spring1, spring2, spring3, spring4, spring5 }
+export const SPRING_COURSES: Course[] = [spring1, spring2, spring3, spring4, spring5]

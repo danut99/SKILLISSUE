@@ -33,7 +33,7 @@ export const START_X = 0
 // Seasonal geometry revision for comparable times and deterministic replays.
 export const COURSE_REVISION = 8
 /** Spring levels were rebuilt into three hand-made courses. */
-export const courseRevisionOf = (id: number) => COURSE_REVISION + ([101, 111, 112].includes(id) ? 4 : 0)
+export const courseRevisionOf = (id: number) => COURSE_REVISION + ([101, 111, 112, 113, 114].includes(id) ? 4 : 0)
 export const WALL_X = -7
 export const TERRAIN_X0 = -12
 export const CHUNK_LEN = 40

@@ -91,7 +91,9 @@ export class Sim {
   readonly dig: number[] = []
   private readonly planks = new Map<Body, number>()
   private readonly drawbridges: Body[] = []
-  private readonly barrels: { body: Body; from: number }[] = []
+  private readonly barrels: { body: Body; from: number; born: number }[] = []
+  /** Barrels that hit the vehicle this step: they knock it back once, then break. */
+  private readonly smashed = new Set<Body>()
   private readonly totalMass: number
   /** Spin rate (rad/s) GAS/BRAKE steer toward in the air. */
   private readonly airTorque: number
@@ -462,18 +464,20 @@ export class Sim {
         if (this.barrels.length >= 5) continue
         const body = this.world.createBody({ type: 'dynamic', position: new Vec2(g.x, this.track.height(g.x) + G.BARREL_R + 0.05), linearVelocity: new Vec2(-2.5, 0), angularVelocity: 2.5 / G.BARREL_R })
         body.createFixture(new Circle(G.BARREL_R), { density: G.BARREL_MASS / (Math.PI * G.BARREL_R ** 2), friction: 0.6, restitution: 0.1, userData: 'loose' satisfies Tag })
-        this.barrels.push({ body, from: g.x })
+        this.barrels.push({ body, from: g.x, born: this.stepCount })
         this.props.push({ body, kind: 'barrel', w: G.BARREL_R, h: G.BARREL_R })
       }
     }
     for (let i = this.barrels.length - 1; i >= 0; i--) {
-      const { body, from } = this.barrels[i]
+      const { body, from, born } = this.barrels[i]
       const p = body.getPosition()
-      if (p.x > from - 55 && p.y > this.track.height(p.x) - 6) continue
+      // Barrels roll away after a while so they never pile up into a wall at the foot of the climb.
+      if (!this.smashed.has(body) && p.x > from - 55 && p.y > this.track.height(p.x) - 6 && (this.stepCount - born) * C.DT < G.BARREL_LIFE) continue
       this.props.splice(this.props.findIndex((q) => q.body === body), 1)
       this.world.destroyBody(body)
       this.barrels.splice(i, 1)
     }
+    this.smashed.clear()
   }
 
   /** Builds the gadgets of one chunk; returns their bodies so they go away with the chunk. */
@@ -551,6 +555,8 @@ export class Sim {
     const groundTag = groundA ? ta : tb
     const isWall = groundTag === 'wall'
     const groundBody = (groundA ? fa : fb).getBody()
+    const mine = other.getBody() === this.chassis || this.wheels.includes(other.getBody())
+    if (delta > 0 && mine && groundTag === 'loose') this.smashed.add(groundBody)
     if (delta > 0 && this.planks.get(groundBody) === -1) this.planks.set(groundBody, this.stepCount)
     if (tag === 'head') {
       if (delta > 0 && !isWall && groundTag !== 'loose') this.roofHit = true

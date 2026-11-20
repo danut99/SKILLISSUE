@@ -22,7 +22,7 @@ export type LevelDef = {
   boss: boolean
   /** Hand-built course and its difficulty (1 easy .. 3 hard). */
   course?: CourseId
-  tier?: 1 | 2 | 3
+  tier?: 1 | 2 | 3 | 4 | 5
 }
 export type RouteDef = { id: number; map: MapId; length: number; eggs: number; difficulty: number; seed: number }
 
@@ -67,9 +67,9 @@ export const LEVELS: LevelDef[] = (['farm', 'desert', 'snow', 'moon'] as MapId[]
 )
 
 /** Spring level ids, easy to hard (101 keeps the first slot; records are separate from the legacy campaign). */
-export const SPRING_IDS = [101, 111, 112]
+export const SPRING_IDS = [101, 111, 112, 113, 114]
 
-/** Three hand-built Spring levels (easy to hard), then one approachable course per other season. */
+/** Five hand-built Spring levels (easy to extreme), then one approachable course per other season. */
 export const ACTIVE_LEVELS: LevelDef[] = [
   ...SPRING_COURSES.map((c, index): LevelDef => ({
     ...LEVELS[0], id: SPRING_IDS[index], length: c.length, difficulty: 0.18, par: c.par, boss: false,
