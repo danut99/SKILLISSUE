@@ -1,5 +1,5 @@
 ﻿import { provingGroundSegment } from './provingGround.ts'
-import { firstCourseBase, firstCourseSegment } from './firstCourse.ts'
+import { COURSES, type CourseId } from './springCourses.ts'
 import { rockShelf, timberPile } from './obstacles.ts'
 import type { Pt } from '../geometry/poly.ts'
 import { FEATURE_START, FLAT_END, SEGMENT_LEN, START_X, TERRAIN_STEP } from './config.ts'
@@ -9,7 +9,22 @@ import { hash2, mulberry32 } from './rng.ts'
 export type FeatureKind = 'gap' | 'ramp' | 'bump' | 'mesa' | 'pit' | 'mud' | 'ice' | 'bridge' | 'snow' | 'pothole'
 /** A shaped piece of ground added on top of the rolling hills. x is world x where it starts. */
 export type Landmark = 'spring-creek' | 'summer-jump' | 'autumn-log' | 'winter-slide'
-export type Feature = { kind: FeatureKind; x: number; len: number; h: number; landmark?: Landmark; gapWidth?: number }
+/**
+ * collapse: a landmark bridge whose planks still give way (normal bridges always do).
+ * drawbridge: the ravine has no planks; a Gadget drawbridge spans it instead.
+ */
+export type Feature = { kind: FeatureKind; x: number; len: number; h: number; landmark?: Landmark; gapWidth?: number; collapse?: boolean; lip?: number; drawbridge?: boolean }
+/**
+ * Moving set pieces built from physics bodies (x is world x):
+ * kicker (a built wooden ramp from x, rising to h; `down` makes it a landing ramp falling from h),
+ * seesaw (plank pivoting at x), barrels (rolled left from x every `every` s),
+ * drawbridge (deck over the ravine from x, hinged at its far end, lifting on a timer).
+ */
+export type Gadget =
+  | { kind: 'kicker'; x: number; len: number; h: number; down?: boolean }
+  | { kind: 'seesaw'; x: number; len: number }
+  | { kind: 'barrels'; x: number; every: number }
+  | { kind: 'drawbridge'; x: number; len: number }
 export type Rock = { x: number; r: number; lift?: number; crossing?: boolean; lodged?: boolean }
 /** What the ground is made of: mud (sand, deep snow) holds wheels back, ice has almost no grip. */
 export type Surface = 'ground' | 'mud' | 'ice' | 'snow'
@@ -20,7 +35,8 @@ export type Pickup = { id: number; kind: PickupKind; x: number; y: number }
 
 export type TrackSpec = {
   provingGround?: boolean
-  firstCourse?: boolean
+  /** A hand-built course (Spring levels) instead of generated terrain. */
+  course?: CourseId
   checkpoints?: number[]
   map: MapId
   seed: number
@@ -41,7 +57,7 @@ export type TrackSpec = {
   boss?: boolean
 }
 
-export type Segment = { features: Feature[]; rocks: Rock[]; logs: Rock[]; pickups: Pickup[] }
+export type Segment = { features: Feature[]; rocks: Rock[]; logs: Rock[]; pickups: Pickup[]; gadgets?: Gadget[] }
 
 /** Ravine depth under a bridge. */
 export const BRIDGE_DEPTH = 3.2
@@ -57,7 +73,7 @@ export function featureOffset(f: Feature, u: number): number {
     case 'gap': {
       // Eight-meter run-up ramp, open chasm, then a long safe landing apron.
       // A slow vehicle falls to the bed; it cannot simply climb the far wall.
-      const lip = 1.8
+      const lip = f.lip ?? 1.8
       const far = f.gapWidth === undefined ? .62 : .25 + f.gapWidth / f.len - .02
       if (u < .25) return lip * (u / .25) ** 1.35
       if (u < .27) return lip - (lip + f.h) * (u - .25) / .02
@@ -140,7 +156,7 @@ export class Track {
   base(x: number): number {
     if (this.spec.provingGround) return 0
     if (this.spec.flat || x <= FLAT_END) return 0
-    if (this.spec.firstCourse) return firstCourseBase(x)
+    if (this.spec.course) return COURSES[this.spec.course].base(x)
     const d = x - FLAT_END
     const ease = Math.min(1, d / 30)
     const k = this.difficultyAt(x - START_X)
@@ -230,7 +246,7 @@ export class Track {
   private generate(i: number): Segment {
     const spec = this.spec
     if (spec.provingGround) return provingGroundSegment(i)
-    if (spec.firstCourse) return firstCourseSegment(i, spec)
+    if (spec.course) return COURSES[spec.course].segment(i)
     const seasonalLevel = Boolean(spec.checkpoints?.length)
     const rnd = mulberry32(hash2(spec.seed, i))
     const d0 = i * SEGMENT_LEN

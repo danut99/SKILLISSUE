@@ -15,13 +15,16 @@ export const TOP_SPEED = 14
 export const DRIVE_FORCE = 140
 export const ROLLING_FORCE = 4
 export const REVERSE_FACTOR = 0.55
-/** Air pedals ask for a small tilt, with slow rotation and gentle recovery on release. */
-export const AIR_TILT = 0.4
-export const AIR_SPIN = 1.2
+/**
+ * In the air GAS spins the nose up and BRAKE spins it down, up to AIR_SPIN rad/s.
+ * Releasing both keeps the current rotation: landing on the slope is the player's job.
+ */
+export const AIR_SPIN = 2.4
 export const AIR_RESPONSE = 4
-export const AIR_ACCEL = 5
-/** The chassis center of mass is pulled down to the axles so odd shapes stay drivable. */
-export const INERTIA_SCALE = 1.4
+export const AIR_ACCEL = 6
+/** The center of mass sits this fraction of the way from the axles up to the body center: hard gas lifts the nose, braking dips it. */
+export const COM_RISE = 0.45
+export const INERTIA_SCALE = 1.0
 export const SUSPENSION_HZ = 4.5
 export const SUSPENSION_DAMPING = 0.7
 export const WHEEL_FRICTION = 0.95
@@ -29,7 +32,8 @@ export const WHEEL_FRICTION = 0.95
 export const START_X = 0
 // Seasonal geometry revision for comparable times and deterministic replays.
 export const COURSE_REVISION = 8
-export const courseRevisionOf = (id: number) => COURSE_REVISION + (id === 101 ? 1 : 0)
+/** Spring levels were rebuilt into three hand-made courses. */
+export const courseRevisionOf = (id: number) => COURSE_REVISION + ([101, 111, 112].includes(id) ? 4 : 0)
 export const WALL_X = -7
 export const TERRAIN_X0 = -12
 export const CHUNK_LEN = 40
@@ -62,9 +66,19 @@ export const SLED_FRICTION = 0.8
 export const SLED_MASS = 2
 
 /** Mud: drag per (m/s) per kg of vehicle, and how much tire push it takes away (both scaled by how much a tire sinks). */
-export const MUD_DRAG = 7
+export const MUD_DRAG = 2.5
 export const MUD_SLIP = 0.55
 export const ICE_FRICTION = 0.06
+/**
+ * Mud dig-in: holding gas below DIG_SPEED (m/s) in mud spins the tires and digs them in at DIG_RATE per second
+ * (scaled by how badly the tire handles mud). Dig recovers at DIG_SETTLE/s while moving on the gas and DIG_RECOVER/s off it.
+ * A fully dug tire sinks (1 + DIG_SINK) times deeper.
+ */
+export const DIG_SPEED = 3
+export const DIG_RATE = 0.8
+export const DIG_SETTLE = 0.3
+export const DIG_RECOVER = 1.4
+export const DIG_SINK = 2.5
 export const LOG_MASS = 6
 export const PLANK_MASS = 8
 export const PLANK_THICK = 0.24

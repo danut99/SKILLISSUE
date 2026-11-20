@@ -1,5 +1,5 @@
 ﻿import { MAPS } from '../game/maps.ts'
-import type { LevelDef, RunSpec } from '../game/modes.ts'
+import { ACTIVE_LEVELS, type LevelDef, type RunSpec } from '../game/modes.ts'
 import { t } from '../i18n.ts'
 
 export function modeLabel(run: RunSpec): string {
@@ -8,14 +8,21 @@ export function modeLabel(run: RunSpec): string {
   const mapText = `${MAPS[map].emoji} ${t.mapNames[map]}`
   switch (run.kind) {
     case 'endless':
-      return `♾ï¸ ${mapText}`
-    case 'level':
-      return `${t.level} · ${mapText}`
+      return `♾️ ${mapText}`
+    case 'level': {
+      const level = ACTIVE_LEVELS.find((l) => String(l.id) === run.ref)
+      return `${t.level} · ${MAPS[map].emoji} ${level ? levelName(level) : t.mapNames[map]}`
+    }
     case 'pull':
       return `🚜 ${run.mode.kind === 'pull' ? run.mode.load.emoji : ''} ${t.loadNames[run.ref] ?? ''}`
     case 'delivery':
       return `🥚 ${t.route} ${run.ref} · ${mapText}`
   }
+}
+
+/** "Spring 2" for hand-built Spring levels, otherwise the season name. */
+export function levelName(l: LevelDef): string {
+  return l.tier ? `${t.mapNames[l.map]} ${l.tier}` : t.mapNames[l.map]
 }
 
 export const starRow = (n: number) => '★'.repeat(n) + '☆'.repeat(Math.max(0, 3 - n))

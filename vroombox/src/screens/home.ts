@@ -27,7 +27,7 @@ export function homeScreen(vehicle: Vehicle, nav: HomeNav): Screen {
         el('button.btn.secondary.small', { type: 'button', onclick: nav.garage }, t.garage))),
     el('button.btn.secondary', { type: 'button', onclick: nav.workshop }, t.workshop),
     el('div.mode-grid', {},
-      tileButton({ icon: '🏁', title: t.levelsTitle, sub: t.starsOf(stars, 12), onClick: nav.levels }),
+      tileButton({ icon: '🏁', title: t.levelsTitle, sub: t.starsOf(stars, ACTIVE_LEVELS.length * 3), onClick: nav.levels }),
       tileButton({ icon: '∞', title: t.endlessTitle, sub: t.endlessHint, onClick: nav.endless })),
     nav.install ? el('button.btn.secondary', { type: 'button', onclick: nav.install }, t.install) : null,
     el('p.note', {}, t.privacy))) }

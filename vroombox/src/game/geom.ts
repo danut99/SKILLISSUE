@@ -1,5 +1,5 @@
 import { clamp, clipAbove, convexHull, polygonArea, polygonCentroid, simplifyClosed, type Pt } from '../geometry/poly.ts'
-import { MAX_HULL_VERTICES, MAX_WHEEL_RADIUS, MIN_WHEEL_RADIUS, VEHICLE_LENGTH } from './config.ts'
+import { COM_RISE, MAX_HULL_VERTICES, MAX_WHEEL_RADIUS, MIN_WHEEL_RADIUS, VEHICLE_LENGTH } from './config.ts'
 import { chassisMass } from './traits.ts'
 import type { WheelDesign } from './wheelart.ts'
 
@@ -18,7 +18,7 @@ export type VehicleGeom = {
   wheels: { x: number; y: number; r: number; design: WheelDesign }[]
   /** Chassis mass in kg: bigger bodies weigh more. */
   mass: number
-  /** Center of mass used by the physics: between the wheels, at axle height, never above the centroid. */
+  /** Center of mass used by the physics: between the wheels, partway from axle height up to the centroid (COM_RISE). */
   com: Pt
 }
 
@@ -71,8 +71,9 @@ function stableCenter(hull: Pt[], wheels: { x: number; y: number }[]): Pt {
   const minY = Math.min(...ys)
   const axleX = wheels.reduce((s, w) => s + w.x, 0) / wheels.length
   const axleY = wheels.reduce((s, w) => s + w.y, 0) / wheels.length
+  const low = clamp(axleY + 0.15, Math.min(0, minY + 0.1), 0)
   return {
     x: clamp(axleX, minX * 0.5, maxX * 0.5),
-    y: clamp(axleY + 0.15, Math.min(0, minY + 0.1), 0),
+    y: low + (0 - low) * COM_RISE,
   }
 }

@@ -1,4 +1,5 @@
-﻿import { drawBackdrop, drawRockArt, groundTexture } from './art.ts'
+﻿import { drawbridgeSignal, type DrawbridgeSignal } from './gadgets.ts'
+import { drawBackdrop, drawRockArt, groundTexture } from './art.ts'
 import { clamp } from '../geometry/poly.ts'
 import { t } from '../i18n.ts'
 import { geomOf, wheelSpriteOf, type Vehicle } from '../vehicle.ts'
@@ -94,6 +95,7 @@ export class Renderer {
     this.surfaces(g, sim, sx, sy, ppm, x0, x1)
     this.decor(g, sim, sx, sy, ppm, x0, x1, true)
     this.signs(g, sim, sx, sy, ppm, x0, x1)
+    this.bridgeLights(g, sim, sx, sy, ppm, x0, x1)
     this.rocks(g, sim, sx, sy, ppm, x0, x1)
     this.props(g, sim, sx, sy, ppm, x0, x1)
     this.markers(g, sim, sx, sy, ppm, x0, x1, best)
@@ -367,6 +369,33 @@ export class Renderer {
     }
   }
 
+  /** A traffic light at the near end of each drawbridge: green = cross, flashing yellow = about to lift, red = up. */
+  private bridgeLights(g: CanvasRenderingContext2D, sim: Sim, sx: Fn, sy: Fn, ppm: number, x0: number, x1: number) {
+    const signal = drawbridgeSignal(sim.time)
+    const blinkOn = Math.floor(sim.time * 6) % 2 === 0
+    for (const seg of sim.track.segmentsIn(x0 - 5, x1 + 5)) {
+      for (const gd of seg.gadgets ?? []) {
+        if (gd.kind !== 'drawbridge') continue
+        const x = gd.x - 1.6
+        if (x < x0 - 2 || x > x1 + 2) continue
+        const X = sx(x), Y = sy(sim.track.height(x))
+        const w = ppm * 0.55, lamp = ppm * 0.17
+        g.fillStyle = '#374151'
+        g.fillRect(X - ppm * 0.06, Y - ppm * 2.2, ppm * 0.12, ppm * 2.2)
+        g.fillStyle = '#111827'
+        g.beginPath(); g.roundRect(X - w / 2, Y - ppm * 3.75, w, ppm * 1.6, ppm * 0.1); g.fill()
+        const lamps: [DrawbridgeSignal, string, string][] = [['stop', '#ef4444', '#4b1a1a'], ['soon', '#facc15', '#4a3f12'], ['go', '#22c55e', '#123a22']]
+        lamps.forEach(([kind, on, off], i) => {
+          const lit = signal === kind && (kind !== 'soon' || blinkOn)
+          g.fillStyle = lit ? on : off
+          if (lit) { g.shadowColor = on; g.shadowBlur = ppm * 0.5 }
+          g.beginPath(); g.arc(X, Y - ppm * (3.45 - i * 0.5), lamp, 0, Math.PI * 2); g.fill()
+          g.shadowBlur = 0
+        })
+      }
+    }
+  }
+
   /** A little warning sign before mud, ice and bridges, so the player sees what is coming. */
   private signs(g: CanvasRenderingContext2D, sim: Sim, sx: Fn, sy: Fn, ppm: number, x0: number, x1: number) {
     for (const segment of sim.track.segmentsIn(x0 - 25, x1 + 25)) {
@@ -379,7 +408,7 @@ export class Renderer {
       g.fillStyle = '#62412a'; g.font = `800 ${Math.round(ppm * .33)}px system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle'
       g.fillText('≋', X, Y - ppm * 1.78)
     }
-    const icon: Partial<Record<FeatureKind, string>> = { gap: '↗', mud: '🟤', snow: '❄ï¸', pothole: '⚠ï¸', ice: '🧊', bridge: '🌉' }
+    const icon: Partial<Record<FeatureKind, string>> = { gap: '↗', mud: '🟤', snow: '❄️', pothole: '⚠️', ice: '🧊', bridge: '🌉' }
     for (const seg of sim.track.segmentsIn(x0, x1 + 8)) {
       for (const f of seg.features) {
         const ch = icon[f.kind]
@@ -405,15 +434,60 @@ export class Renderer {
     }
   }
 
-  /** Logs and bridge planks (physics bodies). */
+  /** Physics props: logs, planks, barrels, seesaw stands and built ramps. */
   private props(g: CanvasRenderingContext2D, sim: Sim, sx: Fn, sy: Fn, ppm: number, x0: number, x1: number) {
     for (const p of sim.props) {
       const pos = p.body.getPosition()
-      if (pos.x < x0 - 2 || pos.x > x1 + 2) continue
+      if (pos.x < x0 - 16 || pos.x > x1 + 16) continue
       g.save()
       g.translate(sx(pos.x), sy(pos.y))
       g.rotate(-p.body.getAngle())
-      if (p.kind === 'log') {
+      g.translate((p.ox ?? 0) * ppm, -(p.oy ?? 0) * ppm)
+      if (p.kind === 'barrel') {
+        const R = p.w * ppm
+        g.fillStyle = '#b5652b'
+        g.beginPath(); g.arc(0, 0, R, 0, Math.PI * 2); g.fill()
+        g.strokeStyle = '#5d6168'
+        g.lineWidth = Math.max(1.5, R * 0.14)
+        g.stroke()
+        g.beginPath(); g.arc(0, 0, R * 0.55, 0, Math.PI * 2); g.stroke()
+        g.strokeStyle = '#7a4019'
+        g.lineWidth = Math.max(1, R * 0.08)
+        for (const a of [0, Math.PI / 2]) { g.beginPath(); g.moveTo(Math.cos(a) * R * 0.55, Math.sin(a) * R * 0.55); g.lineTo(-Math.cos(a) * R * 0.55, -Math.sin(a) * R * 0.55); g.stroke() }
+      } else if (p.kind === 'kicker') {
+        // A built wooden ramp: slanted deck boards over upright posts. Drawn rising left to right, mirrored for landings.
+        const L = p.w * ppm, H = p.h * ppm
+        if (p.flip) { g.translate(L, 0); g.scale(-1, 1) }
+        g.fillStyle = '#6d4724'
+        for (let k = 1; k <= 3; k++) { const x = (L * k) / 4; g.fillRect(x - ppm * 0.05, -(H * k) / 4, ppm * 0.1, (H * k) / 4) }
+        g.fillRect(L - ppm * 0.12, -H, ppm * 0.12, H)
+        g.strokeStyle = '#6d4724'
+        g.lineWidth = Math.max(1, ppm * 0.06)
+        g.beginPath(); g.moveTo(0, 0); g.lineTo(L, 0); g.stroke()
+        g.beginPath(); g.moveTo(L * 0.25, 0); g.lineTo(L * 0.75, -H * 0.75); g.moveTo(L * 0.75, 0); g.lineTo(L * 0.5, -H * 0.5); g.stroke()
+        const deck = Math.max(3, ppm * 0.16)
+        const angle = Math.atan2(H, L)
+        g.save()
+        g.rotate(-angle)
+        const run = Math.hypot(L, H)
+        g.fillStyle = '#c68b4e'
+        g.fillRect(0, -deck, run, deck)
+        g.strokeStyle = '#8a5a2b'
+        g.lineWidth = Math.max(1, ppm * 0.03)
+        g.strokeRect(0, -deck, run, deck)
+        for (let x = ppm * 0.4; x < run; x += ppm * 0.4) { g.beginPath(); g.moveTo(x, -deck); g.lineTo(x, 0); g.stroke() }
+        g.restore()
+        g.fillStyle = '#e63946'
+        g.fillRect(L - ppm * 0.14, -H - ppm * 0.06, ppm * 0.16, ppm * 0.12)
+      } else if (p.kind === 'fulcrum') {
+        const W = p.w * ppm, H = p.h * ppm
+        g.fillStyle = '#7a5530'
+        g.strokeStyle = '#4a3018'
+        g.lineWidth = Math.max(1, ppm * 0.05)
+        g.beginPath(); g.moveTo(-W / 2, 0); g.lineTo(W / 2, 0); g.lineTo(0, -H); g.closePath(); g.fill(); g.stroke()
+        g.fillStyle = '#4a3018'
+        g.beginPath(); g.arc(0, -H, ppm * 0.12, 0, Math.PI * 2); g.fill()
+      } else if (p.kind === 'log') {
         const R = p.w * ppm
         g.fillStyle = '#8d5a2b'
         g.beginPath()

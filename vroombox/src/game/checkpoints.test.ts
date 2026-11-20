@@ -11,9 +11,8 @@ describe('level checkpoints', () => {
  for(const level of ACTIVE_LEVELS) {
   it(`keeps ${level.map} checkpoint approaches clear and spawns safely`,()=>{
    const run=levelRun(level), track=new Track(run.track)
-   expect(level.length).toBe(480)
-   expect(run.track.checkpoints).toEqual([100,200,300,400])
-   const segments=[...track.segmentsIn(0,480)]
+   expect(run.track.checkpoints).toEqual(Array.from({length:Math.ceil(level.length/100)-1},(_,i)=>(i+1)*100))
+   const segments=[...track.segmentsIn(0,level.length)]
    for(const distance of run.track.checkpoints!) {
     const x=START_X+distance
     expect(segments.flatMap(s=>s.features).every(f=>f.x+f.len<x-5||f.x>x+5)).toBe(true)

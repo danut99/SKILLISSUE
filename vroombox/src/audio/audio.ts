@@ -217,6 +217,12 @@ export function sfxPickup(): void {
   tone(520, 780, 0, 0.18, 0.25, 'triangle')
 }
 
+/** Drawbridge warning: two quick beeps before it lifts, a low tone as it goes up. */
+export function sfxBridgeWarn(lifting: boolean): void {
+  if (lifting) tone(330, 220, 0, 0.35, 0.22, 'triangle')
+  else [0, 0.16].forEach((at) => tone(880, 880, at, 0.1, 0.18, 'square'))
+}
+
 export function sfxCrack(): void {
   noiseHit(0.12, 0.6, 3000, 600)
 }

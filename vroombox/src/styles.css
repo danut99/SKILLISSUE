@@ -1197,3 +1197,14 @@ body {
 .upgrade-comparison { margin: 10px 0; font-size: 13px; line-height: 1.6; color: #edf1ff; }
 .upcard .upinfo { min-width: 0; }
 .upcard .upinfo .btn { white-space: normal; margin-top: 6px; }
+
+.dyno { align-self: stretch; margin: 6px 0 12px; padding: 12px 14px; border-radius: 14px; background: #ffffff14; color: #edf1ff; font-size: 14px; line-height: 1.7; }
+.dyno-row { display: flex; align-items: baseline; gap: 6px; }
+.dyno-label { flex: 1; }
+.dyno-value { font-weight: 800; font-variant-numeric: tabular-nums; }
+.dyno-value.gain { color: #7ee081; }
+.dyno-arrow { opacity: .7; }
+.atelier-tabs { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.atelier-tabs .btn.active { background: var(--yellow); color: #222; }
+.atelier-level { width: 160px; align-self: center; }
+.atelier-race { width: 100%; max-width: 640px; aspect-ratio: 640 / 184; border-radius: 14px; background: #00000033; }

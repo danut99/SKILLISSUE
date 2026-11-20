@@ -48,14 +48,11 @@ describe('speed, wheel size and long jumps',()=>{
   expect(crossing(90,'offroad').distance).toBeLessThan(340)
  })
  it('reserves a runway and landing for the summer jump and keeps it out of the other courses',()=>{
-  for(const level of ACTIVE_LEVELS){
+  // Spring levels are hand-built; springCourses.test.ts covers their jumps.
+  for(const level of ACTIVE_LEVELS.filter(l=>!l.course)){
    const track=new Track(levelRun(level).track)
    const segments=[...track.segmentsIn(300,360)]
    const gap=segments.flatMap(s=>s.features).find(f=>f.kind==='gap')!
-   if(level.map === 'farm') {
-     expect(gap.gapWidth).toBe(8)
-     continue
-   }
    if(level.map !== 'desert') {
      expect(gap).toBeUndefined()
      continue

@@ -1,5 +1,5 @@
 ﻿import { registerSW } from 'virtual:pwa-register'
-import { ACTIVE_LEVELS, levelRun, provingGroundRun, type RunSpec } from './game/modes.ts'
+import { ACTIVE_LEVELS, levelRun, type RunSpec } from './game/modes.ts'
 import { lang, randomName, t } from './i18n.ts'
 import { progress, recordRun, saveProgress, upgradesFor } from './progress.ts'
 import { sampleVehicles } from './samples.ts'
@@ -7,7 +7,8 @@ import { drawScreen, newSketch, sketchOf, type Sketch } from './screens/draw.ts'
 import { driveScreen, type DriveResume } from './screens/drive.ts'
 import { engineScreen } from './screens/engine.ts'
 import { garageScreen } from './screens/garage.ts'
-import type { Upgrades } from './game/upgrades.ts'
+import { atelierScreen } from './screens/atelier.ts'
+import type { UpgradeKey } from './game/upgrades.ts'
 import { workshopScreen } from './screens/workshop.ts'
 import { homeScreen } from './screens/home.ts'
 import { endlessScreen, levelsScreen } from './screens/modes.ts'
@@ -141,14 +142,8 @@ const go = {
       true,
     )
   },
-  workshop() { show(workshopScreen(vehicle, { back: go.garage, test: go.testDrive })) },
-  testDrive(setup: Upgrades) {
-    const run=provingGroundRun()
-    const current=upgradesFor(vehicle.id)
-    const changed=(['engine','tires','suspension'] as const).find(key=>setup[key]!==current[key])
-    run.testLabel=changed ? t.previewSetup(t.upgradeNames[changed],setup[changed]) : t.testCurrent
-    show(driveScreen(vehicle,run,{menu:go.workshop,finish:recordRun,play:()=>go.testDrive(setup)},undefined,setup))
-  },
+  workshop() { show(workshopScreen(vehicle, { back: go.garage, atelier: go.atelier })) },
+  atelier(key: UpgradeKey) { show(atelierScreen(vehicle, key, { back: go.workshop })) },
   garage() {
     show(
       garageScreen(vehicle.id, {

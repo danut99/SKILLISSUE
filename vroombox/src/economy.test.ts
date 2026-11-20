@@ -20,8 +20,9 @@ describe('garage economy',()=>{
    expect(recordRun({...o,resumed:true}).coins).toBe(150)
    expect(recordRun({...o,resumed:true}).coins).toBe(0)
    expect(recordRun(o).coins).toBe(20)
-   expect(recordRun({...o,stars:3,time:30}).coins).toBe(80)
-   expect(recordRun({...o,stars:3,time:30,resumed:true}).coins).toBe(0)
+   const all=ACTIVE_LEVELS[0].stars.length
+   expect(recordRun({...o,stars:all,time:30}).coins).toBe(80)
+   expect(recordRun({...o,stars:all,time:30,resumed:true}).coins).toBe(0)
   }finally{Object.assign(progress,before)}
  })
  it('buys three levels per vehicle, preserves edits and rejects unaffordable purchases',()=>{

@@ -1,4 +1,5 @@
-﻿import { MAP_ORDER, type MapId } from './maps.ts'
+﻿import { SPRING_COURSES, type CourseId } from './springCourses.ts'
+import { MAP_ORDER, type MapId } from './maps.ts'
 import type { ModeSpec, PullLoad } from './sim.ts'
 import { Track, type TrackSpec } from './track.ts'
 
@@ -19,6 +20,9 @@ export type LevelDef = {
   goal: LevelGoal
   /** The last level of each map: longer, more and bigger hazards. */
   boss: boolean
+  /** Hand-built course and its difficulty (1 easy .. 3 hard). */
+  course?: CourseId
+  tier?: 1 | 2 | 3
 }
 export type RouteDef = { id: number; map: MapId; length: number; eggs: number; difficulty: number; seed: number }
 
@@ -62,16 +66,24 @@ export const LEVELS: LevelDef[] = (['farm', 'desert', 'snow', 'moon'] as MapId[]
   }),
 )
 
-/** One approachable course per season, with separate records from the legacy campaign. */
-export const ACTIVE_LEVELS: LevelDef[] = [LEVELS[0], LEVELS[5], LEVELS[15], LEVELS[10]].map((level, index) => ({
-  ...level, id: 101 + index, length: 480, difficulty: 0.18, par: index === 0 ? 55 : 100, boss: false,
-  stars: starSpots(480), goal: { kind: 'par' },
-}))
+/** Spring level ids, easy to hard (101 keeps the first slot; records are separate from the legacy campaign). */
+export const SPRING_IDS = [101, 111, 112]
+
+/** Three hand-built Spring levels (easy to hard), then one approachable course per other season. */
+export const ACTIVE_LEVELS: LevelDef[] = [
+  ...SPRING_COURSES.map((c, index): LevelDef => ({
+    ...LEVELS[0], id: SPRING_IDS[index], length: c.length, difficulty: 0.18, par: c.par, boss: false,
+    stars: c.stars.map((s) => s.x), goal: { kind: 'par' }, course: c.id, tier: c.tier,
+  })),
+  ...[LEVELS[5], LEVELS[15], LEVELS[10]].map((level, index) => ({
+    ...level, id: 102 + index, length: 480, difficulty: 0.18, par: 100, boss: false, stars: starSpots(480), goal: { kind: 'par' } as const,
+  })),
+]
 
 export const PULL_LOADS: PullLoad[] = [
   { id: 'piano', emoji: '🎹', base: 40, growth: 60 },
   { id: 'cow', emoji: '🐄', base: 69, growth: 60 },
-  { id: 'sofa', emoji: '🛋ï¸', base: 92, growth: 80 },
+  { id: 'sofa', emoji: '🛋️', base: 92, growth: 80 },
   { id: 'whale', emoji: '🐋', base: 100, growth: 80 },
   { id: 'house', emoji: '🏠', base: 100, growth: 80 },
 ]
@@ -94,7 +106,7 @@ export function endlessRun(map: MapId): RunSpec {
 }
 
 function levelTrack(l: Omit<LevelDef, 'goal'>): TrackSpec {
-  return { firstCourse: l.id === 101, map: l.map, seed: l.seed, finish: l.length, difficulty: l.difficulty, growth: null, stars: l.stars, fuelEvery: 120, coins: l.id < 100, boss: l.boss, checkpoints: l.id >= 100 ? [100, 200, 300, 400] : undefined }
+  return { course: l.course, map: l.map, seed: l.seed, finish: l.length, difficulty: l.difficulty, growth: null, stars: l.stars, fuelEvery: 120, coins: l.id < 100, boss: l.boss, checkpoints: l.id >= 100 ? Array.from({ length: Math.ceil(l.length / 100) - 1 }, (_, i) => (i + 1) * 100) : undefined }
 }
 
 export function levelRun(l: LevelDef): RunSpec {

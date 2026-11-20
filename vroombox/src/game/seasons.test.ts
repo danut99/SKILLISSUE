@@ -13,13 +13,16 @@ const car = (design: WheelDesign, radius = 55) => buildGeom({ width: 320, height
   outline: [{ x: 0, y: 0 }, { x: 320, y: 0 }, { x: 320, y: 120 }, { x: 0, y: 120 }],
   wheels: [{ x: 60, y: 115, r: radius, design }, { x: 260, y: 115, r: radius, design }] })
 
+// One level per season: the first Spring level stands in for spring (springCourses.test.ts covers all three).
+const SEASON_LEVELS = ACTIVE_LEVELS.filter((l) => (l.tier ?? 1) === 1)
+
 describe('seasonal drawing and driving', () => {
   it('offers one extended level and an infinite track per season, without coin pickups', () => {
-    expect(ACTIVE_LEVELS.map((level) => level.map)).toEqual(MAP_ORDER)
-    expect(new Set(ACTIVE_LEVELS.map((level) => level.id)).size).toBe(4)
+    expect(SEASON_LEVELS.map((level) => level.map)).toEqual(MAP_ORDER)
+    expect(new Set(ACTIVE_LEVELS.map((level) => level.id)).size).toBe(ACTIVE_LEVELS.length)
     for (const level of ACTIVE_LEVELS) {
       expect(levelRun(level).track.coins).toBe(false)
-      expect(levelRun(level).track.finish).toBe(480)
+      expect(levelRun(level).track.finish).toBe(level.length)
       expect(endlessRun(level.map).track.finish).toBeNull()
       expect(endlessRun(level.map).track.coins).toBe(false)
       expect(MAPS[level.map].gravity).toBe(-10)
@@ -44,7 +47,7 @@ describe('seasonal drawing and driving', () => {
   })
   it('gives each short course one distinct physical landmark and a clear landing/finish', () => {
     const names = ['spring-creek', 'summer-jump', 'autumn-log', 'winter-slide']
-    for (const [index, level] of ACTIVE_LEVELS.entries()) {
+    for (const [index, level] of SEASON_LEVELS.entries()) {
       const track = new Track(levelRun(level).track)
       const segments = [...track.segmentsIn(0, 320)]
       const landmarks = segments.flatMap((s) => s.features).filter((f) => f.landmark)
@@ -62,7 +65,7 @@ describe('seasonal drawing and driving', () => {
     }
   })
   it('builds mixed-size rock clusters and keeps the finish approach clear', () => {
-    for (const level of ACTIVE_LEVELS) {
+    for (const level of SEASON_LEVELS) {
       const track = new Track(levelRun(level).track)
       const garden = track.segment(0).rocks.filter((rock) => rock.x >= 83 && rock.x <= 94)
       expect(garden.length).toBeGreaterThanOrEqual(3)
@@ -72,14 +75,8 @@ describe('seasonal drawing and driving', () => {
       if (soft) expect(track.softDepthAt(soft.x + soft.len / 2)).toBeGreaterThan(track.softDepthAt(soft.x + 1) * 2)
     }
   })
-  it('lets a small balanced build finish the introductory course without upgrades', () => {
-    const sim = new Sim({geom:car('classic',40),...levelRun(ACTIVE_LEVELS[0])})
-    for(let n=0;n<100/DT&&!sim.ended;n++) {const a=sim.chassis.getAngle();sim.step(sim.airborne?{gas:a<-.25,brake:a>.25}:{gas:a<1,brake:false})}
-    expect(sim.ended).toBe('finish')
-    expect(sim.stars).toBe(3)
-    expect(sim.time).toBeLessThanOrEqual(ACTIVE_LEVELS[0].par)
-  })
-  for (const level of ACTIVE_LEVELS) {
+  // Spring is built to defeat a held gas pedal; springCourses.test.ts covers it with careful and full-gas drivers.
+  for (const level of ACTIVE_LEVELS.filter((l) => l.map !== 'farm')) {
     it(`can earn all three stars with one vehicle in ${level.map}`, () => {
       const design = { farm: 'classic', desert: 'sport', moon: 'offroad', snow: 'classic' } as const
       const radius = { farm: 40, desert: 55, moon: 65, snow: 65 }

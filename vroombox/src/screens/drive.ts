@@ -1,7 +1,9 @@
-﻿import { audio, createEngine, sfxCoin, sfxCrack, sfxCrash, sfxLand, sfxPickup, sfxWin, type EngineSound } from '../audio/audio.ts'
+﻿import { audio, createEngine, sfxBridgeWarn, sfxCoin, sfxCrack, sfxCrash, sfxLand, sfxPickup, sfxWin, type EngineSound } from '../audio/audio.ts'
+import { drawbridgeSignal, type DrawbridgeSignal } from '../game/gadgets.ts'
 import { CLIP_GAME_VIEW, CLIP_H, CLIP_W, ClipRecorder, clipSupported, drawClipFrame, shareOrSave, type Clip, type ClipInfo } from '../clip/clip.ts'
 import {failureDiagnosis} from '../game/failureDiagnosis.ts'
 import * as C from '../game/config.ts'
+import { COURSES } from '../game/springCourses.ts'
 import { ACTIVE_LEVELS, goalMet, type RunSpec } from '../game/modes.ts'
 import { Camera, Renderer, type View } from '../game/render.ts'
 import { decodeInput, encodeInput, NO_INPUT, Sim, type EndKind, type Input } from '../game/sim.ts'
@@ -119,7 +121,7 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
   const gasBtn = el('button.pedal.gas', { type: 'button' }, t.gas)
   const brakeBtn = el('button.pedal.brake', { type: 'button' }, t.brake)
   const pauseBtn = el('button.topbtn.pausebtn', { type: 'button', onclick: () => pauseRun(), title: t.paused, ariaLabel: t.paused }, t.pause)
-  const checkpointRetryBtn = el('button.checkpoint-retry', { type: 'button', hidden: !run.track.firstCourse, onclick: () => startRun(), ariaLabel: t.retryAt(checkpoint) }, '↺')
+  const checkpointRetryBtn = el('button.checkpoint-retry', { type: 'button', hidden: !run.track.course, onclick: () => startRun(), ariaLabel: t.retryAt(checkpoint) }, '↺')
   const soundBtn = el('button.topbtn.soundbtn', { type: 'button', onclick: () => { audio.toggleMute(); updateSound() } })
   function updateSound() { soundBtn.textContent = audio.muted ? '🔇' : '🔊'; soundBtn.setAttribute('aria-label', audio.muted ? t.soundOff : t.soundOn) }
   updateSound()
@@ -188,6 +190,7 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
   window.addEventListener('blur', pauseRun)
   document.addEventListener('visibilitychange', onVisibility)
   let lowFuelWarned = false
+  let bridgeSignal: DrawbridgeSignal = 'go'
   let result: { overlay: HTMLElement; cancel(): void } | null = null
   let wakeLock: { release(): Promise<void> } | null = null
   const hudText = { main: '', coins: '', extra: '', speed: '', hint: '' }
@@ -209,7 +212,9 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
     if (hasCheckpoints) {
       const x = sim.chassis.getPosition().x
       let message = run.testDrive ? t.testDriveFree : sim.time < 4 ? (resumed ? t.checkpointFinishHint : t.levelCheckpointHint) : ''
-      for (const segment of sim.track.segmentsIn(x - 40, x + 20)) {
+      const springSection = run.track.course ? COURSES[run.track.course].sections.find((s) => x - C.START_X + 12 >= s.from && x - C.START_X < s.to) : undefined
+      if (springSection) message = t.springHints[springSection.skill]
+      else if (!run.track.course) for (const segment of sim.track.segmentsIn(x - 40, x + 20)) {
         if (segment.logs.some(log => log.crossing && x >= log.x - 14 && x < log.x + 6)) message = t.logCrossingHint
         const gap = segment.features.find(f => f.kind === 'gap' && x >= f.x - 16 && x < f.x + f.len)
         if (gap) message = gap.gapWidth === 8 ? t.firstJumpHint : t.jumpHint
@@ -379,6 +384,7 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
       }
     }
     if (steps === MAX_STEPS_PER_FRAME) acc = 0
+    warnDrawbridge()
     if (input.gas) hint.hidden = true
 
     const powered = sim.engineOn && (input.gas || input.brake)
@@ -389,6 +395,15 @@ export function driveScreen(vehicle: Vehicle, run: RunSpec, nav: DriveNav, resum
     renderer.draw(g, view, cam, sim, run.kind === 'endless' ? best : 0, dt, input.gas ? 1 : 0, ghostSim)
     updateHud()
     if (running) raf = requestAnimationFrame(frame)
+  }
+
+  /** Beeps when a nearby drawbridge's light turns yellow, and a low tone as it lifts. */
+  function warnDrawbridge() {
+    const x = sim.chassis.getPosition().x
+    const near = [...sim.track.segmentsIn(x - 15, x + 45)].some((s) => s.gadgets?.some((g) => g.kind === 'drawbridge' && x > g.x - 45 && x < g.x + g.len))
+    const signal = drawbridgeSignal(sim.time)
+    if (near && signal !== bridgeSignal && signal !== 'go') sfxBridgeWarn(signal === 'stop')
+    bridgeSignal = signal
   }
 
   function end(kind: EndKind) {
