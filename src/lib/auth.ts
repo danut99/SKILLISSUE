@@ -5,6 +5,7 @@ import { usePlayer, type ServerState } from './store';
 import { toast, useUi } from './ui';
 import { bindPlayerIdentity } from './playerIdentity';
 import { tag, track } from './clarity';
+import { clearPending } from './pendingAttempts';
 
 /**
  * Identity model (like Krillion):
@@ -107,6 +108,41 @@ function storedSessionIsGuest(): boolean {
   }
 }
 
+type Supabase = NonNullable<Awaited<ReturnType<typeof getSupabase>>>;
+
+const LOGIN_EXPIRED = 'Your login expired. Log in again to keep saving to your account.';
+const RETRY_DELAYS_S = [5, 15, 30, 60, 120, 300];
+let retryable = false;
+let retryCount = 0;
+let retryTimer: ReturnType<typeof setTimeout> | undefined;
+let connecting = false;
+let listening = false;
+let signingOut = false;
+const connectedTasks: Array<() => Promise<unknown>> = [];
+
+/**
+ * Runs after every successful (re)connect, before the server state sync — e.g. uploading tries
+ * played offline. Tasks run inside whenAuthReady(), so they must not wait for it.
+ */
+export function onConnected(task: () => Promise<unknown>) {
+  connectedTasks.push(task);
+}
+
+async function runConnectedTasks() {
+  for (const task of connectedTasks) {
+    try {
+      await task();
+    } catch (e) {
+      console.warn('post-connect task failed', e);
+    }
+  }
+}
+
+async function afterConnect() {
+  await runConnectedTasks();
+  await syncFromServer();
+}
+
 let ready: Promise<void> | null = null;
 
 /** Resolves once we know who the player is (or that we're offline). */
@@ -122,41 +158,100 @@ async function init() {
     return;
   }
   readUrlError();
-  const wasGuest = storedSessionIsGuest();
-  const restored = await sb.auth.getSession();
-  if (restored.error) {
-    console.warn('Session restore failed', restored.error);
-    track('auth_restore_failed');
-    tag('auth_error', authErrorLabel(restored.error));
-    // A guest whose anonymous user was deleted (empty-account cleanup) can safely start over.
-    // Never replace a real account, and never give up on a session over a network hiccup.
-    if (!wasGuest || !isDeadSession(restored.error)) {
-      useAuth.setState({ status: 'error' });
-      return;
+  if (typeof window.addEventListener === 'function') window.addEventListener('online', retryNow);
+  if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => document.visibilityState === 'visible' && retryNow());
+  if (await connect(sb)) await afterConnect();
+}
+
+/** Restores the session or starts a guest. Returns false (status 'error') when that's not possible yet. */
+async function connect(sb: Supabase): Promise<boolean> {
+  connecting = true;
+  try {
+    const wasGuest = storedSessionIsGuest();
+    const restored = await sb.auth.getSession();
+    if (restored.error) {
+      console.warn('Session restore failed', restored.error);
+      track('auth_restore_failed');
+      tag('auth_error', authErrorLabel(restored.error));
+      // A guest whose anonymous user was deleted (empty-account cleanup) can safely start over.
+      // Never replace a real account, and never give up on a session over a network hiccup.
+      if (!wasGuest || !isDeadSession(restored.error)) {
+        if (isDeadSession(restored.error)) toast(LOGIN_EXPIRED);
+        return fail(restored.error);
+      }
+      track('auth_guest_recreated');
     }
-    track('auth_guest_recreated');
-  }
-  let user = restored.data.session?.user ?? null;
-  if (!user) {
-    const { data, error } = await sb.auth.signInAnonymously();
-    if (error) {
-      console.warn('Anonymous sign-in failed → offline mode', error);
-      track('auth_failed');
-      tag('auth_error', authErrorLabel(error));
-      useAuth.setState({ status: 'error' });
-      return;
+    let user = restored.data.session?.user ?? null;
+    if (!user) {
+      const { data, error } = await sb.auth.signInAnonymously();
+      if (error || !data.user) {
+        console.warn('Anonymous sign-in failed → offline mode', error);
+        track('auth_failed');
+        tag('auth_error', error ? authErrorLabel(error) : 'no_user');
+        return fail(error ?? {});
+      }
+      user = data.user;
     }
-    user = data.user;
+    retryable = false;
+    retryCount = 0;
+    clearTimeout(retryTimer);
+    applyUser(user);
+    listen(sb);
+    return true;
+  } finally {
+    connecting = false;
   }
-  applyUser(user);
-  sb.auth.onAuthStateChange((_event, session) => {
+}
+
+/** Network, rate-limit and server errors are retried with backoff; a rejected session is not. */
+function fail(error: AuthErrorInfo): false {
+  retryable = !isDeadSession(error);
+  useAuth.setState({ status: 'error' });
+  clearTimeout(retryTimer);
+  if (retryable && retryCount < RETRY_DELAYS_S.length) retryTimer = setTimeout(() => void reconnect(), RETRY_DELAYS_S[retryCount++] * 1000);
+  return false;
+}
+
+/** Try to get online again after a temporary failure (also used by the "retry" button). */
+export const canReconnect = () => retryable && useAuth.getState().status === 'error';
+
+export async function reconnect() {
+  if (connecting || !canReconnect()) return;
+  clearTimeout(retryTimer);
+  const sb = await getSupabase();
+  if (sb && (await connect(sb))) await afterConnect();
+}
+
+function retryNow() {
+  if (useAuth.getState().status === 'error') void reconnect();
+  else if (isOnline()) void runConnectedTasks();
+}
+
+function listen(sb: Supabase) {
+  if (listening) return;
+  listening = true;
+  sb.auth.onAuthStateChange((event, session) => {
     const prev = useAuth.getState().userId;
     const prevStatus = useAuth.getState().status;
     applyUser(session?.user ?? null);
+    if (connecting) return; // connect() finishes the job itself
     // never await Supabase calls inside this callback (SDK deadlock) → defer
-    if (session?.user && (session.user.id !== prev || useAuth.getState().status !== prevStatus)) setTimeout(() => void syncFromServer(), 0);
+    if (event === 'SIGNED_OUT' && !signingOut) setTimeout(() => void recoverFromSignOut(prevStatus), 0);
+    else if (session?.user && (session.user.id !== prev || useAuth.getState().status !== prevStatus)) setTimeout(() => void afterConnect(), 0);
   });
-  await syncFromServer();
+}
+
+/** The session died mid-visit (refresh token rejected, e.g. the guest was deleted). */
+async function recoverFromSignOut(prevStatus: AuthStatus) {
+  if (prevStatus === 'linked') {
+    retryable = false;
+    useAuth.setState({ status: 'error' });
+    toast(LOGIN_EXPIRED);
+    return;
+  }
+  track('auth_guest_recreated');
+  const sb = await getSupabase();
+  if (sb && (await connect(sb))) await afterConnect();
 }
 
 export async function connectGoogle() {
@@ -205,15 +300,22 @@ export async function signOut() {
   if (!sb) return;
   window.google?.accounts.id.disableAutoSelect();
   sessionStorage.setItem('skillissue:one-tap-shown', '1');
-  const { error: signOutError } = await sb.auth.signOut();
-  if (signOutError) { toast('Could not sign out. Please try again.'); return; }
-  applyUser(null);
-  const { data, error } = await sb.auth.signInAnonymously();
-  if (error) {
-    useAuth.setState({ status: 'error' });
-    return;
+  signingOut = true;
+  try {
+    const { error: signOutError } = await sb.auth.signOut();
+    if (signOutError) { toast('Could not sign out. Please try again.'); return; }
+    // Offline tries belong to the account that just left.
+    clearPending();
+    applyUser(null);
+    const { data, error } = await sb.auth.signInAnonymously();
+    if (error) {
+      fail(error);
+      return;
+    }
+    applyUser(data.user);
+  } finally {
+    signingOut = false;
   }
-  applyUser(data.user);
   useUi.getState().refreshBoards();
   toast('Signed out. Fresh anonymous player 👻');
 }

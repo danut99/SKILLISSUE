@@ -4,7 +4,8 @@ import { fetchAllTimeBoard, fetchBoard, fetchLevelBoard, type Board } from '../l
 import { fmtResult } from '../lib/scoring';
 import { useUi } from '../lib/ui';
 import { fetchFriendsBoard } from '../lib/friends';
-import { useAuth } from '../lib/auth';
+import { canReconnect, reconnect, useAuth } from '../lib/auth';
+import { isSupabaseConfigured } from '../lib/supabase';
 import { PixelIcon, type PixelIconName } from './PixelIcon';
 
 const PODIUM_CROWNS: PixelIconName[] = ['crown-gold', 'crown-silver', 'crown-bronze'];
@@ -30,6 +31,7 @@ export function Leaderboard({ mode, date, title, onLoad, scope = 'global' }: Pro
   const version = useUi((s) => s.boardVersion);
   const setRank = useUi((s) => s.setRank);
   const userId = useAuth((s) => s.userId);
+  const authStatus = useAuth((s) => s.status);
   const requestKey = `${date}:${mode}:${scope}:${period}:${version}:${userId}`;
   const [result, setResult] = useState<{ key: string; board: Board | null; error?: string } | null>(null);
   const board = result?.key === requestKey ? result.board : null;
@@ -124,7 +126,9 @@ export function Leaderboard({ mode, date, title, onLoad, scope = 'global' }: Pro
         </table>
       )}
       {board?.myRank && <div className="lb-you">▶ you're <b>#{board.myRank}</b> {period === 'daily' ? 'today' : period === 'levels' ? 'in levels' : 'all-time'}</div>}
-      {board?.source === 'demo' && <div className="lb-note">demo board (bots + you) — connect Supabase for the real global one</div>}
+      {board?.source === 'demo' && (isSupabaseConfigured()
+        ? <div className="lb-note">📴 offline: practice board. Your scores stay on this device and upload when you reconnect. {authStatus === 'error' && canReconnect() && <button type="button" className="lb-retry" onClick={() => void reconnect()}>retry</button>}</div>
+        : <div className="lb-note">demo board (bots + you) — connect Supabase for the real global one</div>)}
     </div>
   );
 }

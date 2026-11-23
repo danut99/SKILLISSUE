@@ -165,7 +165,7 @@ grant execute on function public.get_leaderboard(text) to anon, authenticated;
 ================================================================================
 */
 import { type BoardMode, type Mode, MODES } from '../config';
-import { isOnline, syncFromServer, useAuth, whenAuthReady } from './auth';
+import { isOnline, onConnected, syncFromServer, useAuth, whenAuthReady } from './auth';
 import { rngFor } from './daily';
 import { brakeScore } from './brakeChallenge';
 import { round2 } from './geometry';
@@ -315,6 +315,8 @@ function mockSubmitAll(date: string, nickname: string) {
 
 import { validNickname } from './nickname';
 import { tag } from './clarity';
+import { flushPending, queueAttempt, readPending, type PendingAttempt, type SendResult } from './pendingAttempts';
+import { toast, useUi } from './ui';
 
 let nameClaimedFor: string | null = null;
 
@@ -334,27 +336,73 @@ export async function ensureNickname() {
   }
 }
 
-/** Store a finished try (always auto-submitted). Online: server enforces the daily limit. */
-export async function recordAttempt(date: string, mode: Mode, a: Attempt): Promise<'ok' | 'no_tries_left' | 'error'> {
+/** Store a finished try (always auto-submitted). Online: server enforces the daily limit.
+ * 'queued': the server was unreachable, so the try is kept on this device and uploaded on reconnect. */
+export async function recordAttempt(date: string, mode: Mode, a: Attempt): Promise<'ok' | 'no_tries_left' | 'queued'> {
+  keepStorage();
   await whenAuthReady();
   const sb = await getSupabase();
-  if (sb && isOnline()) {
-    await ensureNickname();
-    const { error } = await sb.rpc('record_attempt', { p_mode: mode, p_score: round2(a.score), p_detail: a.detail });
-    if (!error) return 'ok';
-    console.warn('record_attempt failed', error);
-    return error.message.includes('no_tries_left') ? 'no_tries_left' : 'error';
+  if (!sb) {
+    const { nickname } = usePlayer.getState();
+    if (nickname) mockSubmitAll(date, nickname);
+    return 'ok';
   }
+  if (isOnline()) {
+    await uploadPendingAttempts();
+    const r = await sendAttempt({ date, mode, attempt: a });
+    if (r === 'ok') return 'ok';
+    if (r === 'drop') return 'no_tries_left';
+  }
+  queueAttempt(date, mode, a);
   const { nickname } = usePlayer.getState();
   if (nickname) mockSubmitAll(date, nickname);
-  return 'ok';
+  return 'queued';
+}
+
+async function sendAttempt({ mode, attempt }: PendingAttempt): Promise<SendResult> {
+  const sb = await getSupabase();
+  if (!sb || !isOnline()) return 'retry';
+  try {
+    await ensureNickname();
+    const { error } = await sb.rpc('record_attempt', { p_mode: mode, p_score: round2(attempt.score), p_detail: attempt.detail });
+    if (!error) return 'ok';
+    console.warn('record_attempt failed', error);
+    // The server will never accept these; anything else (network, 5xx) is worth another try.
+    return /no_tries_left|bad_score|bad_mode/.test(error.message) ? 'drop' : 'retry';
+  } catch (e) {
+    console.warn('record_attempt failed', e);
+    return 'retry';
+  }
+}
+
+/** Upload tries played while offline (runs on every reconnect and before each new online try). */
+export async function uploadPendingAttempts() {
+  if (!readPending().length) return;
+  const sent = await flushPending(sendAttempt);
+  if (sent > 0) {
+    toast(`Back online ✅ ${sent} offline ${sent === 1 ? 'score' : 'scores'} uploaded`);
+    useUi.getState().refreshBoards();
+  }
+}
+onConnected(uploadPendingAttempts);
+
+let storageAsked = false;
+/** Ask the browser not to evict our storage (it holds the guest session and offline tries). */
+function keepStorage() {
+  if (storageAsked || typeof navigator === 'undefined' || !navigator.storage?.persist) return;
+  storageAsked = true;
+  void navigator.storage.persisted()
+    .then(already => already || navigator.storage.persist())
+    .then(granted => tag('storage_persisted', String(granted)))
+    .catch(() => {});
 }
 
 /** Claim a (unique) nickname. Online scores are already recorded, so this is all "Submit Score" needs. */
 export async function claimNickname(date: string, raw: string): Promise<{ ok: true; nickname: string } | { ok: false; reason: 'taken' | 'invalid' | 'error' }> {
   raw = raw.trim();
   if (!validNickname(raw)) return { ok: false, reason: 'invalid' };
-  await whenAuthReady();
+  // Already signed in: don't wait, so this also works from onConnected tasks that run inside whenAuthReady().
+  if (!isOnline()) await whenAuthReady();
   const owner = useAuth.getState().userId;
   const sb = await getSupabase();
   if (useAuth.getState().userId !== owner) return { ok: false, reason: 'error' };

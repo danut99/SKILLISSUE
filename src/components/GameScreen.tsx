@@ -70,6 +70,9 @@ export function GameScreen({ mode, date, onNavigate }: Props) {
   );
 }
 
+/** One "offline" hint per visit is enough. */
+let offlineToastShown = false;
+
 interface PlayProps extends Props {
   /** Real UTC day; differs from `date` while replaying a past challenge. */
   today: string;
@@ -142,6 +145,9 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
             if (r === 'no_tries_left') {
               toast(archived ? 'No tries left for that day 😵' : 'No tries left today (used on another device?) 😵');
               if (!archived) void syncAfterLimit();
+            } else if (r === 'queued' && !offlineToastShown) {
+              offlineToastShown = true;
+              toast('Offline 📴 score saved here, uploads when you reconnect');
             } else if (r === 'error') toast('Leaderboard hiccup 😵 score kept on this device');
             useUi.getState().refreshBoards();
           })
