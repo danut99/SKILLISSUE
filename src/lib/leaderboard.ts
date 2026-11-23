@@ -314,6 +314,7 @@ function mockSubmitAll(date: string, nickname: string) {
 // ---------------------------------------------------------------------------
 
 import { validNickname } from './nickname';
+import { tag } from './clarity';
 
 let nameClaimedFor: string | null = null;
 
@@ -362,6 +363,7 @@ export async function claimNickname(date: string, raw: string): Promise<{ ok: tr
     if (useAuth.getState().userId !== owner) return { ok: false, reason: 'error' };
     if (error) return { ok: false, reason: error.message.includes('nickname_taken') ? 'taken' : error.message.includes('bad_nickname') ? 'invalid' : 'error' };
     nameClaimedFor = useAuth.getState().userId;
+    tag('saved_to_db', 'true');
     return { ok: true, nickname: String(data) };
   }
   if (date) mockSubmitAll(date, raw);

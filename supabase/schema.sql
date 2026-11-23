@@ -1127,7 +1127,7 @@ returns jsonb language sql stable security definer set search_path = public as $
 $$;
 
 revoke all on function public.record_challenge_attempt(uuid, numeric, jsonb) from public, anon, authenticated;
-grant execute on function public.record_challenge_attempt(uuid, numeric, jsonb) to authenticated;
+-- Remove only empty anonymous accounts, hourly, after at least one day.
 -- Remove only empty anonymous accounts, hourly, after at least one hour.
 -- Run as postgres in Supabase SQL Editor after the preceding migrations.
 begin;
@@ -1145,8 +1145,8 @@ declare
 begin
   delete from auth.users u
   where u.is_anonymous is true
-    and u.created_at < now() - interval '1 hour'
-    and coalesce(u.last_sign_in_at, u.created_at) < now() - interval '1 hour'
+    and u.created_at < now() - interval '1 day'
+    and coalesce(u.last_sign_in_at, u.created_at) < now() - interval '1 day'
     -- Preserve linked accounts and email confirmations still in progress.
     and coalesce(u.email, '') = ''
     and coalesce(u.email_change, '') = ''

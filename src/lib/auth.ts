@@ -1,9 +1,10 @@
 import type { User } from '@supabase/supabase-js';
 import { create } from 'zustand';
-import { getSupabase, isSupabaseConfigured, redirectUrl } from './supabase';
+import { AUTH_STORAGE_KEY, getSupabase, isSupabaseConfigured, redirectUrl } from './supabase';
 import { usePlayer, type ServerState } from './store';
 import { toast, useUi } from './ui';
 import { bindPlayerIdentity } from './playerIdentity';
+import { tag, track } from './clarity';
 
 /**
  * Identity model (like Krillion):
@@ -83,8 +84,27 @@ export async function syncFromServer() {
   const { data, error } = await sb.rpc('get_my_state');
   if (useAuth.getState().userId !== owner || !isOnline()) return;
   if (error) return console.warn('get_my_state failed', error);
+  // A server nickname means a public.profiles row exists for this player.
+  if ((data as ServerState).nickname) tag('saved_to_db', 'true');
   usePlayer.getState().hydrate(data as ServerState);
   useUi.getState().refreshBoards();
+}
+
+type AuthErrorInfo = { name?: string; code?: string; status?: number };
+
+const authErrorLabel = (e: AuthErrorInfo) => e.code ?? e.name ?? 'unknown';
+
+/** Rejected refresh token / deleted user, as opposed to a network, rate-limit or server problem. */
+const isDeadSession = (e: AuthErrorInfo) =>
+  e.name !== 'AuthRetryableFetchError' && typeof e.status === 'number' && e.status >= 400 && e.status < 500 && e.status !== 429;
+
+/** Read before getSession(), which drops a dead session from storage. */
+function storedSessionIsGuest(): boolean {
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) ?? 'null')?.user?.is_anonymous === true;
+  } catch {
+    return false;
+  }
 }
 
 let ready: Promise<void> | null = null;
@@ -102,16 +122,27 @@ async function init() {
     return;
   }
   readUrlError();
+  const wasGuest = storedSessionIsGuest();
   const restored = await sb.auth.getSession();
   if (restored.error) {
-    useAuth.setState({ status: 'error' });
-    return; // Do not replace an account with a guest after a restore error.
+    console.warn('Session restore failed', restored.error);
+    track('auth_restore_failed');
+    tag('auth_error', authErrorLabel(restored.error));
+    // A guest whose anonymous user was deleted (empty-account cleanup) can safely start over.
+    // Never replace a real account, and never give up on a session over a network hiccup.
+    if (!wasGuest || !isDeadSession(restored.error)) {
+      useAuth.setState({ status: 'error' });
+      return;
+    }
+    track('auth_guest_recreated');
   }
   let user = restored.data.session?.user ?? null;
   if (!user) {
     const { data, error } = await sb.auth.signInAnonymously();
     if (error) {
       console.warn('Anonymous sign-in failed → offline mode', error);
+      track('auth_failed');
+      tag('auth_error', authErrorLabel(error));
       useAuth.setState({ status: 'error' });
       return;
     }
