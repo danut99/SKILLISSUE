@@ -41,7 +41,7 @@ export function ChallengesPage({ today }: { today: string }) {
     <p className="challenge-date-note">Day {dayNumber(date)} · {date === today ? "Today's challenges" : date < today ? 'Past challenges' : 'Upcoming challenges'} · Preview</p>
     <div className="challenge-previews">
       <article className="card px-box challenge-preview">
-        <h2><PixelIcon name="draw" size={36} />{MODE_INFO.draw.title}</h2>
+        <h2><PixelIcon name="draw" size={36} />{MODE_INFO.draw.name}</h2>
         <svg viewBox="0 0 320 260" role="img" aria-label={`${shape} drawing target`}>
           <polygon points={drawingOutline(shape)} fill="none" stroke="var(--cyan)" strokeWidth="4" />
           <rect x="157" y="127" width="6" height="6" fill="var(--text)" />
@@ -49,14 +49,14 @@ export function ChallengesPage({ today }: { today: string }) {
         <h3>{shape}</h3><p>Draw the outline in one closed stroke around the dot.</p>
       </article>
       <article className="card px-box challenge-preview">
-        <h2><PixelIcon name="cut" size={36} />{MODE_INFO.cut.title}</h2>
+        <h2><PixelIcon name="cut" size={36} />{MODE_INFO.cut.name}</h2>
         <svg viewBox="0 160 360 360" role="img" aria-label="Daily polygon to split into equal halves" className="challenge-cut-preview">
           <polygon points={cutPoints} fill={`hsl(${cut.hue} 90% 66%)`} stroke={`hsl(${cut.hue} 70% 30%)`} strokeWidth="4" />
         </svg>
         <h3>50 / 50</h3><p>One straight cut. Two equal areas. A new shape every day.</p>
       </article>
       <article className="card px-box challenge-preview">
-        <h2><PixelIcon name="brake" size={36} />{MODE_INFO.brake.title}</h2>
+        <h2><PixelIcon name="brake" size={36} />{MODE_INFO.brake.name}</h2>
         <div className={`challenge-road ${drive.road.id} ${drive.objective}`} role="img" aria-label={`${road}, ${drive.kmh} kilometers per hour, ${BRAKE_GOALS[drive.objective].target.toLowerCase()} ${drive.D.toFixed(1)} meters ahead`}>
           <div className={`challenge-target ${drive.objective}`} />
           <img src={pixelArtUrl('car-top-pink.png')} width="60" height="100" alt="" />

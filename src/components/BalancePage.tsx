@@ -110,6 +110,8 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
   const reducedMotion = lowPower || Boolean(prefersReducedMotion);
   const motionRef = useRef(reducedMotion);
   useEffect(() => { motionRef.current = reducedMotion; }, [reducedMotion]);
+  // The exact balance point stays hidden until the last try, so earlier tries can't just copy it.
+  const lastTryRef = useRef(false);
   useEffect(() => {
     alive.current = true;
     const game = createBalanceGame(date, () => {
@@ -124,12 +126,14 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
     }, value => { supportRef.current = value; setSupport(value); }, () => setReleased(true), () => motionRef.current, {
       savedSupport: initialRef.current?.support,
       canPlace: () => !savingRef.current,
+      revealPoint: () => lastTryRef.current,
     });
     balanceRef.current = game;
     gameRef.current = game;
     return () => { alive.current = false; replayController.current?.abort(); clipRecorder.cancel(); gameRef.current = null; balanceRef.current = null; };
   }, [date]);
   const left = Math.max(0, BALANCE_TRIES - day.attempts.length);
+  useEffect(() => { lastTryRef.current = left === 0; }, [left]);
   const best = day.attempts.reduce<BalanceAttempt | null>((best, value) => !best || value.score > best.score ? value : best, null);
   const shown = result ?? (!released && left === 0 ? day.attempts.at(-1) ?? null : null);
   useEffect(() => {
@@ -210,7 +214,7 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
             <h2 className={balanced ? 'balance-score balanced' : 'balance-score'}>{shown.score.toFixed(1)} <span>/ 100</span></h2>
             <BonusGameReaction mode="balance" score={shown.score} seed={`${date}:${shown.id}`} />
             <p>{perfect ? 'Steady hands. Happy friends.' : `The balance point was ${difference > 0 ? 'right' : 'left'} of your support.`}</p>
-            {!perfect && <p className="balance-note">Off by {(shown.error / 300 * 100).toFixed(1)}% of the plank.</p>}
+            {!perfect && <p className="balance-note">{left === 0 ? `Off by ${(shown.error / 300 * 100).toFixed(1)}% of the plank.` : 'The exact miss is revealed after your last try.'}</p>}
           </> : <>
             <h2>{released ? 'Hold your breath...' : 'Where would you put it?'}</h2>
             <p>{released ? 'Pip and Bob are trusting your judgment.' : 'Slide the yellow support underneath the plank, then let gravity decide.'}</p>

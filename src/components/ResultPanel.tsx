@@ -55,7 +55,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
       const url = trackedChallengeUrl(location.href, challenge);
       useUi.getState().refreshBoards();
       if (navigator.share && matchMedia('(pointer: coarse)').matches) {
-        try { await navigator.share({ title: 'Beat my score - Skilly', text: `Can you beat my ${MODE_INFO[mode].title} score?`, url }); return; }
+        try { await navigator.share({ title: 'Beat my score - Skilly', text: `Can you beat my ${MODE_INFO[mode].name} score?`, url }); return; }
         catch (cause) { if (cause instanceof Error && cause.name === 'AbortError') return; }
       }
       toast(await copyText(url) ? 'Challenge link copied!' : 'Could not copy link. Open Friends to copy your challenge link.');
@@ -85,7 +85,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
     >
       <div className="r-top">
         <span className="pill">
-          {MODE_INFO[mode].title}
+          {MODE_INFO[mode].name}
         </span>
         <span className="pill">
           {last ? `try ${md.tries.length}/${maxTries(md)}` : archived ? date : 'best today'}
@@ -117,7 +117,7 @@ export function ResultPanel({ mode, date, last, clip, snapshot, onRetry, onWatch
             {archived ? 'no tries left for that day' : <>no tries left · new day in <Countdown /></>}
           </div>
         )}
-        <button className="btn btn-ghost result-next" onClick={() => { track(next ? `next_game_${next}` : 'next_game_home'); onNext(next); }} aria-label={next ? `Next: ${MODE_INFO[next].title}` : 'Back home'}>
+        <button className="btn btn-ghost result-next" onClick={() => { track(next ? `next_game_${next}` : 'next_game_home'); onNext(next); }} aria-label={next ? `Next: ${MODE_INFO[next].name}` : 'Back home'}>
           {next ? <><PixelIcon name={next} size={28} /><span>Next</span><span aria-hidden="true">&#8594;</span></> : 'Home'}
         </button>
       </div>

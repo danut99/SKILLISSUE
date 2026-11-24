@@ -141,7 +141,7 @@ function CountSession({ date }: { date: string }) {
           {error && phase === 'ready' && <button className="btn btn-ghost" onClick={() => setReload(r => r + 1)}>Reload tries</button>}
         </div>
       </div>
-      <aside><div className="card px-box count-help"><h2>Quick eyes. Honest guesses.</h2><p>Count the dots before they disappear, then enter your answer. Each round gives you 10 seconds to answer.</p><p>Exact count: 20 points. Each dot off: −5 points, down to zero. Five rounds, up to 100 points.</p><p>Five tries per UTC day. Starting, leaving, or refreshing uses a try. Switching tabs during a flash or answer skips that round.</p><p>Same dots for everyone today. Separate from Draw/Cut/Car totals and Party.</p>{day?.source === 'local' && <p className="balance-note">Progress saved on this device.</p>}</div><CountLeaderboard date={date} /></aside>
+      <aside><div className="card px-box count-help"><h2>Quick eyes. Honest guesses.</h2><p>Count the dots before they disappear, then enter your answer. Each round gives you 10 seconds to answer.</p><p>Exact count: 20 points. Each dot off: −5 points, down to zero. Five rounds, up to 100 points.</p><p>Five tries per UTC day. Starting, leaving, or refreshing uses a try. Switching tabs during a flash or answer skips that round.</p><p>Same dots for everyone today. Separate from Draw/Cut/Brake totals and Party.</p>{day?.source === 'local' && <p className="balance-note">Progress saved on this device.</p>}</div><CountLeaderboard date={date} /></aside>
     </div>
   </section>;
 }

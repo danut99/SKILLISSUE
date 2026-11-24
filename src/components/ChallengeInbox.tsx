@@ -33,7 +33,7 @@ export function ChallengeInbox({ compact = false }: { compact?: boolean }) {
     <h3>Your challenges</h3>
     {current?.error ? <p role="status">{current.error}</p> : !rows ? <p>Loading challenges...</p> : rows.length === 0 ? <p>Use Beat my score after a game. Responses will appear here when someone accepts.</p> :
       <ul className="challenge-inbox-list">{visibleRows?.map(challenge => <li key={challenge.token}>
-        <div className="challenge-inbox-title">{MODE_INFO[challenge.mode].title} <small>{challenge.is_owner ? 'Your challenge' : `From ${challenge.creator_name}`}</small></div>
+        <div className="challenge-inbox-title">{MODE_INFO[challenge.mode].name} <small>{challenge.is_owner ? 'Your challenge' : `From ${challenge.creator_name}`}</small></div>
         <div className="challenge-inbox-score">{challenge.creator_name}: {fmtResult(challenge.mode, { score: challenge.creator_score, detail: challenge.creator_detail })}</div>
         {challenge.participants.length === 0 ? <p>Waiting for someone to accept</p> : <details className="challenge-response-details">
           <summary>{challenge.participants.length} {challenge.participants.length === 1 ? 'response' : 'responses'} - view results</summary>

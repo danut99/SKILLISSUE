@@ -71,7 +71,7 @@ const pages = [
     title: 'Brake Game: Stop the Car at the Perfect Spot | Skilly',
     description: 'Free reaction and timing game: brake at the perfect moment to stop your car right before the wall, on the red line or in the parking bay. New road every day, 5 tries.',
     h1: 'Brake Game: stop the car at the perfect spot',
-    intro: 'The car is coming fast. One tap to brake. Stop too early and you\'re miles away; too late and you crash. Skilly\'s BRAKE! is a daily timing game: a new road, speed and objective every day, the same for every player.',
+    intro: 'The car is coming fast. One tap to brake. Stop too early and you\'re miles away; too late and you crash. Skilly\'s Brake game is a daily timing game: a new road, speed and objective every day, the same for every player.',
     play: 'Play today\'s brake test',
     how: [
       'Read today\'s objective: stop close to the wall, park in the bay, or stop before the red line.',

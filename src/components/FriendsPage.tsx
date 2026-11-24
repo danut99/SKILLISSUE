@@ -151,7 +151,7 @@ function FriendsContent({ date, inviteToken }: { date: string; inviteToken: stri
         <label className="friend-board-filter" htmlFor="friend-board-mode">Friends leaderboard
           <select id="friend-board-mode" value={mode} onChange={(event) => setMode(event.target.value as BoardMode)}>
             <option value="overall">Overall</option>
-            {MODES.map((game) => <option key={game} value={game}>{MODE_INFO[game].title}</option>)}
+            {MODES.map((game) => <option key={game} value={game}>{MODE_INFO[game].name}</option>)}
           </select>
         </label>
         <Leaderboard date={date} mode={mode} scope="friends" title="You + your friends" />

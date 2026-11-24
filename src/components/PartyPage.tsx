@@ -134,7 +134,7 @@ export function PartyPage() {
             </select>
           </label> : <span>{roundCount} rounds selected by the host</span>}
           <small>Up to {roundCount * 100} points. Changing games or rounds resets everyone's Ready status.</small>
-          {selectedGames.includes('brake') && <small>Up to {maxRounds} rounds with these games. Each car objective appears once.</small>}
+          {selectedGames.includes('brake') && <small>Up to {maxRounds} rounds with these games. Each Brake objective appears once.</small>}
           {invalidRoundCount && <p role="alert">The host needs to select {maxRounds} rounds or fewer.</p>}
         </div>
         {room.joined && <div className="r-actions"><button className="btn btn-primary" disabled={busy || invalidRoundCount} onClick={() => void run(() => readyPartyRoom(room.token, !me?.ready))}>{me?.ready ? 'Not ready' : "I'm ready"}</button>{room.is_host && <button className="btn btn-pink" disabled={busy || !ready || invalidRoundCount} onClick={() => void run(() => startPartyRoom(room.token))}>Start {roundCount} rounds</button>}</div>}

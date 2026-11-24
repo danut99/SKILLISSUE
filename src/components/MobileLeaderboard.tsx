@@ -37,9 +37,9 @@ export function MobileLeaderboard({ date, initialMode, onClose }: {
     <label className="mobile-board-filter" htmlFor="mobile-board-mode">Challenge
       <select id="mobile-board-mode" value={mode} onChange={event => setMode(event.target.value as BoardMode)}>
         <option value="overall">Overall</option>
-        {MODES.map(game => <option key={game} value={game}>{MODE_INFO[game].title}</option>)}
+        {MODES.map(game => <option key={game} value={game}>{MODE_INFO[game].name}</option>)}
       </select>
     </label>
-    <Leaderboard mode={mode} date={date} title={mode === 'overall' ? 'Top Tryhards' : MODE_INFO[mode].title} />
+    <Leaderboard mode={mode} date={date} title={mode === 'overall' ? 'Top Tryhards' : MODE_INFO[mode].name} />
   </dialog>;
 }

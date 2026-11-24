@@ -90,9 +90,9 @@ export function drawOutlined(c: CanvasRenderingContext2D, text: string, y: numbe
 
 export function drawWatermark(c: CanvasRenderingContext2D) {
  c.save();
- c.font = `600 24px ${SANS}`; c.textAlign = 'center'; c.textBaseline = 'middle';
- c.lineWidth = 4; c.strokeStyle = 'rgba(0,0,0,.6)'; c.strokeText(clipWebsite(), W / 2, 150);
- c.fillStyle = 'rgba(255,255,255,.85)'; c.fillText(clipWebsite(), W / 2, 150);
+ c.font = `900 24px ${SANS}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.lineJoin = 'round';
+ c.lineWidth = 5; c.strokeStyle = 'rgba(0,0,0,.7)'; c.strokeText(clipWebsite(), W / 2, 150);
+ c.fillStyle = '#fff'; c.fillText(clipWebsite(), W / 2, 150);
  c.restore();
 }
 

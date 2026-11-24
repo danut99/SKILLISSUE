@@ -131,7 +131,7 @@ returns jsonb language sql stable security definer set search_path = public as $
   );
 $$;
 
--- Today's Top 10 (+ caller's row if outside). Only players with a nickname appear.
+-- Today's Top 10 (+ caller's row if outside). Only players with a nickname and a real (> 0) score appear.
 -- p_mode: 'draw' | 'cut' | 'brake' | 'overall' (sum of the 3 best scores).
 create or replace function public.get_leaderboard(p_mode text)
 returns table (rank bigint, nickname text, score numeric, detail jsonb, is_me boolean)
@@ -149,7 +149,7 @@ language sql stable security definer set search_path = public as $$
   ), ranked as (
     select row_number() over (order by score desc, updated_at asc) as rank,
            nickname, score, detail, coalesce(user_id = auth.uid(), false) as is_me
-      from base
+      from base where score > 0
   )
   select rank, nickname, score, detail, is_me from ranked where rank <= 10 or is_me order by rank;
 $$;
@@ -251,6 +251,8 @@ function mockBoard(date: string, mode: BoardMode): Board {
     const mine = store.entries[mode];
     if (mine) rows.push({ ...mine, me: true });
   }
+  // Same as the server: 0-point crashes and fails are not ranked.
+  rows = rows.filter((r) => r.score > 0);
   rows.sort((a, b) => b.score - a.score || a.updated - b.updated);
   const ranked = rows.map((r, i) => ({ rank: i + 1, nickname: r.nickname, score: r.score, detail: r.detail, is_me: r.me }));
   const me = ranked.find((r) => r.is_me);

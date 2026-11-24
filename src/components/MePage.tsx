@@ -75,7 +75,7 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
             const dots = emojiRow(md) + '⬜'.repeat(Math.max(0, maxTries(md) - md.tries.length));
             return (
               <li key={m}>
-                <button onClick={() => onPlay(m)}>{MODE_INFO[m].title} →</button>
+                <button onClick={() => onPlay(m)}>{MODE_INFO[m].name} →</button>
                 <span>
                   {best ? fmtResult(m, best) : 'not played'} <span className="emojis">{dots}</span>
                 </span>

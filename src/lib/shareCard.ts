@@ -144,7 +144,7 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
     const tone = a ? toneFor(a.score) : 'bad';
     const color = tone === 'good' ? C.green : tone === 'ok' ? C.yellow : C.red;
 
-    txt(c, info.title.toUpperCase(), CENTER, 535, 50, info.color, { shadow: '#000', maxWidth: 740 });
+    txt(c, info.name.toUpperCase(), CENTER, 535, 50, info.color, { shadow: '#000', maxWidth: 740 });
 
     // game snapshot
     const top = 750;
@@ -180,7 +180,7 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
       const width = 240;
       const center = x + width / 2;
       box(c, x, 780, width, 380, info.color);
-      txt(c, info.title.toUpperCase(), center, 820, 37, info.color, { maxWidth: width - 24 });
+      txt(c, info.name.toUpperCase(), center, 820, 37, info.color, { maxWidth: width - 24 });
       if (best) {
         const image = savedResultCanvas(m, input.date, best);
         c.drawImage(image, 0, image.height * .28, image.width, image.height * .36, x + 12, 865, width - 24, 180);

@@ -57,7 +57,7 @@ export function GameScreen({ mode, date, onNavigate }: Props) {
     <section className="screen">
       <div className="game-bar">
         <div className="game-title">
-          {MODE_INFO[mode].title}
+          {MODE_INFO[mode].name}
           {past && <small className="game-title-date"> · {past.date}</small>}
         </div>
         <div className="tries" aria-label="tries">

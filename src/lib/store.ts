@@ -108,8 +108,8 @@ function uuid(): string {
 
 const EMPTY: ModeDay = { tries: [], bonus: false };
 
-const NAME_ADJ = ['Wobbly', 'Shaky', 'Sneaky', 'Turbo', 'Sleepy', 'Spicy', 'Soggy', 'Crispy', 'Grumpy', 'Lazy', 'Chunky', 'Sweaty', 'Dizzy', 'Salty'];
-const NAME_NOUN = ['Potato', 'Toaster', 'Noodle', 'Goose', 'Pigeon', 'Waffle', 'Pickle', 'Llama', 'Nugget', 'Walrus', 'Muffin', 'Gremlin', 'Donut', 'Hamster'];
+export const NAME_ADJ = ['Wobbly', 'Shaky', 'Sneaky', 'Turbo', 'Sleepy', 'Spicy', 'Soggy', 'Crispy', 'Grumpy', 'Lazy', 'Chunky', 'Sweaty', 'Dizzy', 'Salty'];
+export const NAME_NOUN = ['Potato', 'Toaster', 'Noodle', 'Goose', 'Pigeon', 'Waffle', 'Pickle', 'Llama', 'Nugget', 'Walrus', 'Muffin', 'Gremlin', 'Donut', 'Hamster'];
 
 /** Funny auto-assigned nickname, e.g. "WobblyPotato42" (always ≤ 15 chars). */
 export function randomName(): string {

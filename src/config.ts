@@ -28,7 +28,6 @@ export type LeaderboardPeriod = 'daily' | 'all-time' | 'levels';
 export interface ModeInfo {
   emoji: string;
   name: string;
-  title: string;
   tagline: string;
   crown: string;
   color: string;
@@ -38,7 +37,6 @@ export const MODE_INFO: Record<Mode, ModeInfo> = {
   draw: {
     emoji: '🎯',
     name: 'Draw',
-    title: 'Perfect Shape',
     tagline: 'One shape. One stroke. No excuses.',
     crown: 'Master of Drawing',
     color: '#4de3ff',
@@ -46,7 +44,6 @@ export const MODE_INFO: Record<Mode, ModeInfo> = {
   cut: {
     emoji: '🔪',
     name: 'Cut',
-    title: 'Perfect Cut',
     tagline: "Today's shape. One cut. Two equal halves.",
     crown: 'Master of Cuts',
     color: '#ff5d8f',
@@ -54,7 +51,6 @@ export const MODE_INFO: Record<Mode, ModeInfo> = {
   brake: {
     emoji: '🚗',
     name: 'Brake',
-    title: 'Perfect Stop',
     tagline: 'A new driving objective each day. Nail the stop.',
     crown: 'Master of Brakes',
     color: '#ffd23f',

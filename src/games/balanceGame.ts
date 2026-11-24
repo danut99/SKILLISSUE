@@ -54,7 +54,7 @@ function drawCreature(c: CanvasRenderingContext2D, radius: number, color: string
 export function createBalanceGame(seed: string, onFinish: (score: number, error: number) => void,
   onPlace: (x: number) => void = () => {}, onRelease: () => void = () => {},
   reducedMotion: () => boolean = () => false,
-  options: { savedSupport?: number; canPlace?: () => boolean } = {},
+  options: { savedSupport?: number; canPlace?: () => boolean; revealPoint?: () => boolean } = {},
 ): Game & { place: (x: number) => void; release: () => void } {
   const { creatures, center } = balanceSetup(seed);
   let support = options.savedSupport ?? 180;
@@ -166,7 +166,7 @@ export function createBalanceGame(seed: string, onFinish: (score: number, error:
         text(c, index === 0 ? 'PIP' : 'BOB', 0, -creature.radius * 2 - 18, { size: 19, color: creature.color });
         c.restore();
       }
-      if (revealing) {
+      if (revealing && options.revealPoint?.() !== false) {
         c.strokeStyle = C.green; c.lineWidth = 2; c.setLineDash([4, 4]);
         c.beginPath(); c.moveTo(center, 330); c.lineTo(center, 523); c.stroke(); c.setLineDash([]);
         c.fillStyle = C.green; c.fillRect(center - 4, 520, 8, 8);

@@ -22,6 +22,7 @@ import { AccountCard } from './AccountCard';
 import { NicknameControl } from './NicknameControl';
 import { pixelArtUrl, preloadPixelCars } from '../lib/pixelAssets';
 import { dailyDrawShape } from '../lib/drawShapes';
+import { dailyBrakeObjective, type BrakeObjective } from '../lib/brakeChallenge';
 import { PixelIcon } from './PixelIcon';
 import { InstallButton } from './InstallButton';
 import { dailyShape } from '../games/cutGame';
@@ -140,8 +141,8 @@ export function Home({ date, onPlay }: Props) {
               >
                 <GamePlayerCount count={playerCounts[m]} />
                 <PixelIcon name={m} size={48} />
-                <span className="gc-title">{info.title}</span>
-                <span className="gc-tag">{m === 'draw' ? `Today's ${dailyDrawShape(date)}. One stroke.` : info.tagline}</span>
+                <span className="gc-title">{info.name}</span>
+                <span className="gc-tag">{m === 'draw' ? `Today's ${dailyDrawShape(date)}. One stroke.` : m === 'brake' ? `Today: ${BRAKE_TODAY[dailyBrakeObjective(date)]}. Nail the stop.` : info.tagline}</span>
                 <span className="gc-tries" aria-hidden="true">{emojiRow(md) + '⬜'.repeat(Math.max(0, maxTries(md) - md.tries.length))}</span>
                 <span className={`gc-cta ${best ? 'played' : ''}`}>{best ? <><small>best</small> {fmtResult(m, best)}</> : <>play ▶</>}</span>
               </motion.button>
@@ -168,7 +169,7 @@ export function Home({ date, onPlay }: Props) {
           <div className="daily-total-games">
             {MODES.map(mode => {
               const best = bestAttempt(modeDay(days, date, mode));
-              return <button key={mode} className={`daily-total-game ${best ? 'played' : ''}`} onClick={() => onPlay(mode)} aria-label={`${MODE_INFO[mode].title}: ${best ? fmtResult(mode, best) : 'not played'}`}>
+              return <button key={mode} className={`daily-total-game ${best ? 'played' : ''}`} onClick={() => onPlay(mode)} aria-label={`${MODE_INFO[mode].name}: ${best ? fmtResult(mode, best) : 'not played'}`}>
                 <span className="daily-total-game-label"><PixelIcon name={mode} size={26} />{MODE_INFO[mode].name}</span>
                 <span className="daily-total-game-score">{best ? fmtResult(mode, best).replace(/\s*\/\s*/, '/') : 'Not played'}</span>
               </button>;
@@ -191,6 +192,9 @@ export function Home({ date, onPlay }: Props) {
       {playedAny && <div className="home-account">
         <ReturnPoll date={date} compact />
       </div>}
+
+      <LeagueCard date={date} />
+      <RecentChampions date={date} />
 
       <details className="home-more" open={location.hash === '#more'}>
         <summary>&#9656; more games &amp; modes</summary>
@@ -227,16 +231,13 @@ export function Home({ date, onPlay }: Props) {
             <div className="party-promo-copy">
               <div className="party-promo-heading"><h2 id="home-party-title">PARTY MODE</h2><span className="party-beta">Beta</span></div>
               <p className="party-promo-hook">Who's the skill issue in your group?</p>
-              <p className="party-promo-details">2&ndash;8 players &middot; Draw, Cut &amp; Car &middot; Play together</p>
+              <p className="party-promo-details">2&ndash;8 players &middot; Draw, Cut &amp; Brake &middot; Play together</p>
             </div>
             <div className="party-promo-icons" aria-hidden="true"><PixelIcon name="draw" size={42} /><PixelIcon name="cut" size={42} /><PixelIcon name="brake" size={42} /></div>
             <span className="btn btn-primary party-promo-link">Play with friends <span aria-hidden="true">&#8594;</span></span>
           </div>
           <div className="party-promo-footer"><PartyStats /><small>In testing &mdash; you may run into bugs.</small></div>
         </a>
-
-        <LeagueCard date={date} />
-        <RecentChampions date={date} />
       </details>
 
       <details className="how2" id="how" open={location.hash === '#how'}>
@@ -276,7 +277,7 @@ export function Home({ date, onPlay }: Props) {
       </div>
 
       <p className="footer-note">
-        <a href="/cut-in-half/">cut in half game</a> · <a href="/draw-perfect-circle/">draw a perfect circle</a> · <a href="/brake-game/">brake game</a>
+        <a href="/cut-in-half/">cut in half game</a> · <a href="/draw-perfect-circle/">draw a perfect shape</a> · <a href="/brake-game/">brake game</a>
         <br />
         <a href="#privacy">privacy</a> · <a href="#how">how to play</a>
         {LINKS.tiktok && <> &middot; <a href={LINKS.tiktok} target="_blank" rel="noopener noreferrer">TikTok @playskillissue</a></>}
@@ -285,6 +286,8 @@ export function Home({ date, onPlay }: Props) {
     </section>
   );
 }
+
+const BRAKE_TODAY: Record<BrakeObjective, string> = { wall: 'stop before the wall', parking: 'park in the bay', 'stop-line': 'stop at the red light' };
 
 /** The hero game: today's Cut blob, big and front and center. */
 function FeaturedCut({ date, onPlay }: { date: string; onPlay: () => void }) {
@@ -318,7 +321,7 @@ function FeaturedCut({ date, onPlay }: { date: string; onPlay: () => void }) {
         </g>)}
         <line className="fc-slice" x1={box.x} y1={box.y + box.h * .9} x2={box.x + box.w} y2={box.y + box.h * .1} stroke="#fff" strokeWidth="5" strokeDasharray="14 10" />
       </svg>
-      <span className="gc-title">{info.title}</span>
+      <span className="gc-title">{info.name}</span>
       <span className="gc-tag">One cut. Exactly 50/50. Everyone on earth gets this blob today.</span>
       <span className="gc-tries"><span aria-hidden="true">{emojiRow(md) + '⬜'.repeat(Math.max(0, maxTries(md) - md.tries.length))}</span> <span className="gc-attempt-label">{left} tries left</span></span>
       <span className={`gc-cta ${best ? 'played' : ''}`}>

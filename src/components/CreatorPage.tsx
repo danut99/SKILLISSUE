@@ -51,7 +51,7 @@ function Studio({ date, onPlay }: { date: string; onPlay: (mode: Mode) => void }
 
       <div className="card px-box creator-today">
         <div className="eyebrow">today · #{dayNumber(date)} · {dayLabel(date)}</div>
-        <h3><PixelIcon name={plan.mode} size={32} /> {MODE_INFO[plan.mode].title}: {plan.idea.title}</h3>
+        <h3><PixelIcon name={plan.mode} size={32} /> {MODE_INFO[plan.mode].name}: {plan.idea.title}</h3>
         <p>{plan.idea.how}</p>
         <div className="creator-row">
           <button className="btn btn-primary" onClick={() => onPlay(plan.mode)}>Play {MODE_INFO[plan.mode].name} & record</button>
@@ -138,7 +138,7 @@ function TodayClips({ date, clips, onChange }: { date: string; clips: StoredClip
         return (
           <div className="creator-game" key={mode}>
             <div className="creator-head">
-              <b style={{ color: MODE_INFO[mode].color }}>{MODE_INFO[mode].title} · {list.length} {list.length === 1 ? 'try' : 'tries'}</b>
+              <b style={{ color: MODE_INFO[mode].color }}>{MODE_INFO[mode].name} · {list.length} {list.length === 1 ? 'try' : 'tries'}</b>
               {list.length >= 2 && (
                 <button className="btn btn-primary" disabled={!!busy} onClick={() => void compile(mode, list)}>
                   {busy === mode ? `Making video… ${Math.round(progress * 100)}%` : `Make ${Math.min(5, list.length)}-tries video`}
@@ -184,7 +184,7 @@ function CalendarList({ date }: { date: string }) {
             <input type="checkbox" aria-label={`Posted on ${day.date}`} checked={!!posted[day.date]} onChange={() => togglePosted(day.date)} />
             <span className="cal-date">{dayLabel(day.date)}<small>#{day.day}</small></span>
             <PixelIcon name={day.mode} size={26} />
-            <span className="cal-idea"><b>{day.idea.title}</b><small>{MODE_INFO[day.mode].title}</small></span>
+            <span className="cal-idea"><b>{day.idea.title}</b><small>{MODE_INFO[day.mode].name}</small></span>
           </li>
         ))}
       </ol>
