@@ -1,17 +1,18 @@
+import { routeToken } from '../lib/navigation';
 import { useEffect, useState } from 'react';
 import { readScoreChallenge } from '../lib/scoreChallenge';
 
 export function BalanceChallengeBanner({ date, score, remaining }: { date: string; score: number | null; remaining: number }) {
-  const [challenge, setChallenge] = useState(() => readScoreChallenge(location.hash));
+  const [challenge, setChallenge] = useState(() => readScoreChallenge(routeToken()));
   useEffect(() => {
-    const update = () => setChallenge(readScoreChallenge(location.hash));
-    window.addEventListener('hashchange', update);
-    return () => window.removeEventListener('hashchange', update);
+    const update = () => setChallenge(readScoreChallenge(routeToken()));
+    window.addEventListener('skilly:navigate', update);
+    return () => window.removeEventListener('skilly:navigate', update);
   }, []);
   if (challenge?.mode !== 'balance') return null;
   if (challenge.date !== date) return <div className="score-challenge expired">
     This challenge was for {challenge.date}. Today's balance is different.
-    <a className="challenge-today" href="#balance">Play today's balance</a>
+    <a className="challenge-today" href="/play/balance">Play today's balance</a>
   </div>;
   const final = remaining === 0;
   const winner = score === null ? null : score > challenge.attempt.score ? 'you' : score < challenge.attempt.score ? 'friend' : 'tie';

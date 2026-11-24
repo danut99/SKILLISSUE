@@ -1,10 +1,12 @@
+import { dailyProgress, dailyMilestone } from '../lib/engagement';
+import { recordPlayStarted, recordPlayCompleted, recordChallengeCompleted } from '../lib/engagementTracking';
 import { ResponsiveSection } from './ResponsiveSection';
 import { ScoreChallengeBanner } from './ScoreChallengeBanner';
 import { createTimedGame } from '../games/timedGame';
 import { savedResultCanvas } from '../lib/savedResult';
 import confetti from 'canvas-confetti';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { MODE_INFO, type Mode } from '../config';
+import { type Mode } from '../config';
 import { createBrakeGame } from '../games/brakeGame';
 import { createCutGame } from '../games/cutGame';
 import { createDrawGame } from '../games/drawGame';
@@ -14,15 +16,14 @@ import { clipRecorder } from '../lib/clip';
 import { dayNumber } from '../lib/daily';
 import { creatorClipOptions, saveCreatorClip } from '../lib/creator';
 import { snapshotCanvas } from '../lib/shareCard';
-import { grantBonusRemote, recordAttempt, syncAfterLimit, type Board } from '../lib/leaderboard';
-import { recordChallengeAttempt } from '../lib/trackedChallenges';
+import { fetchBoard, grantBonusRemote, recordAttempt, syncAfterLimit } from '../lib/leaderboard';
+import { readTrackedToken, previewTrackedChallenge, recordChallengeAttempt } from '../lib/trackedChallenges';
 import { emojiFor, fmtResult } from '../lib/scoring';
 import { bestAttempt, maxTries, modeDay, triesLeft, usePlayer, type Attempt } from '../lib/store';
 import { toast, useUi } from '../lib/ui';
 import { scoreBand, tag, track } from '../lib/clarity';
 import { GameCanvas } from './GameCanvas';
 import { GameCompanions } from './GameCompanions';
-import { Leaderboard } from './Leaderboard';
 import { ResultPanel } from './ResultPanel';
 import { RewardedAdModal } from './RewardedAdModal';
 
@@ -54,16 +55,11 @@ export function GameScreen({ mode, date, onNavigate }: Props) {
   }, []);
 
   return (
-    <section className="screen">
-      <div className="game-bar">
-        <div className="game-title">
-          {MODE_INFO[mode].name}
-          {past && <small className="game-title-date"> · {past.date}</small>}
-        </div>
-        <div className="tries" aria-label="tries">
-          {dots}
-        </div>
-      </div>
+    <section className={`screen game-screen game-screen-${mode}`}>
+      <header className="game-bar game-page-heading">
+        <div className="game-heading-copy"><a href="/" className="game-back">Daily games</a><h1 className="game-title">{mode === 'cut' ? 'Cut it.' : mode === 'draw' ? 'Draw it.' : 'Brake!'}</h1><p>{mode === 'cut' ? 'One straight cut. Two equal halves.' : mode === 'draw' ? 'One shape. One continuous stroke.' : 'Read the road. Time your stop.'}</p></div>
+        <div className="game-attempts"><span>{past ? past.date : `DAILY #${dayNumber(date)}`}</span><div className="tries" aria-label={`${triesLeft(md)} attempts remaining`}>{dots}</div><small>{triesLeft(md)} of {maxTries(md)} tries left</small></div>
+      </header>
       <ScoreChallengeBanner mode={mode} date={date} onPastChallenge={onPastChallenge} />
       <GamePlay key={playDate} mode={mode} date={playDate} today={date} challengeToken={past?.token ?? null} onNavigate={onNavigate} />
     </section>
@@ -102,7 +98,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
 
     if (triesLeft(current) === 0) {
       const best = bestAttempt(current);
-      const restored = best ? savedResultCanvas(mode, date, best) : null;
+      const restored = best ? savedResultCanvas(mode, date, best, true) : null;
       gameRef.current = restored
         ? { render: c => c.drawImage(restored, 0, 0, 360, 640) }
         : createLockedGame(fmtResult(mode, best));
@@ -117,6 +113,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
       startClip: () => {
         if (!started) {
           started = true;
+          if (!archived) recordPlayStarted(mode);
           track(`game_start_${mode}`);
           tag('played', mode);
         }
@@ -132,6 +129,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
         const attempt: Attempt = { score: res.score, detail: res.detail, at: Date.now() };
         clipRecorder.reveal({ mode, attempt });
         usePlayer.getState().addAttempt(date, mode, attempt, archived);
+        if (!archived) recordPlayCompleted(date, dailyProgress(usePlayer.getState().days, date).played);
         const band = scoreBand(res.score);
         track(`game_finish_${mode}`);
         track(`game_${band}_${mode}`);
@@ -139,9 +137,17 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
         if (triesLeft(modeDay(usePlayer.getState().days, date, mode)) === 0) track(`out_of_tries_${mode}`);
         setSnapshot(savedResultCanvas(mode, date, attempt));
         setPanel({ last: attempt });
-        if (res.score >= 95 && !usePlayer.getState().settings.lowPower) confetti({ particleCount: 140, spread: 80, origin: { y: 0.6 }, colors: ['#4de3ff', '#ff5d8f', '#ffd23f'] });
+        const milestone = archived ? null : dailyMilestone(usePlayer.getState().days, date, mode, attempt);
+        if (milestone?.kind === 'improved') track('funnel_new_daily_best');
+        if (milestone && (res.score >= 95 || milestone.improvement >= 1) && !usePlayer.getState().settings.lowPower && !matchMedia('(prefers-reduced-motion: reduce)').matches) confetti({ particleCount: res.score >= 95 ? 90 : 35, spread: 65, origin: { y: 0.6 }, colors: ['#d7ff5f', '#bfa7ff', '#ffb2d0'] });
+        const invitation = readTrackedToken(location.pathname);
         (archived && challengeToken ? recordChallengeAttempt(challengeToken, attempt) : recordAttempt(date, mode, attempt))
           .then((r) => {
+            if (r === 'ok' && invitation) {
+              void previewTrackedChallenge(invitation).then(challenge => {
+                if (!challenge.is_owner && challenge.accepted) recordChallengeCompleted(invitation);
+              }).catch(() => { /* Analytics must not interrupt saving or gameplay. */ });
+            }
             if (r === 'no_tries_left') {
               toast(archived ? 'No tries left for that day 😵' : 'No tries left today (used on another device?) 😵');
               if (!archived) void syncAfterLimit();
@@ -178,7 +184,7 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
     const best = bestAttempt(md);
     if (attemptKey !== 0 || playing || panel || !best) return;
     gameRef.current?.destroy?.();
-    const restored = savedResultCanvas(mode, date, best);
+    const restored = savedResultCanvas(mode, date, best, true);
     if (restored) {
       gameRef.current = { render: c => c.drawImage(restored, 0, 0, 360, 640) };
       setSnapshot(restored);
@@ -216,21 +222,25 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
     startNextTry();
   }, [date, mode, startNextTry]);
 
-  // cut: once you're out of tries, reveal the #1 player's line
-  const onBoard = useCallback(
-    (b: Board) => {
-      if (archived || mode !== 'cut' || triesLeft(modeDay(usePlayer.getState().days, date, mode)) > 0) return;
-      const top = b.rows[0];
+  // Keep the winning cut reveal without mounting a leaderboard beside the game.
+  const boardVersion = useUi(s => s.boardVersion);
+  const remaining = triesLeft(md);
+  useEffect(() => {
+    if (archived || mode !== 'cut' || remaining > 0) return;
+    let cancelled = false;
+    void fetchBoard(today, mode).then(board => {
+      if (cancelled) return;
+      const top = board.rows[0];
       gameRef.current?.setGhost?.(top && !top.is_me && top.detail.line ? top.detail.line : null);
-    },
-    [archived, mode, date],
-  );
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [archived, mode, today, remaining, boardVersion]);
 
   return (
     <>
-      <div className={`with-board game-columns ${panel ? 'has-result' : 'is-playing'}`}>
+      <div className={`game-columns focused-game-columns ${panel ? 'has-result' : 'is-playing'}`}>
       <div className="game-layout">
-        <GameCanvas gameRef={gameRef} canvasRef={canvasRef} date={date} />
+        <GameCanvas gameRef={gameRef} canvasRef={canvasRef} date={date} clean={Boolean(panel)} />
         <div className="side" ref={resultRef}>
           {panel && (
             <ResultPanel
@@ -246,16 +256,11 @@ function GamePlay({ mode, date, today, challengeToken, onNavigate }: PlayProps) 
               onNext={onNavigate}
             />
           )}
-          {(panel || (!playing && triesLeft(md) > 0)) && (
-            panel ? <GameCompanions key={`${mode}:${date}:${attemptKey}:${panel.last?.at ?? 'best'}`} mode={mode} date={date} score={(panel.last ?? bestAttempt(md))?.score} />
-            : <ResponsiveSection title="How to play"><GameCompanions mode={mode} date={date} /></ResponsiveSection>
-          )}
+          {!panel && !playing && triesLeft(md) > 0 && <ResponsiveSection title="How to play"><GameCompanions mode={mode} date={date} /></ResponsiveSection>}
+          {!panel && !playing && <a className="game-rank-link" href={`/leaderboards?game=${mode}`}>View rankings <span aria-hidden="true">&#8594;</span></a>}
 
         </div>
       </div>
-      <aside className="board-col">
-        <ResponsiveSection title="Leaderboard"><Leaderboard mode={mode} date={today} title={`Global Top 10 · ${MODE_INFO[mode].name}`} onLoad={onBoard} /></ResponsiveSection>
-      </aside>
       </div>
       <RewardedAdModal open={adOpen} onClose={() => setAdOpen(false)} onReward={reward} />
     </>

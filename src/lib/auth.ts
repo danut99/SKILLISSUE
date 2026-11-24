@@ -1,3 +1,5 @@
+import { useDailyAllowance } from './dailyAllowance';
+import { recordAccountSuccess } from './engagementTracking';
 import type { User } from '@supabase/supabase-js';
 import { create } from 'zustand';
 import { AUTH_STORAGE_KEY, getSupabase, isSupabaseConfigured, redirectUrl } from './supabase';
@@ -33,6 +35,8 @@ export const useAuth = create<AuthState>(() => ({
   conflict: null,
 }));
 
+useAuth.subscribe(state => useDailyAllowance.setState({ linked: state.status === 'linked' }));
+
 export const isOnline = () => {
   const s = useAuth.getState().status;
   return s === 'anon' || s === 'linked';
@@ -54,7 +58,7 @@ export function applyUser(user: User | null) {
     providers: (user.identities ?? []).map((i) => i.provider).filter((p) => p !== 'anonymous'),
     conflict: null,
   });
-  if (!user.is_anonymous) window.google?.accounts.id.cancel();
+  if (!user.is_anonymous) { recordAccountSuccess(user.id); window.google?.accounts.id.cancel(); }
 }
 
 const SWITCH_KEY = 'skillissue:google-switch';

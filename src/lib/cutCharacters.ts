@@ -82,7 +82,6 @@ export function paintCutFace(c:CanvasRenderingContext2D,center:Pt,scale:number,m
  else if(mood==='angry'||mood==='suspicious'){c.moveTo(x-7*s,y+16*s);c.quadraticCurveTo(x,y+10*s,x+8*s,y+16*s);}
  else c.arc(x,y+6*s,9*s,.12*Math.PI,.88*Math.PI);
  c.stroke();
- if(mood==='goofy'&&!scared&&!sliced){c.fillStyle='#ff7f9f';c.fillRect(x,y+15*s,6*s,7*s);}
  if(scared){c.fillStyle='#77dcff';c.beginPath();c.ellipse(x+32*s,y+2*s,3*s,6*s,-.25,0,Math.PI*2);c.fill();}
  if(mood==='happy'||mood==='smug'){c.fillStyle='#ff759b88';c.fillRect(x-27*s,y+5*s,8*s,4*s);c.fillRect(x+20*s,y+5*s,8*s,4*s);}
  c.restore();

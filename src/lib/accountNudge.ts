@@ -1,9 +1,9 @@
 /** One invitation per UTC game day, including across reloads and tabs. */
-export const ACCOUNT_NUDGE_KEY = 'skillissue:account-nudge-day';
+export const ACCOUNT_NUDGE_KEY = 'skillissue:extra-tries-nudge-day';
 let memoryDay: string | null = null;
 
 export function accountNudgeDue(status: string, attempts: number, date: string, lastShownDay: string | null, today: string): boolean {
-  return status === 'anon' && attempts >= 2 && date === today && lastShownDay !== today;
+  return status === 'anon' && attempts >= 5 && date === today && lastShownDay !== today;
 }
 
 export function lastAccountNudgeDay(): string | null {

@@ -47,7 +47,7 @@ function Studio({ date, onPlay }: { date: string; onPlay: (mode: Mode) => void }
 
   return (
     <section className="screen creator">
-      <h2 className="creator-title">Creator studio</h2>
+      <header className="page-intro"><span className="eyebrow">MAKE SOMETHING WORTH SHARING</span><h1>Creator studio<span>.</span></h1><p>Record a try, pick your best moment, and give people a score to beat.</p></header>
 
       <div className="card px-box creator-today">
         <div className="eyebrow">today · #{dayNumber(date)} · {dayLabel(date)}</div>
@@ -88,7 +88,7 @@ function Studio({ date, onPlay }: { date: string; onPlay: (mode: Mode) => void }
           Custom top line (replaces the series line and the default challenge; leave empty to use them)
           <input value={creator.hook} maxLength={40} placeholder="e.g. my mom vs me 😤" onChange={(e) => creator.setHook(e.target.value)} />
         </label>
-        <p className="muted">Your clips will open with: <b>"{creatorClipOptions(focusMode(), date).hook ?? clipHook(focusMode(), dayNumber(date))}"</b></p>
+        <p className="creator-video-note">New recordings use the Skilly wordmark, readable scores and a clear challenge. Existing saved clips keep their original design.</p><p className="muted">Your clips will open with: <b>"{creatorClipOptions(focusMode(), date).hook ?? clipHook(focusMode(), dayNumber(date))}"</b></p>
       </div>
 
       <CalendarList date={date} />

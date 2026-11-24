@@ -43,7 +43,7 @@ export function ChallengeInbox({ compact = false }: { compact?: boolean }) {
         </div>)}</div></details>}
         <small>{challenge.play_date} - daily challenge</small>
         <div className="challenge-inbox-actions">
-          <a href={`#${challenge.mode}/duel/${challenge.token}`}>View</a>
+          <a href={`/play/${challenge.mode}/duel/${challenge.token}`}>View</a>
           {challenge.is_owner && <button className="btn btn-ghost btn-sm" onClick={() => void copyText(trackedChallengeUrl(location.href, challenge)).then(ok => toast(ok ? 'Challenge link copied.' : 'Could not copy link.'))}>Copy link</button>}
         </div>
       </li>)}</ul>}
@@ -52,7 +52,7 @@ export function ChallengeInbox({ compact = false }: { compact?: boolean }) {
       <span aria-live="polite">{page + 1} / {pageCount}</span>
       <button className="btn btn-ghost btn-sm" disabled={page === pageCount - 1} onClick={() => setPagination({ owner: userId, page: page + 1 })}>Next</button>
     </nav>}
-    {compact && <a href="#friends">All challenges &amp; friends &#8594;</a>}
+    {compact && <a href="/friends">All challenges &amp; friends &#8594;</a>}
     {!compact && <p className="me-fine">Targets are fixed when shared; accepted players use their daily best. Updates every 15 seconds while open. Save your account to keep challenges across devices.</p>}
   </section>;
 }

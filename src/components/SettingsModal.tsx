@@ -1,3 +1,4 @@
+import { DailyReminder } from './DailyReminder';
 import { AnimatePresence, motion } from 'motion/react';
 import { track } from '../lib/clarity';
 import { usePlayer, type Settings } from '../lib/store';
@@ -46,14 +47,15 @@ export function SettingsModal({ open, onClose }: Props) {
               </label>
             ))}
 
+            <DailyReminder settings />
             <div className="modal-links">
-              <a href="#privacy" onClick={onClose}>
+              <a href="/privacy" onClick={onClose}>
                 privacy
               </a>
-              <a href="#me" onClick={onClose}>
+              <a href="/profile" onClick={onClose}>
                 my stats &amp; garage
               </a>
-              <a href="#faq" onClick={onClose}>
+              <a href="/faq" onClick={onClose}>
                 faq
               </a>
             </div>

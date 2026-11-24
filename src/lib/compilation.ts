@@ -1,6 +1,6 @@
 import type { Mode } from '../config';
 import { pickClipMime } from './clip';
-import { clipReaction, drawOutlined, drawPill } from './clipScenes';
+import { clipReaction, drawOutlined, drawPill, drawWatermark, drawClipFooter } from './clipScenes';
 import type { StoredClip } from './creator';
 
 const W = 720;
@@ -100,11 +100,13 @@ export async function makeCompilation(clips: StoredClip[], mode: Mode, { onProgr
     const endStart = performance.now();
     while (performance.now() - endStart < END_MS) {
       if (last) c.drawImage(last, 0, 0, W, H);
-      c.fillStyle = 'rgba(5,10,20,.55)';
+      c.fillStyle = 'rgba(16,19,16,.94)';
       c.fillRect(0, 0, W, H);
       drawOutlined(c, `BEST OF ${clips.length}`, 470, 56, '#ffffff');
-      drawOutlined(c, best.label, 590, 96, reaction.color);
-      drawOutlined(c, reaction.text, 710, 64, reaction.color);
+      drawOutlined(c, `${best.score.toFixed(1)} / 100`, 590, 82, reaction.color);
+      drawOutlined(c, best.label, 670, 32, '#c1cbb8');
+      drawOutlined(c, reaction.text, 760, 40, reaction.color);
+      drawWatermark(c); drawClipFooter(c);
       await wait(1000 / 30);
     }
     report(END_MS);

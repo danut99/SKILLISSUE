@@ -61,7 +61,7 @@ export function RankCalendar({ date }: { date: string }) {
       {!online ? <p role="status">Connect online to see your daily places. Save your account to keep this history across devices.</p> : error ? <div role="alert"><p>{error}</p><button className="btn btn-ghost btn-sm" onClick={() => setRetry(value => value+1)}>Try again</button></div> : <>
         <div className="rank-calendar-scroll" ref={scrollRef} tabIndex={0} role="region" aria-label="Daily rank calendar. Scroll horizontally for earlier months.">
           <ActivityCalendar data={rankCalendar(year,date,rows)} loading={!loaded} blockSize={14} blockMargin={4} blockRadius={0} fontSize={15}
-            colorScheme="dark" theme={{dark:['#152238','#36566f','#347f99','#4de3ff','#ffd23f']}} showWeekdayLabels={['mon','wed','fri']} showTotalCount={false} showColorLegend={false}
+            colorScheme="dark" theme={{dark:['#252e21','#526448','#81966a','#b9d68b','#d7ff5f']}} showWeekdayLabels={['mon','wed','fri']} showTotalCount={false} showColorLegend={false}
             renderBlock={(block, activity) => cloneElement(block, {
               role: 'button', tabIndex: 0, 'aria-label': label(activity.date), 'aria-pressed': selected === activity.date,
               onClick: () => setPicked(activity.date), onKeyDown: event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setPicked(activity.date); } },

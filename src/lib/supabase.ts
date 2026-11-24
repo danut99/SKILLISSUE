@@ -24,4 +24,4 @@ export function getSupabase(): Promise<SupabaseClient | null> {
   return clientPromise;
 }
 
-export const redirectUrl = () => location.origin + location.pathname;
+export const redirectUrl = () => location.origin + '/';

@@ -7,7 +7,7 @@ import { GAME_NAME } from '../config';
 export function PrivacyPage() {
   return (
     <section className="screen home legal">
-      <h1>privacy</h1>
+      <h1>Your privacy matters.</h1>
       <p>
         {GAME_NAME} is a free daily game. You can play without an account, an email or a password. This page explains what we store.
       </p>
@@ -30,6 +30,8 @@ export function PrivacyPage() {
       </ul>
       <p>Your nickname and daily scores are shown publicly on the leaderboards. Your id and email are never shown.</p>
 
+      <h2>optional daily reminders</h2>
+      <p>If you enable daily reminders, we store your browser push subscription, chosen time and time zone against your player account. We use them only for one daily game reminder, skipped when you have already played that UTC day. You can turn reminders off in Settings. Browser and operating system settings also control delivery.</p>
       <h2>video clips</h2>
       <p>"Save clip" records the game area inside your browser. The video never leaves your device unless you share it yourself.</p>
 

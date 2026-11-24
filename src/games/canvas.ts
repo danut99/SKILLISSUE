@@ -4,18 +4,10 @@ import { C, FONT, H, W } from './types';
 export function paper(c: CanvasRenderingContext2D) {
   c.fillStyle = C.bg;
   c.fillRect(0, 0, W, H);
-  c.strokeStyle = C.grid;
-  c.lineWidth = 1;
-  c.beginPath();
-  for (let x = 0; x <= W; x += 24) {
-    c.moveTo(x + 0.5, 0);
-    c.lineTo(x + 0.5, H);
+  c.fillStyle = C.grid;
+  for (let x = 12; x < W; x += 24) for (let y = 12; y < H; y += 24) {
+    c.beginPath(); c.arc(x, y, 1, 0, Math.PI * 2); c.fill();
   }
-  for (let y = 0; y <= H; y += 24) {
-    c.moveTo(0, y + 0.5);
-    c.lineTo(W, y + 0.5);
-  }
-  c.stroke();
 }
 
 /** Retro CRT scanlines, drawn last. */
@@ -36,12 +28,13 @@ export function text(
   c.globalAlpha = o.alpha ?? 1;
   c.textAlign = o.align ?? 'center';
   c.textBaseline = 'middle';
-  c.font = `${size}px ${FONT}`;
-  if (o.maxWidth) {
+  c.font = `${size >= 30 ? 800 : 500} ${size}px ${FONT}`;
+  const maxWidth = o.maxWidth ?? W - 24;
+  if (maxWidth) {
     const w = c.measureText(s).width;
-    if (w > o.maxWidth) {
-      size = Math.floor((size * o.maxWidth) / w);
-      c.font = `${size}px ${FONT}`;
+    if (w > maxWidth) {
+      size = Math.floor((size * maxWidth) / w);
+      c.font = `${size >= 30 ? 800 : 500} ${size}px ${FONT}`;
     }
   }
   if (o.outline) {
@@ -65,7 +58,7 @@ export function banner(c: CanvasRenderingContext2D, big: string, small: string, 
   c.scale(s, s);
   c.rotate(-0.04);
   // pixel box behind
-  c.fillStyle = 'rgba(5,10,20,0.85)';
+  c.fillStyle = 'rgba(16,19,16,0.94)';
   c.fillRect(-168, -46, 336, small ? 98 : 80);
   c.strokeStyle = color;
   c.lineWidth = 3;
@@ -76,7 +69,7 @@ export function banner(c: CanvasRenderingContext2D, big: string, small: string, 
 }
 
 export function watermark(c: CanvasRenderingContext2D, label: string) {
-  text(c, label, 10, 16, { size: 18, color: C.muted, align: 'left', alpha: 0.9 });
+  text(c, label, 10, 16, { size: 11, color: C.muted, align: 'left', alpha: 0.9 });
 }
 
 export function rect(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {

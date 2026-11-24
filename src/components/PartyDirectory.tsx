@@ -1,3 +1,4 @@
+import { navigateTo } from '../lib/navigation';
 import { useEffect,useState } from 'react';
 import { findPartyCode,listPublicParties,type PublicParty } from '../lib/party';
 import type { ReactNode } from 'react';
@@ -12,7 +13,7 @@ export function PartyDirectory({ createCard }: { createCard: ReactNode }){
   void refresh();const timer=setInterval(()=>void refresh(),10000);window.addEventListener('focus',refresh);
   return()=>{alive=false;clearInterval(timer);window.removeEventListener('focus',refresh);};
  },[]);
- async function join(){setBusy(true);setJoinError('');try{const token=await findPartyCode(code);location.hash=`party/${token}`;}catch(e){setJoinError(e instanceof Error?e.message:'Could not find room.');}finally{setBusy(false);}}
+ async function join(){setBusy(true);setJoinError('');try{const token=await findPartyCode(code);navigateTo(`/party/${token}`);}catch(e){setJoinError(e instanceof Error?e.message:'Could not find room.');}finally{setBusy(false);}}
  const activeRooms=rooms?.filter(room=>!room.expired&&room.status!=='Finished')??[];
  const endedRooms=rooms?.filter(room=>room.expired||room.status==='Finished')??[];
  function roomList(items:PublicParty[]){return <ul className="party-directory-cards">{items.map(room=><li className="party-directory-card" key={room.token}>
@@ -21,7 +22,7 @@ export function PartyDirectory({ createCard }: { createCard: ReactNode }){
   <p className="party-card-games">{room.selected_games.map(m=>MODE_INFO[m].name).join(' + ')} &middot; {room.round_count} rounds</p>
   <div className="party-card-winner"><PixelIcon name="trophy" size={32} /><div><small>{(room.winners?.length??0)>1?'Shared winners':'Latest winner'}{room.latest_match?` ? Game ${room.latest_match}`:''}</small><strong>{room.winners?.length?room.winners.join(' & '):'Results unavailable'}</strong>{room.winning_score!=null&&<span>{Number(room.winning_score).toFixed(1)}{room.latest_round_count?` / ${room.latest_round_count*100}`:''} points</span>}</div></div>
   <div className="party-card-stats"><span><b>{room.players}</b> / 8 players</span><span><b>{room.games_played}</b> {room.games_played===1?'game':'games'} played</span></div>
-  <div className="party-card-footer">{room.expired?<span className="me-fine">Party ended</span>:<><code>{room.code}</code><a className="btn btn-ghost btn-sm" href={`#party/${room.token}`}>{room.status==='Waiting'&&room.players<8?'Join party':'View room'} &#8594;</a></>}</div>
+  <div className="party-card-footer">{room.expired?<span className="me-fine">Party ended</span>:<><code>{room.code}</code><a className="btn btn-ghost btn-sm" href={`/party/${room.token}`}>{room.status==='Waiting'&&room.players<8?'Join party':'View room'} &#8594;</a></>}</div>
  </li>)}</ul>;}
  return <section className="party-directory party-entry-grid">
   {createCard}

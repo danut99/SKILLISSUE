@@ -1,4 +1,5 @@
 import type { Mode } from '../config';
+import { tokenFromUrl } from './navigation';
 import type { Attempt, Detail } from './store';
 import { isOnline, whenAuthReady } from './auth';
 import { ensureNickname } from './leaderboard';
@@ -15,10 +16,11 @@ export interface TrackedChallenge {
   is_owner: boolean; accepted: boolean; participants: ChallengePlayer[];
 }
 export function readTrackedToken(hash: string): string | null {
+  hash = tokenFromUrl(hash);
   return /^#(?:draw|cut|brake)\/duel\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(hash)?.[1] ?? null;
 }
 export function trackedChallengeUrl(base: string, challenge: Pick<TrackedChallenge, 'mode' | 'token'>): string {
-  const url = new URL(base); url.search = ''; url.hash = `${challenge.mode}/duel/${challenge.token}`; return url.href;
+  const url = new URL(base); url.search = ''; url.hash = ''; url.pathname = `/play/${challenge.mode}/duel/${challenge.token}`; return url.href;
 }
 async function rpc<T>(name: string, args = {}): Promise<T> {
   await whenAuthReady();

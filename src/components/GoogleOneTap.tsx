@@ -3,6 +3,7 @@ import { GOOGLE_CLIENT_ID } from '../config';
 import { useAuth, whenAuthReady } from '../lib/auth';
 import { acceptGoogleCredential, googleNonce, loadGoogleIdentity } from '../lib/googleOneTap';
 import { toast } from '../lib/ui';
+import { recordAccountIntent } from '../lib/engagementTracking';
 
 export function GoogleOneTap({ eligible }: { eligible: boolean }) {
   const {status,userId}=useAuth();
@@ -18,6 +19,7 @@ export function GoogleOneTap({ eligible }: { eligible: boolean }) {
         callback:response=>{
           if(!active)return;
           google.cancel();
+          recordAccountIntent(userId);
           void acceptGoogleCredential(response.credential,nonce.raw,userId).then(result=>{
             if(active&&result==='conflict')setPending({token:response.credential,nonce:nonce.raw,owner:userId});
             else if(result==='linked')toast('Google connected. Your progress is saved.');
@@ -29,6 +31,7 @@ export function GoogleOneTap({ eligible }: { eligible: boolean }) {
   },[eligible,status,userId]);
   async function switchPlayer(){
     if(!pending||busy)return;setBusy(true);
+    recordAccountIntent(pending.owner, true);
     try{await acceptGoogleCredential(pending.token,pending.nonce,pending.owner,true);setPending(null);toast('Signed into your existing player.');}
     catch(cause){toast(cause instanceof Error?cause.message:'Could not sign in.');setPending(null);}
     finally{setBusy(false);}

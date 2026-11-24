@@ -1,3 +1,4 @@
+import { navigateTo } from '../lib/navigation';
 import { ResponsiveSection } from './ResponsiveSection';
 import { ChallengeInbox } from './ChallengeInbox';
 import { useEffect, useState } from 'react';
@@ -23,7 +24,7 @@ export function FriendsPage({ date, inviteToken }: { date: string; inviteToken: 
       ) : (
         <div className="me-box" role="status">
           <p>{status === 'connecting' ? 'Connecting...' : 'Friends need an online connection. Please try again shortly.'}</p>
-          <a href="#me" className="btn btn-ghost">My account</a>
+          <a href="/profile" className="btn btn-ghost">My account</a>
         </div>
       )}
     </section>
@@ -67,7 +68,7 @@ function FriendsContent({ date, inviteToken }: { date: string; inviteToken: stri
   async function accept() {
     if (!inviteToken) return;
     const nickname = await acceptFriendInvite(inviteToken);
-    location.hash = 'friends';
+    navigateTo('/friends');
     useUi.getState().refreshBoards();
     toast(`You're now friends with ${nickname}.`);
   }
@@ -104,7 +105,7 @@ function FriendsContent({ date, inviteToken }: { date: string; inviteToken: stri
               )}
             </>
           )}
-          <a className="friend-dismiss" href="#friends">Close invite</a>
+          <a className="friend-dismiss" href="/friends">Close invite</a>
         </div>
       )}
 
@@ -126,7 +127,7 @@ function FriendsContent({ date, inviteToken }: { date: string; inviteToken: stri
         ) : (
           <button className="btn btn-primary" disabled={busy} onClick={() => void run(() => makeInvite())}>{busy ? 'Please wait...' : 'Get invite link'}</button>
         )}
-        <p className="me-fine"><a href="#me">Save your account</a> to keep your friends across devices.</p>
+        <p className="me-fine"><a href="/profile">Save your account</a> to keep your friends across devices.</p>
       </div>
 
       <section className="me-section" aria-labelledby="friends-list-heading">

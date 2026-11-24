@@ -1,10 +1,9 @@
-import { TIME_LIMITS } from '../games/timedGame';
-import { PARTY_ROUNDS, PARTY_REVEAL_SECONDS } from '../lib/party';
+import { TIME_LIMITS, PARTY_SECONDS, PARTY_REVEAL_SECONDS } from '../lib/gameRules';
 
 const SECTIONS: { title: string; questions: [string, string][] }[] = [
   { title: 'Daily games', questions: [
     ['What is Skilly?', 'Three daily precision tests: draw the daily shape, cut a blob 50/50, and complete the daily driving objective. Everyone gets the same tests for that day. Play with your finger or mouse.'],
-    ['How many tries do I get?', 'Five tries per game each day. Only your best score in each game counts; the three best scores add up to a total out of 300. A failed attempt scores zero and uses a try. Retry shows your remaining attempts.'],
+    ['How many tries do I get?', 'Five tries per daily Cut, Draw and Brake game for guests; eight for players signed in with Google. Linking your guest account keeps your existing tries and unlocks three more per game each day. Only your best score in each game counts; the three best scores add up to a total out of 300. A failed attempt scores zero and uses a try. Retry shows your remaining attempts.'],
     ['When do the games reset?', 'Every day at 00:00 UTC. The homepage countdown shows the time remaining. This resets daily attempts and daily rankings, while your history stays saved.'],
     ['How do I draw?', 'Draw one continuous stroke around the center dot, following the proportions and orientation of the outline. Close the loop. You can draw larger or smaller than the guide. Tiny shapes, incomplete loops, or getting too close to the dot can fail.'],
     ['How do I cut?', 'Drag a straight line through the blob, then release to slice. Aim for equal areas, not equal widths. The two percentages show the split; 50.0 / 50.0 is perfect.'],
@@ -27,7 +26,7 @@ const SECTIONS: { title: string; questions: [string, string][] }[] = [
   ] },
   { title: 'Party Mode', questions: [
     ['How do I start a party?', 'Open Menu ? Party and create a room. Copy the invite link and send it to friends. Each player joins and taps I?m ready. The host starts once all players are ready. You need 2?8 players and an online connection.'],
-    ['How many rounds can we play?', `Brake-only parties have 2-3 rounds. Brake with one other game allows up to 6 rounds, and all three games allow up to 9. Each driving objective appears once. Draw and Cut parties without Brake allow up to 12 rounds. The host can change games and rounds in the lobby, which resets Ready status. Rounds cycle through the selected games. Every round gives everyone ${PARTY_ROUNDS[0].seconds} seconds.`],
+    ['How many rounds can we play?', `Brake-only parties have 2-3 rounds. Brake with one other game allows up to 6 rounds, and all three games allow up to 9. Each driving objective appears once. Draw and Cut parties without Brake allow up to 12 rounds. The host can change games and rounds in the lobby, which resets Ready status. Rounds cycle through the selected games. Every round gives everyone ${PARTY_SECONDS} seconds.`],
     ['When does the timer start?', 'After the shared countdown, everyone starts each round together. The timer starts automatically, not on first touch. There is one scored attempt per round. Keep the game visible and be ready for the next round.'],
     ['What happens after I finish?', `Your result shows immediately with Saving your score or Score saved, a finished-player count, and a countdown to the reveal. The reveal starts when everyone has submitted or time runs out. Opponents' scores stay hidden until then. There are ${PARTY_REVEAL_SECONDS} seconds to view results before the next round.`],
     ['How do we win?', 'Your round scores add up. Each round is worth up to 100 points, so a six-round match is out of 600. Highest total wins. Tied totals share a place. A missed or timed-out round scores zero. Party scores do not affect daily rankings or use daily tries.'],
@@ -50,15 +49,15 @@ const SECTIONS: { title: string; questions: [string, string][] }[] = [
 
 export function FaqPage() {
   return <section className="screen home legal faq-page">
-    <h1>faq</h1>
+    <h1>Good questions.<br />Straight answers.</h1>
     <p>Controls, rules, friends, and party chaos. Pick a question.</p>
-    <nav className="faq-topics" aria-label="FAQ topics">{SECTIONS.map((section, index) => <a key={section.title} href={`#faq/topic-${index}`} onClick={() => requestAnimationFrame(() => document.getElementById(`faq-topic-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))}>{section.title}</a>)}</nav>
+    <nav className="faq-topics" aria-label="FAQ topics">{SECTIONS.map((section, index) => <a key={section.title} href={`/faq#faq-topic-${index}`} onClick={() => requestAnimationFrame(() => document.getElementById(`faq-topic-${index}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }))}>{section.title}</a>)}</nav>
     <div className="faq-groups">{SECTIONS.map((section, index) => <section className="faq-group" id={`faq-topic-${index}`} key={section.title} aria-labelledby={`faq-heading-${index}`}>
       <h2 id={`faq-heading-${index}`}>{section.title}</h2>
       {section.questions.map(([question, answer]) => <details className="faq-question" key={question}>
         <summary>{question}</summary><p>{answer}</p>
       </details>)}
     </section>)}</div>
-    <p><a href="#">Back to today's games</a></p>
+    <p><a href="/">Back to today's games</a></p>
   </section>;
 }

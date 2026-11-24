@@ -406,3 +406,43 @@ Not losing players' scores (`src/lib/auth.ts`, `src/lib/pendingAttempts.ts`):
 - Daily tries finished while offline (or when `record_attempt` fails for a non-final reason) are queued in `localStorage` (`skillissue:pending-attempts`) and uploaded on reconnect or before the next online try. The server only accepts today's (UTC) tries, so older queued tries are dropped; `no_tries_left` drops a try. Signing out clears the queue.
 - After the first try the app calls `navigator.storage.persist()` so the browser is less likely to evict the guest session (Firefox may show a permission prompt; Safari mostly ignores it, so linking an account or installing the PWA remains the real protection).
 - Apply `supabase/migrations/20261123010000_auto_profile_for_scores.sql`: inserting into `attempts`, `balance_attempts`, `count_attempts` or `skill_level_attempts` creates a fallback `PlayerNNNNNN` profile if the player has none yet, so a score is never hidden by the leaderboard's `profiles` join. Players can rename it like any nickname.
+
+
+## Optional daily browser reminders
+
+This feature sends only a daily game reminder. Players opt in from the completed-day
+card or Settings and choose a local time (default 19:00). Guests can opt in. iPhone
+and iPad require opening the installed Home Screen web app. No permission is requested
+on page load. The UI stays hidden until a public push key is configured.
+
+Deployment order:
+
+1. Apply `supabase/migrations/20261124010000_daily_reminders.sql` in the Supabase SQL editor.
+2. Run `node scripts/generate-push-keys.mjs` locally. Keep this output private. Put
+   `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`, `DAILY_REMINDER_SECRET`, and a
+   `WEB_PUSH_SUBJECT` such as `mailto:your-contact@example.com` in Edge Function secrets.
+   The service role key and project URL are supplied by Supabase. Never expose private
+   keys or the scheduler secret in Vite variables or repository files.
+3. Deploy with `supabase functions deploy daily-reminders --no-verify-jwt`.
+   The function itself requires the private `x-reminder-secret` header.
+4. Enable Supabase `pg_cron` and `pg_net`. Store the function URL as
+   `daily_reminder_url` and its matching private scheduler secret as
+   `daily_reminder_secret` in Vault. Run `supabase/schedule-daily-reminders.sql`.
+5. Set `VITE_WEB_PUSH_PUBLIC_KEY` to the generated public key and rebuild/deploy the site.
+6. On a supported browser, enable a reminder at a time a few minutes ahead. Confirm
+   delivery without an open page, notification click, turn-off, an expired subscription,
+   and suppression after a daily attempt. Test the installed iPhone app separately.
+
+The scheduler polls every five minutes with a fifteen-minute due window and a
+fifteen-minute push TTL. It claims at most one reminder per player per UTC game day,
+across all devices, and skips players with a saved Cut, Draw or Brake attempt that day.
+This uses the server's saved activity, so offline or still-uploading attempts may not
+suppress a reminder. Among due devices, the latest configured device is selected.
+Browser/OS restrictions can delay or prevent delivery. Delivery is best effort: claims
+are not retried that day after a send failure, which prevents duplicate notifications.
+Expired subscriptions (HTTP 404/410) are deleted. Disabling in Settings removes this
+browser's subscription; manage other devices from their own Settings. Rotating VAPID
+keys requires users to turn reminders off and enable them again. Initial setup and live push delivery have
+to be verified in the deployed Supabase project; a local build does not send reminders.
+
+Reference: https://supabase.com/docs/guides/functions/schedule-functions

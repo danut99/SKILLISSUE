@@ -3,7 +3,8 @@ import { drawResultCompanion } from './resultCompanion';
 import { banner, text } from './canvas';
 import { C, W, type Game, type GameApi } from './types';
 
-export const TIME_LIMITS = { draw: 8, cut: 5 } as const;
+import { TIME_LIMITS } from '../lib/gameRules';
+export { TIME_LIMITS } from '../lib/gameRules';
 
 /** One deadline per attempt; releasing or missing cannot restart the clock. */
 export function createTimedGame(mode: Mode, factory: (api: GameApi) => Game, api: GameApi): Game {

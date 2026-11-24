@@ -8,7 +8,7 @@ import { dayNumber } from './daily';
 import type { Attempt } from './store';
 import { clipRecorder } from './clip';
 
-export const balanceLink = () => `${siteUrl().split('#')[0]}#balance`;
+export const balanceLink = () => `${siteUrl()}play/balance`;
 export const balanceCaption = (date: string, score: number) =>
   `SKILLY #${dayNumber(date)}\nBALANCE! ${score.toFixed(1)} / 100\nTwo friends. One support. Can you beat me?\n${balanceLink()}`;
 

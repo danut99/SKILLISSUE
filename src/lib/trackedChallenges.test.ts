@@ -29,10 +29,11 @@ describe('persistent challenges', () => {
     expect(await getTrackedChallenges()).toEqual([challenge]);
     expect(mocks.rpc).toHaveBeenCalledWith('get_score_challenges', {});
   });
-  it('roundtrips tracked links under a deployed subpath', () => {
+  it('roundtrips tracked links as real paths', () => {
     const url = trackedChallengeUrl('https://example.com/game/#draw', challenge);
-    expect(new URL(url).pathname).toBe('/game/');
-    expect(readTrackedToken(new URL(url).hash)).toBe(token);
+    expect(new URL(url).pathname).toBe(`/play/cut/duel/${token}`);
+    expect(new URL(url).hash).toBe('');
+    expect(readTrackedToken(url)).toBe(token);
     expect(readTrackedToken('#cut/duel/not-a-token')).toBeNull();
     expect(readTrackedToken('#friends/duel/' + token)).toBeNull();
   });

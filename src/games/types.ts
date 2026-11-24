@@ -7,20 +7,20 @@ export const H = 640;
 export const SCALE = 2;
 
 export const C = {
-  bg: '#050a14',
-  grid: '#0d1a2e',
-  panel: '#101d33',
-  line: '#1b3050',
-  cyan: '#4de3ff',
-  pink: '#ff5d8f',
-  text: '#e8f1ff',
-  muted: '#7d93b8',
-  yellow: '#ffd23f',
-  green: '#5dff9d',
-  red: '#ff4d4d',
+  bg: '#101310',
+  grid: '#1d241b',
+  panel: '#1a2019',
+  line: '#374030',
+  cyan: '#bfa7ff',
+  pink: '#ffb2d0',
+  text: '#f6f5ed',
+  muted: '#abb4a1',
+  yellow: '#ffd27c',
+  green: '#b9ed91',
+  red: '#ff8a83',
 };
 
-export const FONT = '"VT323", ui-monospace, monospace';
+export const FONT = 'Arial, Helvetica, sans-serif';
 
 export interface AttemptResult {
   score: number;

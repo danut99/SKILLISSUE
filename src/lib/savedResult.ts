@@ -1,17 +1,19 @@
-import { paintCutFace } from './cutCharacters';
+import { halfMood, paintHalfFace } from './cutCharacters';
+import { paintCutBlob, paintCutSplit } from '../games/cutPresentation';
+import { paintDrawSummary } from '../games/drawPresentation';
 import { createBrakeGame } from '../games/brakeGame';
 import { drawResultCompanion } from '../games/resultCompanion';
 import type { Mode } from '../config';
 import { dailyShape } from '../games/cutGame';
 import { paper, text } from '../games/canvas';
 import { C, W, H, SCALE } from '../games/types';
-import { innerPoint, polygonArea, polygonCentroid, splitPolygon } from './geometry';
+import { innerPoint, polygonArea, splitPolygon } from './geometry';
 import { fmtResult } from './scoring';
 import { dailyDrawShape, shapeAccuracy, shapeRadius } from './drawShapes';
 import type { Attempt } from './store';
 
 /** Rebuild a saved cut from its seeded polygon and persisted slicing line. */
-export function savedCutCanvas(date: string, attempt: Attempt): HTMLCanvasElement | null {
+export function savedCutCanvas(date: string, attempt: Attempt, clean = false): HTMLCanvasElement | null {
   const line = attempt.detail.line;
   if (!line || line.length !== 4 || !line.every(Number.isFinite)) return null;
   const a = { x: line[0], y: line[1] };
@@ -26,31 +28,27 @@ export function savedCutCanvas(date: string, attempt: Attempt): HTMLCanvasElemen
   paper(c);
   const design = dailyShape(date,0,undefined,attempt.detail.cutCharacter);
   const {poly}=design;
-  const face=innerPoint(poly,6);
+  const originalFace = innerPoint(poly, 6);
   const split = splitPolygon(poly, a, b);
   const pieces = [split.pos, split.neg];
   const total = polygonArea(poly);
+  const posPct = Math.round(split.posArea / total * 1000) / 10;
+  const negPct = Math.round((100 - posPct) * 10) / 10;
   const normal = { x: -(b.y - a.y) / length, y: (b.x - a.x) / length };
-  text(c, 'YOUR BEST CUT', W / 2, 100, { size: 30, color: C.cyan });
+  if (!clean) text(c, 'YOUR BEST CUT', W / 2, 100, { size: 30, color: C.cyan });
   pieces.forEach((piece, index) => {
     if (!piece.length) return;
     const direction = index === 0 ? 1 : -1;
     c.save();
     c.translate(normal.x * 18 * direction, normal.y * 18 * direction);
-    c.beginPath();
-    piece.forEach((p, i) => i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y));
-    c.closePath();
-    c.fillStyle = design.color;
-    c.fill();
-    c.strokeStyle = '#000';
-    c.lineWidth = 3;
-    c.stroke();
-    c.save();c.clip();paintCutFace(c,face.p,Math.max(.45,Math.min(1.2,face.d/38)),design.mood,{x:180,y:100},false,true);c.restore();
-    const center = polygonCentroid(piece);
-    text(c, `${(polygonArea(piece) / total * 100).toFixed(1)}%`, center.x, center.y, { size: 27, color: C.text, outline: 5 });
+    paintCutBlob(c, piece, design, originalFace.p, Math.max(.55, Math.min(1.2, originalFace.d / 38)));
+    const face = innerPoint(piece, 6);
+    const other = innerPoint(pieces[1 - index], 6);
+    const smaller = index === 0 ? posPct < negPct : negPct <= posPct;
+    paintHalfFace(c, face.p, Math.max(.5, Math.min(1.3, face.d / 32)), halfMood(attempt.score, smaller), other.p, 1000);
     c.restore();
   });
-  drawResultCompanion(c, attempt.score, 'cut', fmtResult('cut', attempt));
+  paintCutSplit(c, posPct, negPct);
   return canvas;
 }
 
@@ -69,8 +67,8 @@ export function savedScoreCanvas(mode: Mode, attempt: Attempt): HTMLCanvasElemen
 }
 
 /** Shared renderer for reopened games and share cards. */
-export function savedResultCanvas(mode: Mode, date: string, attempt: Attempt): HTMLCanvasElement {
-  if (mode === 'cut') return savedCutCanvas(date, attempt) ?? savedScoreCanvas(mode, attempt);
+export function savedResultCanvas(mode: Mode, date: string, attempt: Attempt, clean = false): HTMLCanvasElement {
+  if (mode === 'cut') return savedCutCanvas(date, attempt, clean) ?? savedScoreCanvas(mode, attempt);
   const canvas = document.createElement('canvas');
   canvas.width = W * SCALE;
   canvas.height = H * SCALE;
@@ -78,7 +76,8 @@ export function savedResultCanvas(mode: Mode, date: string, attempt: Attempt): H
   c.scale(SCALE, SCALE);
   if (mode === 'brake') {
     const game = createBrakeGame({ date, finish: () => {}, startClip: () => {}, cancelClip: () => {}, toast: () => {} }, attempt);
-    game.render(c, performance.now());
+    if (clean && game.renderClip) game.renderClip(c, performance.now());
+    else game.render(c, performance.now());
     game.destroy?.();
     return canvas;
   }
@@ -92,9 +91,15 @@ export function savedResultCanvas(mode: Mode, date: string, attempt: Attempt): H
     ? shapeAccuracy(stroke.map(([x, y]) => ({ x, y })), center, true, shape).mean
     : 130;
   const radius = Number.isFinite(fitted) && fitted > 0 ? fitted : 130;
-  text(c, `TODAY'S ${shape.toUpperCase()}`, W / 2, 96, { size: 32, color: C.cyan, maxWidth: W - 32 });
-  text(c, hasStroke ? 'your best drawing' : 'the daily target', W / 2, 126, { size: 22, color: C.muted });
+  if (!clean) text(c, `TODAY'S ${shape.toUpperCase()}`, W / 2, 96, { size: 32, color: C.cyan, maxWidth: W - 32 });
+  if (!clean) text(c, hasStroke ? 'your best drawing' : 'the daily target', W / 2, 126, { size: 22, color: C.muted });
 
+  if (hasStroke) {
+    c.strokeStyle = C.cyan; c.lineWidth = 5; c.lineJoin = 'round'; c.lineCap = 'round';
+    c.beginPath();
+    stroke.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]));
+    c.stroke();
+  }
   // Use the same dated target, center and fitted size as the playable game.
   c.save();
   c.setLineDash([6, 6]);
@@ -111,17 +116,11 @@ export function savedResultCanvas(mode: Mode, date: string, attempt: Attempt): H
   c.closePath();
   c.stroke();
   c.restore();
-  if (hasStroke) {
-    c.strokeStyle = C.cyan; c.lineWidth = 5; c.lineJoin = 'round'; c.lineCap = 'round';
-    c.beginPath();
-    stroke.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]));
-    c.stroke();
-  }
   c.fillStyle = C.text;
-  c.fillRect(center.x - 4, center.y - 4, 8, 8);
+  c.beginPath();c.arc(center.x,center.y,4,0,Math.PI*2);c.fill();
   text(c, hasStroke ? 'dashed: target / solid: you' : 'Drawing unavailable for this score', W / 2, 478, {
     size: 21, color: C.muted, maxWidth: W - 28,
   });
-  drawResultCompanion(c, attempt.score);
+  paintDrawSummary(c, attempt.score);
   return canvas;
 }

@@ -101,10 +101,11 @@ describe('six-round party schedule', () => {
     }
     expect(partyRound(2, 1, ['brake']).mode).toBe('draw');
   });
-  it('roundtrips room invite links under a subpath', () => {
+  it('roundtrips room invite links as real paths', () => {
     const url = partyUrl(token, 'https://example.com/game/#draw');
-    expect(new URL(url).pathname).toBe('/game/');
-    expect(readPartyToken(new URL(url).hash)).toBe(token);
+    expect(new URL(url).pathname).toBe(`/party/${token}`);
+    expect(new URL(url).hash).toBe('');
+    expect(readPartyToken(url)).toBe(token);
     expect(readPartyToken('#party/bogus')).toBeNull();
   });
 });

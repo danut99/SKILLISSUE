@@ -1,3 +1,5 @@
+import { usePlayer } from '../lib/store';
+import { useEffect, useRef } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { track } from '../lib/clarity';
 import { LINKS } from '../config';
@@ -24,20 +26,35 @@ interface Tile {
 
 /** Krillion-style main menu: big pixel tiles in a 2-column grid. */
 export function MenuModal({ open, route, onClose, onNavigate, onSettings }: Props) {
+  const muted = usePlayer(state => state.muted);
+  const toggleMuted = usePlayer(state => state.toggleMuted);
   const options: Tile[] = [
-    { id: 'home', icon: 'calendar', label: 'home', route: null },
-    { id: 'me', icon: 'profile', label: 'my skill issue', route: 'me' },
-    { id: 'league', icon: 'league-shield', label: 'leagues', route: 'league' },
-    { id: 'party', icon: 'battle', label: 'party', sub: '2-8 players', route: 'party' },
-    { id: 'friends', icon: 'friends', label: 'friends', route: 'friends' },
-    { id: 'settings', icon: 'settings', label: 'settings', action: onSettings },
-    { id: 'faq', icon: 'faq', label: 'faq', route: 'faq' },
-    { id: 'privacy', icon: 'privacy', label: 'privacy', route: 'privacy' },
+    { id: 'home', icon: 'calendar', label: 'Daily games', route: null },
+    { id: 'games', icon: 'practice', label: 'More games', route: 'games' },
+    { id: 'me', icon: 'profile', label: 'My progress', route: 'me' },
+    { id: 'league', icon: 'league-shield', label: 'Leagues', route: 'league' },
+    { id: 'party', icon: 'battle', label: 'Party mode', sub: '2-8 players', route: 'party' },
+    { id: 'friends', icon: 'friends', label: 'Friends', route: 'friends' },
+    { id: 'leaderboard', icon: 'trophy', label: 'Rankings', route: 'leaderboard' },
+    { id: 'how', icon: 'faq', label: 'How to play', route: 'how' },
   ];
-  const upcoming: Tile[] = [
-    { id: 'archive', icon: 'archive', label: 'archive', soon: true },
-    { id: 'unlimited', icon: 'practice', label: 'practice', soon: true },
-  ];
+  const menuRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const frame = requestAnimationFrame(() => menuRef.current?.querySelector<HTMLButtonElement>('button')?.focus());
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); onClose(); }
+      if (event.key !== 'Tab') return;
+      const items = menuRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]');
+      if (!items?.length) return;
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => { cancelAnimationFrame(frame); window.removeEventListener('keydown', keydown); previous?.focus(); };
+  }, [open, onClose]);
 
   const click = (t: Tile) => {
     if (t.soon) return;
@@ -67,6 +84,9 @@ export function MenuModal({ open, route, onClose, onNavigate, onSettings }: Prop
         <motion.div className="modal menu-modal" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
           <motion.nav
             className="menu-box px-box"
+            ref={menuRef}
+            role="dialog"
+            aria-modal="true"
             aria-label="Main menu"
             initial={{ y: -24, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -75,8 +95,8 @@ export function MenuModal({ open, route, onClose, onNavigate, onSettings }: Prop
           >
             <header className="menu-head">
               <div>
-                <div className="menu-eyebrow">skill issue</div>
-                <h2 className="menu-title">MENU</h2>
+                <div className="menu-eyebrow">THINK YOU HAVE GOT SKILL?</div>
+                <h2 className="menu-title">Pick your next move.</h2>
               </div>
               <button className="menu-x" onClick={onClose} aria-label="Close menu">
                 X
@@ -84,38 +104,7 @@ export function MenuModal({ open, route, onClose, onNavigate, onSettings }: Prop
             </header>
 
             <div className="menu-grid">{options.map(renderTile)}</div>
-            <p className="menu-rule"><span>coming soon</span></p>
-            <div className="menu-grid">{upcoming.map(renderTile)}</div>
-
-            {LINKS.tiktok ? (
-              <a className="menu-link pink" href={LINKS.tiktok} target="_blank" rel="noopener">
-                <span className="ml-icon"><PixelIcon name="social" size={32} /></span>
-                <span className="ml-copy">
-                  <span className="ml-label">follow on tiktok</span>
-                  <span className="ml-detail">@playskillissue &middot; fails, crashes &amp; daily top 10</span>
-                </span>
-                <span className="ml-arrow">↗</span>
-              </a>
-            ) : (
-              <button className="menu-link pink" disabled>
-                <span className="ml-icon"><PixelIcon name="social" size={32} /></span>
-                <span className="ml-copy">
-                  <span className="ml-label">TikTok</span>
-                  <span className="ml-detail">Coming soon</span>
-                </span>
-              </button>
-            )}
-            {LINKS.feedback && (
-              <a className="menu-link cyan" href={LINKS.feedback}>
-                <span className="ml-icon"><PixelIcon name="feedback" size={32} /></span>
-                <span className="ml-copy">
-                  <span className="ml-label">ideas &amp; feedback</span>
-                  <span className="ml-detail">suggest the next stupid test</span>
-                </span>
-                <span className="ml-arrow">↗</span>
-              </a>
-            )}
-
+            <nav className="menu-small-links" aria-label="More links"><button type="button" aria-pressed={!muted} onClick={() => { track(muted ? 'sound_on' : 'sound_off'); toggleMuted(); }}>Sound: {muted ? 'off' : 'on'}</button><button type="button" onClick={() => { onClose(); onSettings(); }}>Settings</button><a href="/faq" onClick={onClose}>FAQ</a><a href="/privacy" onClick={onClose}>Privacy</a>{LINKS.tiktok && <a href={LINKS.tiktok} target="_blank" rel="noopener noreferrer">TikTok</a>}</nav>
             <footer className="menu-foot">it's a skill issue.</footer>
           </motion.nav>
         </motion.div>

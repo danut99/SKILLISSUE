@@ -17,6 +17,7 @@ export const CLARITY_PROJECT_ID: string = import.meta.env.VITE_CLARITY_PROJECT_I
 export const GAME_NAME = 'SKILLY';
 export const LAUNCH_DATE = '2026-11-12';
 export const BASE_TRIES = 5;
+export const ACCOUNT_EXTRA_TRIES = 3;
 /** "Watch an ad → +1 try". Off for now; flip to true once a real rewarded-ad network is wired in. */
 export const REWARDED_ADS = false;
 
@@ -39,33 +40,31 @@ export const MODE_INFO: Record<Mode, ModeInfo> = {
     name: 'Draw',
     tagline: 'One shape. One stroke. No excuses.',
     crown: 'Master of Drawing',
-    color: '#4de3ff',
+    color: '#ffb2d0',
   },
   cut: {
     emoji: '🔪',
     name: 'Cut',
     tagline: "Today's shape. One cut. Two equal halves.",
     crown: 'Master of Cuts',
-    color: '#ff5d8f',
+    color: '#bfa7ff',
   },
   brake: {
     emoji: '🚗',
     name: 'Brake',
     tagline: 'A new driving objective each day. Nail the stop.',
     crown: 'Master of Brakes',
-    color: '#ffd23f',
+    color: '#ffd27c',
   },
 };
 
 /** Public destination for social buttons, copied text and exported cards. */
-export const siteUrl = (): string =>
-  (typeof document !== 'undefined' && document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href)
-  || (typeof location !== 'undefined' && location.host ? location.origin + location.pathname : 'https://skilly.pages.dev/');
+export const siteUrl = (): string => 'https://skilly.pages.dev/';
 
 /** BRAKE! car skins — unlocked by best streak (like Krillion's dive buddies). */
 export const CAR_SKINS = [
   { id: 'pink', name: 'Pink Potato', color: '#ff9ccf', streak: 0 },
-  { id: 'taxi', name: 'Panic Taxi', color: '#ffd23f', streak: 3 },
+  { id: 'taxi', name: 'Panic Taxi', color: '#ffd27c', streak: 3 },
   { id: 'cop', name: 'Fake Cop', color: '#4d7cff', streak: 7 },
   { id: 'lime', name: 'Toxic Lime', color: '#5dff9d', streak: 14 },
   { id: 'void', name: 'Void Grandma', color: '#b06bff', streak: 30 },

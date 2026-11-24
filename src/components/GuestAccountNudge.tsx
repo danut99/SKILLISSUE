@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { MODES } from '../config';
+import { MODES, type Mode } from '../config';
 import { accountNudgeDue, lastAccountNudgeDay, markAccountNudgeShown } from '../lib/accountNudge';
 import { useAuth } from '../lib/auth';
 import { track } from '../lib/clarity';
@@ -10,10 +10,10 @@ import { modeDay, usePlayer } from '../lib/store';
 import { AccountCard } from './AccountCard';
 
 /** Mounted only for a fresh daily result; never interrupts a game or a restored result. */
-export function GuestAccountNudge({ date, attemptAt, blocked }: { date: string; attemptAt: number; blocked: boolean }) {
+export function GuestAccountNudge({ date, attemptAt, blocked, title, description, mode }: { date: string; attemptAt: number; blocked: boolean; title?: string; description?: string; mode?: Mode }) {
   const status = useAuth(s => s.status);
   const owner = useAuth(s => s.userId);
-  const attempts = usePlayer(s => MODES.reduce((sum, mode) => sum + modeDay(s.days, date, mode).tries.length, 0));
+  const attempts = usePlayer(s => mode ? modeDay(s.days, date, mode).tries.length : Math.max(...MODES.map(m => modeDay(s.days, date, m).tries.length)));
   const dialog = useRef<HTMLDialogElement>(null);
   const [speaker] = useState(() => Math.random() < 0.5 ? 'angel' : 'demon');
 
@@ -30,7 +30,7 @@ export function GuestAccountNudge({ date, attemptAt, blocked }: { date: string; 
       element.showModal();
       markAccountNudgeShown(date);
       track(`account_nudge_shown_${speaker}`);
-    }, 3500);
+    }, 1800);
     return () => {
       window.clearTimeout(timer);
       element.close();
@@ -49,12 +49,10 @@ export function GuestAccountNudge({ date, attemptAt, blocked }: { date: string; 
     <button type="button" className="btn btn-ghost account-nudge-close" aria-label="Close account invitation" onClick={() => dialog.current?.close()} autoFocus>&times;</button>
     <img src={pixelArtUrl(`${speaker}-192.png`)} width="96" height="96" alt="" aria-hidden="true" />
     <p className="account-nudge-speaker">{speaker === 'angel' ? 'Hype Angel' : 'Little Menace'}</p>
-    <h2 id="account-nudge-title">{speaker === 'angel' ? 'Take your progress with you.' : 'Different device. Same questionable skills.'}</h2>
-    <p id="account-nudge-copy">{speaker === 'angel'
-      ? 'Your scores are already saved here. Link Google to keep your nickname, streak, scores and unlocked cars across devices.'
-      : 'Your scores are saved here, genius. Link Google so your nickname, streak, scores and cars can follow you to another device.'}</p>
-    <AccountCard compact />
-    <button type="button" className="btn btn-ghost account-nudge-later" onClick={() => dialog.current?.close()}>Maybe tomorrow</button>
-    <p className="account-nudge-note">Keep playing as a guest. We won&apos;t ask again today.</p>
+    <h2 id="account-nudge-title">{title ?? 'Want 3 more tries?'}</h2>
+    <p id="account-nudge-copy">{description ?? 'Continue with Google for 8 tries per daily game, every day. Keep your scores and streak across devices.'}</p>
+    <AccountCard compact source="achievement-dialog" />
+    <button type="button" className="btn btn-ghost account-nudge-later" onClick={() => dialog.current?.close()}>Maybe later</button>
+    <p className="account-nudge-note">Guests get 5 tries per daily game. We won&apos;t ask again today.</p>
   </dialog>, document.body);
 }

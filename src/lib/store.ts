@@ -1,6 +1,7 @@
+import { dailyTryLimit } from './dailyAllowance';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { BASE_TRIES, MODES, type Mode } from '../config';
+import { MODES, type Mode } from '../config';
 import { addDays } from './daily';
 
 /** Extra info per attempt — also stored as jsonb in the leaderboard. */
@@ -231,7 +232,7 @@ export function modeDay(days: Record<string, DayRecord>, date: string, mode: Mod
   return days[date]?.[mode] ?? EMPTY;
 }
 
-export const maxTries = (md: ModeDay) => BASE_TRIES + (md.bonus ? 1 : 0);
+export const maxTries = (md: ModeDay) => dailyTryLimit() + (md.bonus ? 1 : 0);
 export const triesLeft = (md: ModeDay) => Math.max(0, maxTries(md) - md.tries.length);
 
 export function bestAttempt(md: ModeDay): Attempt | null {

@@ -68,3 +68,28 @@ self.addEventListener('fetch', (event) => {
     );
   }
 });
+
+// Daily reminders only: content and destination are fixed by the app.
+self.addEventListener('push', (event) => {
+  let payload;
+  try { payload = event.data?.json(); } catch { return; }
+  if (payload?.type !== 'daily-reminder') return;
+  event.waitUntil(self.registration.showNotification("Today's shapes are ready", {
+    body: 'Got 2 minutes? Cut, draw and brake. Your daily challenges are waiting.',
+    icon: '/icon-192.png', badge: '/icon-192.png', tag: 'skilly-daily',
+    renotify: false, data: { type: 'daily-reminder' },
+  }));
+});
+self.addEventListener('notificationclick', (event) => {
+  if (event.notification.data?.type !== 'daily-reminder') return;
+  event.notification.close();
+  const destination = new URL('/?utm_source=daily_reminder', self.location.origin).href;
+  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (windows) => {
+    const existing = windows.find(client => new URL(client.url).origin === self.location.origin);
+    if (existing) {
+      await existing.navigate(destination);
+      return existing.focus();
+    }
+    return self.clients.openWindow(destination);
+  }));
+});

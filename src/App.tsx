@@ -1,21 +1,23 @@
-import { LeaguePage, LeagueHeaderLink } from './components/LeaguePage';
+import { useDailyAllowance } from './lib/dailyAllowance';
+import { routeToken, routeHref, navigateTo } from './lib/navigation';
+import { ExplorePage, HowToPlayPage, RankingsPage } from './components/DiscoverPages';
+import { updatePageMeta } from './lib/pageMeta';
+import { MobileNav } from './components/MobileNav';
+import { LeaguePage } from './components/LeaguePage';
 import { GoogleOneTap } from './components/GoogleOneTap';
 import { LevelScreen } from './components/LevelScreen';
 import { BalancePage } from './components/BalancePage';
 import { CountPage } from './components/CountPage';
 import { AnimatePresence, MotionConfig, motion } from 'motion/react';
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { LINKS, MODES, type Mode } from './config';
-import { AdBanner } from './components/AdBanner';
+import { MODES, type Mode } from './config';
 import { GameScreen } from './components/GameScreen';
-import { PixelIcon } from './components/PixelIcon';
 import { Home } from './components/Home';
 import { FaqPage } from './components/FaqPage';
 import { FriendsPage } from './components/FriendsPage';
 import { readFriendInvite } from './lib/friends';
 import { MePage } from './components/MePage';
 import { MenuModal } from './components/MenuModal';
-import { MobileLeaderboard } from './components/MobileLeaderboard';
 import { PrivacyPage } from './components/PrivacyPage';
 import { SettingsModal } from './components/SettingsModal';
 import { C } from './games/types';
@@ -29,7 +31,7 @@ import { useCreator } from './lib/creator';
 
 const PartyPage = lazy(() => import('./components/PartyPage').then(module => ({ default: module.PartyPage })));
 
-const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party', 'levels', 'balance', 'count', 'league', 'creator'] as const;
+const PAGES = ['privacy', 'faq', 'me', 'friends', 'challenges', 'party', 'levels', 'balance', 'count', 'league', 'creator', 'games', 'how', 'leaderboard'] as const;
 const CreatorPage = lazy(() => import('./components/CreatorPage').then(module => ({ default: module.CreatorPage })));
 const ChallengePreview = import.meta.env.DEV
   ? lazy(() => import('./components/ChallengesPage').then(module => ({ default: module.ChallengesPage })))
@@ -37,24 +39,25 @@ const ChallengePreview = import.meta.env.DEV
 type Page = (typeof PAGES)[number];
 export type Route = Mode | Page | null;
 
-const parseHash = (): Route => {
-  const h = location.hash.replace('#', '').split('/')[0];
+const parseRoute = (): Route => {
+  const h = routeToken().replace('#', '').split('/')[0];
   if (h === 'challenges' && !import.meta.env.DEV) return null;
   if (PAGES.includes(h as Page)) return h as Page;
   return MODES.includes(h as Mode) ? (h as Mode) : null;
 };
 
 export default function App() {
+  const linkedAllowance = useDailyAllowance(s => s.linked);
   const levelIdentity = useAuth(s => s.userId);
-  const [mode, setMode] = useState<Route>(parseHash);
+  const [mode, setMode] = useState<Route>(parseRoute);
+  useEffect(() => { document.body.classList.toggle('homepage-active', mode === null); return () => document.body.classList.remove('homepage-active'); }, [mode]);
+  const [routeKey, setRouteKey] = useState(() => location.pathname + location.search);
   const [inviteToken, setInviteToken] = useState(readFriendInvite);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [leaderboardOpen, setLeaderboardOpen] = useState(false);
   const settings = usePlayer((s) => s.settings);
   const [date, setDate] = useState(todayUTC);
   const muted = usePlayer((s) => s.muted);
-  const toggleMuted = usePlayer((s) => s.toggleMuted);
   const toastState = useUi((s) => s.toast);
   const creatorClean = useCreator((s) => s.enabled && s.clean);
   useEffect(() => { document.body.classList.toggle('creator-clean', creatorClean); }, [creatorClean]);
@@ -62,12 +65,12 @@ export default function App() {
 
   useEffect(() => {
     const onHash = () => {
-      setMode(parseHash());
+      setMode(parseRoute());
+      setRouteKey(location.pathname + location.search);
       setInviteToken(readFriendInvite());
-      setLeaderboardOpen(false);
     };
-    window.addEventListener('hashchange', onHash);
-    return () => window.removeEventListener('hashchange', onHash);
+    window.addEventListener('skilly:navigate', onHash);
+    return () => window.removeEventListener('skilly:navigate', onHash);
   }, []);
 
   // new UTC day → new challenges
@@ -77,8 +80,8 @@ export default function App() {
       if (d !== date) {
         setDate(d);
         toast('🌅 New day, new challenges!');
-        const current = parseHash();
-        if (current === null || MODES.includes(current as Mode)) location.hash = '';
+        const current = parseRoute();
+        if (current === null || MODES.includes(current as Mode)) navigateTo('/');
       }
     }, 1000);
     return () => clearInterval(id);
@@ -89,10 +92,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    updatePageMeta();
     const page = mode ?? 'home';
     track(`page_${page}`);
     tag('page', page);
-  }, [mode]);
+  }, [mode, routeKey]);
 
   useEffect(() => sfx.setMuted(muted), [muted]);
 
@@ -100,8 +104,8 @@ export default function App() {
     document.body.classList.toggle('colorblind', settings.colorblind);
     document.body.classList.toggle('low-power', settings.lowPower);
     // canvas palette follows the same colorblind swap as the CSS
-    C.green = settings.colorblind ? '#ff9f1c' : '#5dff9d';
-    C.yellow = settings.colorblind ? '#4da6ff' : '#ffd23f';
+    C.green = settings.colorblind ? '#ffad55' : '#b9ed91';
+    C.yellow = settings.colorblind ? '#8fc8ff' : '#ffd27c';
   }, [settings.colorblind, settings.lowPower]);
 
   useEffect(() => {
@@ -112,7 +116,7 @@ export default function App() {
   }, [toastState]);
 
   const navigate = (m: Route) => {
-    location.hash = m ?? '';
+    navigateTo(routeHref(m));
     setMode(m);
     window.scrollTo({ top: 0 });
   };
@@ -127,39 +131,28 @@ export default function App() {
           <div className="header-home-nav">
           <a
             className="mini-logo"
-            href="#"
+            href="/"
             aria-label="SKILLY home"
             onClick={(e) => {
               e.preventDefault();
               navigate(null);
             }}
           >
-            SKILL<span>Y</span>
+            skilly<span>.</span>
           </a>
-          <a className="header-daily-link" href="#" onClick={e=>{e.preventDefault();navigate(null);}}><span aria-hidden="true">&#8592;</span> Daily games</a>
+          <a className="header-daily-link" href="/" onClick={e=>{e.preventDefault();navigate(null);}}><span aria-hidden="true">&#8592;</span> Daily games</a>
           </div>
         ) : (
-          <h1 className="logo home-header-logo"><span className="logo-skill">SKILL</span><span className="logo-issue">Y</span></h1>
+          <a href="/" className="brand-logo home-header-logo" aria-label="Skilly home">skilly<span>.</span><i aria-hidden="true">&#10035;</i></a>
         )}
-        <div className="topbar-right">
-          <LeagueHeaderLink date={date} />
-          <a className="corner-btn px-box header-feedback" href={LINKS.feedback} onClick={() => track('feedback_click')} aria-label="Send feedback by email" title="Send feedback">
-            <PixelIcon name="feedback" size={24} />
-            <span>Feedback</span>
-          </a>
-          <button className="corner-btn px-box mobile-leaderboard-button" onClick={() => { track('leaderboard_open'); setLeaderboardOpen(true); }} aria-label="Open leaderboard" aria-haspopup="dialog" aria-expanded={leaderboardOpen}>
-            <PixelIcon name="trophy" size={28} />
-          </button>
-          <button className="corner-btn px-box" onClick={() => { track(muted ? 'sound_on' : 'sound_off'); toggleMuted(); }} aria-label={muted ? 'Turn sound on' : 'Mute sound'} aria-pressed={!muted}>
-            <PixelIcon name={muted ? 'sound-off' : 'sound-on'} size={28} />
-          </button>
-          <button className="corner-btn px-box" onClick={() => { track('settings_open'); setSettingsOpen(true); }} aria-label="Open settings">
-            <PixelIcon name="settings" size={28} />
-          </button>
-        </div>
+        <div className="topbar-right"><nav className="desktop-nav primary-nav" aria-label="Main navigation">
+          <a href="/" aria-current={mode === null || MODES.includes(mode as Mode) ? 'page' : undefined}>Play</a>
+          <a href="/leaderboards" aria-current={mode === 'leaderboard' ? 'page' : undefined}>Rankings</a>
+          <a href="/profile" aria-current={mode === 'me' ? 'page' : undefined}>My progress</a>
+        </nav></div>
       </header>
-      <main id="app" key={settings.colorblind ? 'cb' : 'std'}>
-        {mode === 'challenges' ? (
+      <main data-account-tries={linkedAllowance ? 8 : 5} id="app" key={settings.colorblind ? 'cb' : 'std'}>
+        {mode === 'games' ? <ExplorePage /> : mode === 'how' ? <HowToPlayPage /> : mode === 'leaderboard' ? <RankingsPage date={date} /> : mode === 'challenges' ? (
           ChallengePreview ? <Suspense fallback={<p>Loading preview…</p>}><ChallengePreview today={date} /></Suspense> : <Home date={date} onPlay={navigate} />
         ) : mode === 'creator' ? (
           <Suspense fallback={<p>Loading studio…</p>}><CreatorPage date={date} onPlay={navigate} /></Suspense>
@@ -176,7 +169,7 @@ export default function App() {
         ) : mode === 'me' ? (
           <MePage date={date} onPlay={navigate} />
         ) : mode === 'levels' ? (
-          <LevelScreen key={`${location.hash}:${date}:${levelIdentity}`} mode={location.hash.split('/')[1] === 'cut' ? 'cut' : location.hash.split('/')[1] === 'brake' ? 'brake' : 'draw'} date={date} />
+          <LevelScreen key={`${routeKey}:${date}:${levelIdentity}`} mode={routeToken().split('/')[1] === 'cut' ? 'cut' : routeToken().split('/')[1] === 'brake' ? 'brake' : 'draw'} date={date} />
         ) : mode === 'party' ? (
           <Suspense fallback={<p>Loading party...</p>}><PartyPage /></Suspense>
         ) : mode === 'friends' ? (
@@ -187,11 +180,10 @@ export default function App() {
           <Home date={date} onPlay={navigate} />
         )}
       </main>
-      <GoogleOneTap eligible={(mode === null || mode === 'me') && !menuOpen && !settingsOpen && !leaderboardOpen} />
+      <MobileNav active={mode === 'leaderboard' ? 'rankings' : mode === 'me' ? 'progress' : mode === null || MODES.includes(mode as Mode) || ['games', 'levels', 'balance', 'count', 'party'].includes(mode ?? '') ? 'play' : null} />
+      <footer className="site-footer"><a className="footer-brand" href="/">skilly<span>.</span></a><p>Think you have got skill? Prove it.</p><nav aria-label="Footer"><a href="/games">All games</a><a href="/leagues">Leagues</a><a href="/leaderboards">Rankings</a><a href="/how-to-play">How to play</a><a href="/faq">FAQ</a><a href="/privacy">Privacy</a></nav><small>3 daily games. 5 guest tries. 8 with an account.</small></footer>
+      <GoogleOneTap eligible={(mode === null || mode === 'me') && !menuOpen && !settingsOpen} />
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-      {leaderboardOpen && <MobileLeaderboard key={`${mode}:${date}`} date={date}
-        initialMode={mode && MODES.includes(mode as Mode) ? mode as Mode : 'overall'}
-        onClose={() => setLeaderboardOpen(false)} />}
       <MenuModal
         open={menuOpen}
         route={mode}
@@ -199,7 +191,7 @@ export default function App() {
         onNavigate={navigate}
         onSettings={() => setSettingsOpen(true)}
       />
-      <AdBanner />
+
       <AnimatePresence>
         {toastVisible && toastState && (
           <motion.div

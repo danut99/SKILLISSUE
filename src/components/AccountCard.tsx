@@ -1,3 +1,4 @@
+import { recordAccountIntent, recordAccountPrompt } from '../lib/engagementTracking';
 import { useState } from 'react';
 import { connectGoogle, signOut, switchToGoogle, useAuth } from '../lib/auth';
 import { track } from '../lib/clarity';
@@ -7,7 +8,7 @@ import { toast } from '../lib/ui';
  * "Save progress" (Krillion-style): optional, never required.
  * The same button works on a new device — it logs into the existing player.
  */
-export function AccountCard({ compact = false, page = false }: { compact?: boolean; page?: boolean }) {
+export function AccountCard({ compact = false, page = false, source }: { compact?: boolean; page?: boolean; source?: string }) {
   const { status, email, conflict } = useAuth();
   const [busy, setBusy] = useState(false);
 
@@ -36,6 +37,8 @@ export function AccountCard({ compact = false, page = false }: { compact?: boole
       toast(status === 'connecting' ? 'Connecting… try again in a second ⏳' : "Accounts aren't live yet. Your scores are safe on this device 🔌");
       return;
     }
+    if (source) recordAccountPrompt(source);
+    recordAccountIntent(useAuth.getState().status === 'anon' ? useAuth.getState().userId : null, action === 'switch');
     track(action === 'switch' ? 'google_switch' : 'google_continue');
     setBusy(true);
     await (action === 'switch' ? switchToGoogle() : connectGoogle());

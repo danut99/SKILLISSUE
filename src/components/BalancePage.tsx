@@ -1,4 +1,6 @@
+import { ResponsiveSection } from './ResponsiveSection';
 import { BonusGameReaction } from './BonusGameReaction';
+import { recordPlayStarted, recordBonusCompleted } from '../lib/engagementTracking';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useReducedMotion } from 'motion/react';
 import { balanceSetup, createBalanceGame } from '../games/balanceGame';
@@ -52,7 +54,7 @@ export function BalancePage({ date }: { date: string }) {
   const error = state?.key === key ? state.error : undefined;
   const left = BALANCE_TRIES - (day?.attempts.length ?? 0);
   const best = day?.attempts.reduce<BalanceAttempt | null>((best, value) => !best || value.score > best.score ? value : best, null);
-  return <section className="screen balance-page">
+  return <section className="screen game-screen balance-page" data-mobile-playing={playing}>
     <header className="balance-heading">
       <div>
         <p className="balance-day">Daily balance #{dayNumber(date)}</p>
@@ -118,6 +120,7 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
       const saved = savedRef.current;
       if (!saved) return;
       setResult(saved);
+      recordBonusCompleted('balance');
       setSnapshot(snapshotCanvas(canvasRef.current));
       setClipBusy(clipRecorder.supported);
       void clipRecorder.stop({ mode: 'balance', attempt: balanceClipAttempt(saved) }).then(value => {
@@ -127,6 +130,7 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
       savedSupport: initialRef.current?.support,
       canPlace: () => !savingRef.current,
       revealPoint: () => lastTryRef.current,
+      compact: () => matchMedia('(max-width: 599px)').matches,
     });
     balanceRef.current = game;
     gameRef.current = game;
@@ -157,6 +161,7 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
       if (!saved) throw new Error('Could not confirm your score. Please try again.');
       savedRef.current = saved;
       committedRef.current = true;
+      recordPlayStarted('balance');
       savingRef.current = false;
       balanceRef.current?.place(saved.support);
       onSaved(savedDay);
@@ -203,7 +208,7 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
   }
   return <>
     <BalanceChallengeBanner date={date} score={best?.score ?? null} remaining={left} />
-    <div className="balance-layout">
+    <div className={`balance-layout ${shown ? 'has-result' : 'is-playing'}`}>
     <GameCanvas gameRef={gameRef} canvasRef={canvasRef} date={date} label={`BALANCE! #${dayNumber(date)}`} />
     <div className="balance-side">
       <div className="balance-play-panel">
@@ -212,9 +217,6 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
           {shown ? <>
             <p className="balance-result-label">{perfect ? 'Perfect balance' : balanced ? 'Lunch saved' : 'Gravity wins'}</p>
             <h2 className={balanced ? 'balance-score balanced' : 'balance-score'}>{shown.score.toFixed(1)} <span>/ 100</span></h2>
-            <BonusGameReaction mode="balance" score={shown.score} seed={`${date}:${shown.id}`} />
-            <p>{perfect ? 'Steady hands. Happy friends.' : `The balance point was ${difference > 0 ? 'right' : 'left'} of your support.`}</p>
-            {!perfect && <p className="balance-note">{left === 0 ? `Off by ${(shown.error / 300 * 100).toFixed(1)}% of the plank.` : 'The exact miss is revealed after your last try.'}</p>}
           </> : <>
             <h2>{released ? 'Hold your breath...' : 'Where would you put it?'}</h2>
             <p>{released ? 'Pip and Bob are trusting your judgment.' : 'Slide the yellow support underneath the plank, then let gravity decide.'}</p>
@@ -236,15 +238,20 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
         {shown && <>
           {left > 0 ? <button className="btn btn-primary" onClick={onRetry}>Try again ({left} left)</button>
             : <p className="balance-out">All five tries used. New balance in <Countdown />.</p>}
+          <div className="result-secondary balance-result-secondary"><ResponsiveSection title="Details & sharing">
+            <BonusGameReaction mode="balance" score={shown.score} seed={`${date}:${shown.id}`} />
+            <p>{perfect ? 'Steady hands. Happy friends.' : `The balance point was ${difference > 0 ? 'right' : 'left'} of your support.`}</p>
+            {!perfect && <p className="balance-note">{left === 0 ? `Off by ${(shown.error / 300 * 100).toFixed(1)}% of the plank.` : 'The exact miss is revealed after your last try.'}</p>}
           <div className="balance-actions balance-share-actions">
-            <button className="btn" onClick={() => setShareOpen(true)}>Share result</button>
+            <button className="btn btn-ghost" onClick={() => setShareOpen(true)}>Share result</button>
             {clipRecorder.supported && <button className="btn btn-pink" disabled={clipBusy} onClick={() => void downloadVideo()}>{clipBusy ? 'Preparing video...' : 'Save video'}</button>}
           </div>
           <button className="btn btn-primary" disabled={challengeBusy} onClick={() => void challengeFriend()}>{challengeBusy ? 'Opening challenge...' : 'Challenge a friend'}</button>
           {day.source === 'local' && <p className="balance-note">Saved on this device.</p>}
+          {accountStatus === 'anon' && <div className="balance-account"><AccountCard compact /></div>}
+          </ResponsiveSection></div>
         </>}
       </div>
-      {accountStatus === 'anon' && <div className="balance-account"><AccountCard compact /></div>}
       <details className="balance-help">
         <summary>How to find the balance</summary>
         <p>Bigger creatures weigh more. Move the support toward the heavier side. The plank adds weight in the middle, too.</p>
@@ -252,7 +259,7 @@ function BalanceRound({ date, day, initial, onRetry, onSaved, onReload }: {
       </details>
       <p className="balance-round-note">Same setup for everyone. Five tries each day. Your best score counts. Resets at 00:00 UTC.</p>
       </div>
-      <BalanceLeaderboard date={date} />
+      <details className="game-rank-disclosure"><summary>View Balance rankings</summary><BalanceLeaderboard date={date} /></details>
     </div>
     <ShareModal open={shareOpen} onClose={() => setShareOpen(false)} date={date} custom={share} noRank />
   </div></>;

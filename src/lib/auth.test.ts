@@ -10,6 +10,13 @@ const storedSession=(anonymous:boolean)=>vi.stubGlobal('localStorage',{getItem:(
 const deadSession={data:{session:null},error:{name:'AuthApiError',code:'refresh_token_not_found',status:400,message:'Invalid Refresh Token'}};
 beforeEach(()=>{vi.resetModules();vi.clearAllMocks();vi.stubGlobal('localStorage',{getItem:()=>null});vi.stubGlobal('sessionStorage',{getItem:()=>null,removeItem:vi.fn(),setItem:vi.fn()});vi.stubGlobal('window',{google:{accounts:{id:{cancel:mocks.cancel}}}});vi.stubGlobal('location',{search:'',hash:'',pathname:'/'});});
 describe('auth session ownership',()=>{
+ it('updates the daily allowance when a guest links Google and clears it on logout',async()=>{
+  const auth=await import('./auth');
+  const {dailyTryLimit}=await import('./dailyAllowance');
+  auth.applyUser(user('same-player',true)); expect(dailyTryLimit()).toBe(5);
+  auth.applyUser(user('same-player')); expect(dailyTryLimit()).toBe(8);
+  auth.applyUser(null); expect(dailyTryLimit()).toBe(5);
+ });
  it('ignores a server response that arrives after switching accounts',async()=>{
   let resolve!:(data:unknown)=>void;mocks.rpc.mockReturnValue(new Promise(r=>{resolve=r;}));const auth=await import('./auth');auth.applyUser(user('a'));const pending=auth.syncFromServer();await vi.waitFor(()=>expect(mocks.rpc).toHaveBeenCalled());auth.applyUser(user('b'));resolve({data:{nickname:'Alice'},error:null});await pending;expect(mocks.hydrate).not.toHaveBeenCalled();
  });

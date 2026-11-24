@@ -1,0 +1,125 @@
+﻿/* Homepage only: a playful daily arcade, with the existing game UI intact. */
+body.homepage-active { background: #101310; padding-bottom: 24px; }
+body.homepage-active #app { max-width: 1220px; padding: 12px 28px 24px; }
+body.homepage-active .topbar-home { max-width: 1164px; margin: 0 auto; min-height: 96px; border-bottom: 1px solid #ffffff17; }
+body.homepage-active .topbar-home > .home-header-logo { position: static; transform: rotate(-3deg); grid-column: 1; grid-row: 1; font-size: 55px; text-align: left; }
+body.homepage-active .topbar-home > .header-menu-button { grid-column: 2; grid-row: 1; justify-self: end; }
+body.homepage-active .topbar-home > .topbar-right { grid-column: 3; grid-row: 1; }
+body.homepage-active .topbar-home { grid-template-columns: 1fr auto auto; gap: 14px; }
+body.homepage-active .topbar-home .corner-btn { background: transparent; border: 1px solid #ffffff29; box-shadow: none; border-radius: 10px; }
+body.homepage-active .topbar-home .header-league, body.homepage-active .topbar-home .header-feedback { display: none; }
+body.homepage-active .topbar-home .mobile-leaderboard-button { display: inline-flex; }
+.home-redesign { font-family: Arial, Helvetica, sans-serif; font-size: 16px; line-height: 1.5; }
+.home-redesign button, .home-redesign a { -webkit-tap-highlight-color: transparent; }
+.home-redesign :is(button,a):focus-visible { outline: 3px solid #fff; outline-offset: 5px; }
+.home-redesign .launch-game:focus-visible, .home-redesign .launch-play:focus-visible { outline-color: #bb80ff; }
+.launch-hero { margin: 25px 0 38px; padding: 46px 48px 42px; border-radius: 24px; background: #d7ff5f; color: #202120; display: grid; grid-template-columns: 1.3fr 1fr; position: relative; overflow: hidden; }
+.launch-eyebrow { display: block; font-size: 11px; letter-spacing: 1.6px; font-weight: 800; }
+.launch-copy { position: relative; z-index: 1; }
+.launch-copy h1 { font-size: clamp(55px, 6.3vw, 84px); line-height: .98; letter-spacing: -5px; font-weight: 900; margin: 20px 0; position: relative; }
+.launch-copy h1 > span:first-child { display: inline-block; font-style: italic; }
+.hero-spark { display: inline-block; font-size: 60px; margin-left: 16px; vertical-align: middle; }
+.launch-description { font-size: 21px; font-weight: 750; margin: 0 0 7px; letter-spacing: -.5px; }
+.launch-subcopy { font-size: 15px; margin: 0 0 25px; }
+.launch-play { display: inline-flex; gap: 14px; justify-content: center; align-items: center; min-height: 54px; background: #202120; color: #fffdf4; border: 0; padding: 15px 23px; border-radius: 12px; font: 700 16px Arial,sans-serif; cursor: pointer; transition: transform .2s, background .2s; }
+.launch-play:hover { background: #373c30; transform: translateY(-2px); }
+.launch-free { display: block; font-size: 12px; margin-top: 12px; color: #414e26; }
+.launch-art { position: relative; display: grid; place-items: center; min-width: 0; }
+.hero-blob { width: 100%; transform: rotate(-9deg); }
+.hero-blob svg { width: 100%; overflow: visible; filter: drop-shadow(9px 12px 0 #20212018); }
+.hero-blob .preview-cut-shape path { fill: #bca5ff; }
+.art-note { position: absolute; top: 8px; right: 20px; font-size: 20px; font-family: var(--font); transform: rotate(8deg); }
+.art-sticker { position: absolute; bottom: 8px; right: 5px; transform: rotate(9deg); padding: 12px 24px; border: 2px solid #202120; border-radius: 10px; background: #fffaf0; font-size: 30px; font-weight: 900; box-shadow: 4px 4px 0 #202120; }
+.art-sticker span { display: block; font-size: 11px; text-align: center; font-weight: 500; }
+.art-star { position: absolute; left: 3px; bottom: 5px; font-size: 62px; }
+.daily-heading { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 20px; }
+.daily-heading .launch-eyebrow { color: #9da595; font-size: 10px; }
+.daily-heading h2 { margin: 5px 0 0; font-size: 29px; letter-spacing: -1px; line-height: 1.2; color: #faf8ef; }
+.daily-heading h2 span { color: #d7ff5f; }
+.daily-reset { font-size: 12px; text-align: right; color: #aeb5a6; flex-shrink: 0; display: grid; gap: 5px; }
+.daily-reset > span:first-child { font-weight: 700; font-size: 10px; letter-spacing: 1px; }
+.daily-reset > span:last-child { display: flex; justify-content: end; gap: 5px; }
+.launch-games { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 18px; }
+.launch-game { color: #202120; border: 0; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; min-width: 0; cursor: pointer; text-align: left; font: inherit; transition: transform .2s,box-shadow .2s; }
+.launch-game:hover { transform: translateY(-5px); box-shadow: 0 10px 0 #0004; }
+.launch-game-cut { background: #bfa7ff; }
+.launch-game-draw { background: #ffb2d0; }
+.launch-game-brake { background: #ffd27c; }
+.launch-game-top { display: flex; justify-content: space-between; align-items: center; font-size: 9px; font-weight: 800; letter-spacing: 1.1px; }
+.launch-game-top > span:last-child { font-size: 24px; line-height: 1; }
+.launch-preview { height: 165px; width: 100%; margin: 6px 0 12px; }
+.launch-preview svg { width: 100%; height: 100%; overflow: visible; }
+.launch-game h3 { font-size: 32px; line-height: 1; letter-spacing: -1.5px; margin: 0 0 9px; font-weight: 900; }
+.launch-game p { margin: 0; font-size: 14px; line-height: 1.4; }
+.launch-attempts { display: block; font-size: 11px; margin: 8px 0 16px; color: #363333; }
+.launch-game-play { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 11px 15px; background: #202120; color: #fffaf0; border-radius: 9px; font-size: 14px; font-weight: 700; margin-top: auto; }
+.launch-game-play span { font-size: 11px; }
+.launch-taunt { text-align: center; padding: 27px 0 30px; }
+.launch-taunt > span { font-size: 24px; font-weight: 800; color: #faf8ef; letter-spacing: -.5px; }
+.launch-taunt p { font-size: 13px; margin: 5px 0 0; color: #aeb5a6; }
+.launch-account { display: flex; align-items: center; justify-content: space-between; gap: 24px; border: 1px solid #424837; border-radius: 16px; padding: 25px 28px; background: #1b2018; margin: 0 0 32px; }
+.launch-account .launch-eyebrow { color: #d7ff5f; font-size: 10px; }
+.launch-account h2 { font-size: 23px; letter-spacing: -.6px; margin: 6px 0; color: #faf8ef; }
+.launch-account p { color: #b1b8a9; font-size: 14px; margin: 0; max-width: 55ch; }
+.launch-account-button { flex-shrink: 0; background: #d7ff5f; color: #202120; border-radius: 10px; text-decoration: none; padding: 13px 20px; font-weight: 700; font-size: 14px; }
+.home-redesign .with-board { font-family: var(--font); font-size: 22px; margin-top: 0; }
+.home-redesign .home-more, .home-redesign .how2 { border-color: #424837; }
+.home-redesign .footer-note { font-family: Arial,sans-serif; font-size: 12px; line-height: 1.8; }
+.preview-cut-line { animation: launch-slice 3s ease-in-out infinite; }
+.preview-draw-line { stroke-dasharray: 460; animation: launch-draw 4s ease-in-out infinite; }
+.preview-car { animation: launch-brake 4s ease-in-out infinite; }
+@keyframes launch-slice { 0%,15% { opacity: 0; stroke-dashoffset: 70; } 45%,80% { opacity: 1; stroke-dashoffset: 0; } 100% { opacity: 0; } }
+@keyframes launch-draw { 0%,10% { stroke-dashoffset: 460; } 70%,100% { stroke-dashoffset: 0; } }
+@keyframes launch-brake { 0%,10% { transform: translateY(23px); } 55%,85% { transform: translateY(-15px); } 100% { transform: translateY(23px); } }
+@media (max-width: 599px) {
+ body.homepage-active #app { padding: 8px 18px 24px; }
+ body.homepage-active .topbar-home { margin: 0 18px; min-height: 76px; padding: 10px 0; gap: 8px; }
+ body.homepage-active .topbar-home > .home-header-logo { font-size: 40px; }
+ body.homepage-active .topbar-home .header-menu-label { display: none; }
+ body.homepage-active .topbar-home .corner-btn { width: 36px; height: 36px; }
+ body.homepage-active .topbar-home .topbar-right { gap: 5px; }
+ .launch-hero { padding: 28px; margin: 12px 0 28px; grid-template-columns: 1fr; border-radius: 20px; }
+ .launch-copy h1 { font-size: 67px; letter-spacing: -4px; margin: 18px 0; }
+ .launch-art { display: none; }
+ .hero-spark { font-size: 42px; }
+ .launch-eyebrow { font-size: 9px; letter-spacing: 1.2px; }
+ .launch-description { font-size: 17px; }
+ .launch-subcopy { font-size: 13px; max-width: 27ch; margin-bottom: 20px; }
+ .launch-play { width: 100%; padding: 14px 9px; font-size: 14px; min-height: 52px; }
+ .launch-free { text-align: center; font-size: 11px; }
+ .daily-heading { align-items: start; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+ .daily-heading h2 { font-size: 24px; }
+ .daily-heading .launch-eyebrow { font-size: 8px; }
+ .daily-reset { width: 100%; display: flex; justify-content: space-between; font-size: 11px; text-align: left; }
+ .daily-reset > span:first-child { font-size: 9px; }
+ .launch-games { grid-template-columns: 1fr; gap: 12px; }
+ .launch-game { display: grid; grid-template-columns: 88px 1fr 30px; column-gap: 12px; row-gap: 0; padding: 16px 14px; border-radius: 15px; align-items: center; }
+ .launch-game-top { display: none; }
+ .launch-preview { grid-column: 1; grid-row: 1 / 3; width: 88px; height: 100px; margin: 0; }
+ .launch-game-copy { grid-column: 2; grid-row: 1 / 3; }
+ .launch-game h3 { font-size: 27px; margin-bottom: 7px; }
+ .launch-game p { font-size: 12px; }
+ .launch-attempts { font-size: 10px; margin: 7px 0 0; }
+ .launch-game-play { grid-column: 3; grid-row: 1 / 3; width: 30px; height: 30px; border-radius: 50%; font-size: 0; padding: 0; justify-content: center; margin: 0; }
+ .launch-game-play span { font-size: 10px; }
+ .launch-taunt { padding: 24px 0; }
+ .launch-taunt > span { font-size: 20px; }
+ .launch-taunt p { font-size: 12px; }
+ .launch-account { padding: 22px; flex-direction: column; align-items: stretch; gap: 17px; }
+ .launch-account h2 { font-size: 22px; }
+ .launch-account p { font-size: 13px; }
+ .launch-account-button { text-align: center; }
+ .home-redesign .with-board { display: flex; flex-direction: column; }
+ .home-redesign .main-col, .home-redesign .board-col { width: 100%; min-width: 0; }
+}
+@media (max-width: 370px) {
+ body.homepage-active #app { padding-left: 12px; padding-right: 12px; }
+ body.homepage-active .topbar-home { margin: 0 12px; }
+ body.homepage-active .topbar-home > .home-header-logo { font-size: 30px; }
+ .launch-hero { padding: 23px; }
+ .launch-copy h1 { font-size: 59px; }
+ .launch-game { grid-template-columns: 72px 1fr 28px; column-gap: 8px; }
+ .launch-preview { width: 72px; }
+}
+@media (prefers-reduced-motion: reduce) { .home-redesign *, .home-redesign *::before, .home-redesign *::after { animation: none !important; transition: none !important; } }
+body.low-power .home-redesign * { animation: none !important; }

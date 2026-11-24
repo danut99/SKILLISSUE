@@ -1,9 +1,9 @@
 import { sfx, type LoopHandle } from '../lib/audio';
-import { drawResultCompanion } from './resultCompanion';
+import { paintDrawSummary } from './drawPresentation';
 import { clamp, round2, type Pt } from '../lib/geometry';
 import { dailyDrawShape, shapeAccuracy, shapeRadius, type DrawShape } from '../lib/drawShapes';
 import { roastFor } from '../lib/scoring';
-import { banner, paper, text } from './canvas';
+import { paper, text } from './canvas';
 import { C, H, W, type Game, type GameApi } from './types';
 
 const CENTER: Pt = { x: W / 2, y: H * 0.52 };
@@ -34,6 +34,7 @@ export function createDrawGame(api: GameApi, options?: { shape?: DrawShape }): G
   let doneAt = 0;
   let score = 0;
   let hum: LoopHandle | null = null;
+  const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function savedStroke() {
     const stride = Math.max(1, Math.ceil(pts.length / 500));
@@ -114,14 +115,15 @@ export function createDrawGame(api: GameApi, options?: { shape?: DrawShape }): G
       paper(c);
       const ref = fit ?? live;
 
-      if (state === 'ready' || (state === 'done' && fit && !failMsg)) {
+      const drawTarget = () => {
         c.save();
         c.setLineDash([6, 6]);
-        c.strokeStyle = state === 'ready' ? 'rgba(77,227,255,0.35)' : 'rgba(93,255,157,0.55)';
+        c.strokeStyle = state === 'ready' ? 'rgba(191,167,255,0.5)' : C.green;
         c.lineWidth = 2;
         c.beginPath();
         const scale = state === 'ready' ? 130 : fit!.mean;
-        for (let i = 0; i <= 180; i++) {
+        const reveal = state === 'done' && !reducedMotion ? clamp((now - doneAt) / 450, 0, 1) : 1;
+        for (let i = 0; i <= Math.floor(180 * reveal); i++) {
           const angle = i / 180 * FULL;
           const radius = shapeRadius(shape, angle) * scale;
           const x = CENTER.x + Math.cos(angle) * radius;
@@ -129,15 +131,16 @@ export function createDrawGame(api: GameApi, options?: { shape?: DrawShape }): G
           if (i === 0) c.moveTo(x, y);
           else c.lineTo(x, y);
         }
-        c.closePath();
+        if (reveal === 1) c.closePath();
         c.stroke();
         c.restore();
-      }
+      };
+      if (state === 'ready') drawTarget();
 
       // center dot
-      const pulse = state === 'ready' ? 1 + Math.sin(now / 250) * 0.25 : 1;
+      const pulse = state === 'ready' && !reducedMotion ? 1 + Math.sin(now / 350) * 0.12 : 1;
       c.fillStyle = C.text;
-      c.fillRect(CENTER.x - 4 * pulse, CENTER.y - 4 * pulse, 8 * pulse, 8 * pulse);
+      c.beginPath();c.arc(CENTER.x,CENTER.y,4*pulse,0,FULL);c.fill();
 
       if (pts.length > 1 && ref) {
         // glow pass
@@ -170,19 +173,25 @@ export function createDrawGame(api: GameApi, options?: { shape?: DrawShape }): G
         c.stroke();
       }
 
+      if (state === 'done' && fit && !failMsg) drawTarget();
+
       if (state === 'ready') {
-        text(c, `DRAW A ${shape.toUpperCase()}`, W / 2, 96, { size: 34, color: C.cyan, outline: 5 });
+        text(c, `DRAW A ${shape.toUpperCase()}`, W / 2, 96, { size: 32, color: C.cyan });
         text(c, 'around the dot · one stroke', W / 2, 126, { size: 22, color: C.muted });
       } else if (state === 'drawing' && live && pts.length > 20) {
         text(c, `${live.score.toFixed(1)}%`, W / 2, 104, { size: 64, color: devColor(live.dev), outline: 6 });
       } else if (state === 'done') {
-        drawResultCompanion(c, score);
-        const since = now - doneAt;
-        if (failMsg) banner(c, '💀 FAIL', failMsg, C.red, since);
-        else
-          text(c, roastFor('draw', { score, detail: {}, at: 0 }), W / 2, 104, { size: 25, color: C.text, maxWidth: W - 32 });
+        paintDrawSummary(c, score);
+        if (failMsg) {
+          text(c, 'TRY ANOTHER STROKE.', W / 2, 90, { size:29, color:C.yellow });
+          text(c, failMsg, W / 2, 124, { size:19, color:C.muted });
+        } else {
+          text(c, score >= 95 ? 'STEADY HANDS.' : 'THERE IS YOUR SHAPE.', W / 2, 90, { size:30, color:score >= 95 ? C.green : C.cyan });
+          text(c, roastFor('draw', { score, detail: {}, at: 0 }), W / 2, 124, { size:18, color:C.muted, maxWidth:W-32 });
+        }
       }
     },
+    renderClip(c, now) { this.render(c, now); },
     destroy() {
       sfx.stop(hum);
     },

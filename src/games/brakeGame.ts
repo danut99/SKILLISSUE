@@ -1,4 +1,3 @@
-import { drawResultCompanion } from './resultCompanion';
 import { CAR_SKINS } from '../config';
 import { sfx, type LoopHandle } from '../lib/audio';
 import { usePlayer, type Attempt } from '../lib/store';
@@ -6,7 +5,7 @@ import { carSprite } from '../lib/pixelAssets';
 import { rngFor } from '../lib/daily';
 import { clamp, easeInOut, lerp } from '../lib/geometry';
 import { fmtCm, fmtResult } from '../lib/scoring';
-import { BRAKE_GOALS, dailyBrakeObjective, brakeStopResult, PARKING_TOLERANCE_M, type BrakeObjective } from '../lib/brakeChallenge';
+import { BRAKE_GOALS, dailyBrakeObjective, brakeStopResult, brakeFeedback, PARKING_TOLERANCE_M, type BrakeObjective } from '../lib/brakeChallenge';
 export { brakeScore } from '../lib/brakeChallenge';
 import { rect, text } from './canvas';
 import { C, H, W, eventTime, type Game, type GameApi } from './types';
@@ -294,7 +293,7 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
       let zoomK = 0;
       // Parking keeps the camera still so the car and the bay stay at the same scale.
       if (state === 'stopped' && P.objective !== 'parking') {
-        zoomK = easeInOut(clamp((now - endT) / 1000, 0, 1));
+        zoomK = reducedMotion?.matches ? 1 : easeInOut(clamp((now - endT - 150) / 850, 0, 1));
         const gap = Math.max(Math.abs(P.D - stopX), 0.0005);
         const zp = clamp(90 / gap, basePpm, 4000);
         ppm = Math.exp(lerp(Math.log(basePpm), Math.log(zp), zoomK));
@@ -304,7 +303,7 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
       const ws = (wy: number) => focusS - (wy - focusW) * ppm;
 
       c.save();
-      if (state === 'crashed') {
+      if (state === 'crashed' && !reducedMotion?.matches && !usePlayer.getState().settings.lowPower) {
         const s = Math.max(0, 1 - (now - endT) / 500) * 10;
         c.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
       }
@@ -432,7 +431,7 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
       c.restore();
 
       // crash flash
-      if (state === 'crashed') {
+      if (state === 'crashed' && !reducedMotion?.matches && !usePlayer.getState().settings.lowPower) {
         const f = 1 - clamp((now - endT) / 250, 0, 1);
         if (f > 0) {
           c.fillStyle = `rgba(255,255,255,${f * 0.8})`;
@@ -460,7 +459,7 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
         c.moveTo(ax, y1);
         c.lineTo(ax, y2);
         c.stroke();
-        text(c, fmtCm(gapCm), ax + 12, (y1 + y2) / 2, { size: 26, color: C.cyan, align: 'left', outline: 4 });
+        text(c, fmtCm(gapCm), ax + 12, (y1 + y2) / 2, { size: 26, color: C.cyan, align: 'left', outline: 4, maxWidth: W - ax - 20 });
       }
 
       // HUD
@@ -478,7 +477,9 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
         text(c, goal.instruction, W / 2, 182, { size: 23, color: C.text, outline: 4, maxWidth: W - 24 });
         text(c, `${P.kmh} km/h`, W / 2, 210, { size: 24, color: C.yellow, outline: 4 });
         if (options?.passDistanceCm) text(c, `85+ goal: within ${fmtCm(options.passDistanceCm)}`, W / 2, 248, { size: 23, color: C.green, outline: 4 });
-        text(c, 'TAP TO START', W / 2, 300 + Math.sin(now / 200) * 4, { size: 36, color: C.cyan, outline: 5 });
+        c.fillStyle=C.panel;c.strokeStyle=C.line;c.lineWidth=1;
+        c.beginPath();c.roundRect(34,274,W-68,48,14);c.fill();c.stroke();
+        text(c, 'TAP TO START', W / 2, 298, { size: 28, color: C.text });
         text(c, 'then TAP (or SPACE) to brake', W / 2, 334, { size: 22, color: C.muted, outline: 3 });
       } else if (state === 'countdown') {
         const k = 3 - Math.floor((now - countStart) / (COUNT_MS / 3));
@@ -486,11 +487,22 @@ export function createBrakeGame(api: GameApi, saved?: Attempt, options?: { speed
       } else if (state === 'driving' && now - t0 < 500) {
         text(c, 'GO!', W / 2, 260, { size: 110, color: C.green, outline: 8, alpha: 1 - (now - t0) / 500 });
       }
+      if (state === 'driving' || state === 'braking') {
+        c.fillStyle='rgba(16,19,16,0.92)';c.strokeStyle=state==='driving'?C.yellow:C.line;c.lineWidth=1;
+        c.beginPath();c.roundRect(28,116,W-56,46,12);c.fill();c.stroke();
+        text(c,state==='driving'?'TAP ANYWHERE TO BRAKE':'BRAKING...',W/2,139,{size:21,color:state==='driving'?C.yellow:C.text});
+      }
       if (state === 'stopped' || state === 'crashed' || state === 'failed') {
         const detail = result?.detail ?? { crashed: state === 'crashed', objective: P.objective };
-        drawResultCompanion(c, score, 'brake', fmtResult('brake', { score, detail }), detail);
+        const feedback = brakeFeedback(score, detail);
+        c.fillStyle='rgba(16,19,16,0.96)';c.strokeStyle=C.line;c.lineWidth=1;
+        c.beginPath();c.roundRect(14,26,W-28,134,14);c.fill();c.stroke();
+        text(c,feedback.title,W/2,51,{size:22,color:score>=90?C.green:C.yellow});
+        text(c,fmtResult('brake',{score,detail}),W/2,88,{size:34,color:C.text,maxWidth:W-52});
+        text(c,feedback.tip,W/2,131,{size:17,color:C.muted,maxWidth:W-52});
       }
     },
+    renderClip(c, now) { this.render(c, now); },
     destroy() {
       clearTimeout(resultSound);
       sfx.stop(engine);

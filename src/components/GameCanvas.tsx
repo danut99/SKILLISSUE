@@ -1,19 +1,42 @@
 import { useEffect, type RefObject } from 'react';
 import { DAY_LABEL } from './labels';
-import { scanlines, watermark } from '../games/canvas';
+import { watermark } from '../games/canvas';
 import { H, SCALE, W, type Game } from '../games/types';
 import type { Pt } from '../lib/geometry';
-import { usePlayer } from '../lib/store';
 
 interface Props {
   gameRef: RefObject<Game | null>;
   canvasRef: RefObject<HTMLCanvasElement | null>;
   date: string;
   label?: string;
+  clean?: boolean;
 }
 
 /** Runs the render loop and forwards pointer/keyboard input (in stage coords) to the active game. */
-export function GameCanvas({ gameRef, canvasRef, date, label: customLabel }: Props) {
+export function GameCanvas({ gameRef, canvasRef, date, label: customLabel, clean = false }: Props) {
+  useEffect(() => {
+    const stage = canvasRef.current?.parentElement;
+    if (!stage) return;
+    const fit = () => {
+      // Use the document position so scrolling doesn't resize an active game.
+      const top = stage.getBoundingClientRect().top + window.scrollY;
+      const height = Math.max(1, (window.visualViewport?.height ?? window.innerHeight) - top - 20);
+      stage.style.setProperty('--game-canvas-height', `${height}px`);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(stage.closest('.screen') ?? stage.parentElement!);
+    const header = document.querySelector('.topbar');
+    if (header) observer.observe(header);
+    window.addEventListener('resize', fit);
+    window.visualViewport?.addEventListener('resize', fit);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', fit);
+      window.visualViewport?.removeEventListener('resize', fit);
+    };
+  }, [canvasRef, date]);
+
   useEffect(() => {
     const label = customLabel ?? DAY_LABEL(date);
     const canvas = canvasRef.current!;
@@ -29,8 +52,8 @@ export function GameCanvas({ gameRef, canvasRef, date, label: customLabel }: Pro
       const now = performance.now();
       g.update?.(now);
       ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
-      g.render(ctx, now);
-      if (!usePlayer.getState().settings.lowPower) scanlines(ctx);
+      if (clean && g.renderClip) g.renderClip(ctx, now);
+      else g.render(ctx, now);
       watermark(ctx, label);
     };
     raf = requestAnimationFrame(loop);
@@ -71,11 +94,11 @@ export function GameCanvas({ gameRef, canvasRef, date, label: customLabel }: Pro
       canvas.removeEventListener('pointercancel', onUp);
       window.removeEventListener('keydown', onKey);
     };
-  }, [canvasRef, gameRef, date, customLabel]);
+  }, [canvasRef, gameRef, date, customLabel, clean]);
 
   return (
     <div className="stage-wrap">
-      <canvas ref={canvasRef} className="stage" aria-label="Game canvas" />
+      <canvas ref={canvasRef} className="stage" tabIndex={0} aria-label="Game canvas" />
     </div>
   );
 }

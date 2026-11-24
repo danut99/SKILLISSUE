@@ -1,3 +1,4 @@
+import { routeToken } from './navigation';
 import type { BoardMode, LeaderboardPeriod } from '../config';
 import { isOnline, whenAuthReady } from './auth';
 import { ensureNickname, type Board, type BoardRow } from './leaderboard';
@@ -21,11 +22,11 @@ export interface InvitePreview {
 }
 
 export function readFriendInvite(): string | null {
-  return location.hash.startsWith('#friends/') ? location.hash.slice('#friends/'.length) : null;
+  return routeToken().startsWith('#friends/') ? routeToken().slice('#friends/'.length) : null;
 }
 
 export function friendInviteUrl(token: string): string {
-  return `${location.origin}${location.pathname}#friends/${token}`;
+  return `${location.origin}/friends/${token}`;
 }
 
 async function friendsRpc<T>(name: string, args = {}): Promise<T> {

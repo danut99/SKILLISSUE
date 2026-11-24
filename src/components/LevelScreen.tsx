@@ -80,7 +80,7 @@ export function LevelScreen({ mode, date }: { mode: LevelMode; date: string }) {
  const starText=(count:number)=>'\u2605'.repeat(count)+'\u2606'.repeat(3-count);
  function choose(level:number){if(!canChoose||busy)return;setAttempt(null);setResult(null);setSaved(false);setSelected(level);setError('');}
  return <section className="screen level-screen">
-  <a href="#">Back to games</a><h1>{MODE_INFO[mode].name} <small>Level mode</small></h1>
+  <a href="/">Back to games</a><h1>{MODE_INFO[mode].name} <small>Level mode</small></h1>
   <ResponsiveSection title="Level rules"><p>Score <b>85+</b> to advance. {LEVEL_TRIES} tries per level each day. Passing unlocks the next level immediately.</p>
   <p className="level-star-guide">&#9733; 85+ &nbsp; &#9733;&#9733; 90+ &nbsp; &#9733;&#9733;&#9733; 95+ &middot; Replay cleared levels to improve your best stars.</p></ResponsiveSection>
   {error&&<p className="party-error" role="alert">{error}</p>}

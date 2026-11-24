@@ -1,13 +1,18 @@
+import { recordVisit } from './lib/engagementTracking';
+import { installNavigation } from './lib/navigation';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './index.css';
+import './theme.css';
 import { identify, initClarity, tag } from './lib/clarity';
 import { useAuth } from './lib/auth';
 import { usePlayer } from './lib/store';
 import { initInstall } from './lib/install';
 
+installNavigation();
 initClarity();
+recordVisit();
 initInstall();
 
 // Re-identify whenever the nickname or the logged-in account changes (Supabase id wins over the local id).

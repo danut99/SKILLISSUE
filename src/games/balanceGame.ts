@@ -54,7 +54,7 @@ function drawCreature(c: CanvasRenderingContext2D, radius: number, color: string
 export function createBalanceGame(seed: string, onFinish: (score: number, error: number) => void,
   onPlace: (x: number) => void = () => {}, onRelease: () => void = () => {},
   reducedMotion: () => boolean = () => false,
-  options: { savedSupport?: number; canPlace?: () => boolean; revealPoint?: () => boolean } = {},
+  options: { savedSupport?: number; canPlace?: () => boolean; revealPoint?: () => boolean; compact?: () => boolean } = {},
 ): Game & { place: (x: number) => void; release: () => void } {
   const { creatures, center } = balanceSetup(seed);
   let support = options.savedSupport ?? 180;
@@ -100,6 +100,7 @@ export function createBalanceGame(seed: string, onFinish: (score: number, error:
     },
     render(c, now) {
       paper(c);
+      const compact = options.compact?.() ?? false;
       c.imageSmoothingEnabled = false;
       const elapsed = released ? Math.min(2.8, Math.max(0, (now - started) / 1000)) : 0;
       const error = center - support;
@@ -117,10 +118,10 @@ export function createBalanceGame(seed: string, onFinish: (score: number, error:
         if (reduceMotion) angle = stable ? 0 : direction * .15;
       }
       const revealing = released && elapsed >= 1.8;
-      text(c, released ? stable ? 'LUNCH SAVED.' : 'THERE GOES LUNCH.' : 'KEEP THEM LEVEL.', 180, 76, {
+      if (!compact) text(c, released ? stable ? 'LUNCH SAVED.' : 'THERE GOES LUNCH.' : 'KEEP THEM LEVEL.', 180, 76, {
         size: 34, color: released && stable ? C.green : C.yellow, maxWidth: 324,
       });
-      text(c, released ? stable ? 'Pip and Bob approve.' : 'Gravity has entered the chat.' : 'Bigger creature = more weight.', 180, 112, {
+      if (!compact) text(c, released ? stable ? 'Pip and Bob approve.' : 'Gravity has entered the chat.' : 'Bigger creature = more weight.', 180, 112, {
         size: 21, color: C.muted, maxWidth: 324,
       });
 
@@ -163,7 +164,7 @@ export function createBalanceGame(seed: string, onFinish: (score: number, error:
         c.rotate(offEdge > 0 ? direction * Math.min(.2, offEdge / 100) : angle);
         const blink = !released && !reduceMotion && (now + index * 1300) % 4500 < 140;
         drawCreature(c, creature.radius, creature.color, released && !stable, blink);
-        text(c, index === 0 ? 'PIP' : 'BOB', 0, -creature.radius * 2 - 18, { size: 19, color: creature.color });
+        if (!compact) text(c, index === 0 ? 'PIP' : 'BOB', 0, -creature.radius * 2 - 18, { size: 19, color: creature.color });
         c.restore();
       }
       if (revealing && options.revealPoint?.() !== false) {
@@ -172,10 +173,10 @@ export function createBalanceGame(seed: string, onFinish: (score: number, error:
         c.fillStyle = C.green; c.fillRect(center - 4, 520, 8, 8);
         text(c, 'BALANCE POINT', center, 548, { size: 19, color: C.green });
       }
-      if (!released) text(c, dragging ? 'NICE. FIND YOUR SPOT.' : 'DRAG THE YELLOW SUPPORT', 180, 554, {
+      if (!released && !compact) text(c, dragging ? 'NICE. FIND YOUR SPOT.' : 'DRAG THE YELLOW SUPPORT', 180, 554, {
         size: 22, color: dragging ? C.yellow : C.muted, maxWidth: 324,
       });
-      text(c, revealing ? `${score.toFixed(1)} / 100` : released ? '...' : 'Then press LET GO.', 180, 594, {
+      if (!compact) text(c, revealing ? `${score.toFixed(1)} / 100` : released ? '...' : 'Then press LET GO.', 180, 594, {
         size: revealing ? 32 : 21, color: revealing && stable ? C.green : C.text, maxWidth: 324,
       });
     },

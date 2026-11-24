@@ -15,7 +15,7 @@ create table if not exists public.profiles (
 -- reserved nicknames: one owner per name (case-insensitive)
 create unique index if not exists profiles_nickname_key on public.profiles (lower(nickname));
 
--- every single try (enforces 5/day/mode on the server, enables cross-device resume)
+-- every single try (enforces 5 guest or 8 registered tries/day/mode on the server, enables cross-device resume)
 create table if not exists public.attempts (
   id         bigint generated always as identity primary key,
   user_id    uuid not null references auth.users (id) on delete cascade,
@@ -59,6 +59,17 @@ create policy "own attempts" on public.attempts for select to authenticated usin
 create policy "own bonuses"  on public.bonuses  for select to authenticated using (user_id = auth.uid());
 
 -- Record one try. Server decides the date (UTC) and enforces the daily limit.
+-- Guests: five tries. Linked accounts: eight, without resetting existing attempts.
+-- Read the auth record rather than trusting client metadata or a stale JWT.
+create or replace function public.daily_try_limit(p_user_id uuid default auth.uid())
+returns integer language sql stable security definer set search_path = '' as $$
+  select case when exists (
+    select 1 from auth.users u where u.id = p_user_id and u.is_anonymous = false
+  ) then 8 else 5 end;
+$$;
+revoke all on function public.daily_try_limit(uuid) from public, anon;
+grant execute on function public.daily_try_limit(uuid) to authenticated;
+
 create or replace function public.record_attempt(p_mode text, p_score numeric, p_detail jsonb)
 returns jsonb language plpgsql security definer set search_path = public as $$
 declare
@@ -72,7 +83,7 @@ begin
   if p_score is null or p_score < 0 or p_score > 100 then raise exception 'bad_score'; end if;
   perform pg_advisory_xact_lock(hashtext(uid::text || d::text || p_mode));
   select count(*) into used from attempts where user_id = uid and play_date = d and mode = p_mode;
-  select 5 + count(*) into allowed from bonuses where user_id = uid and play_date = d and mode = p_mode;
+  select public.daily_try_limit(uid) + count(*) into allowed from bonuses where user_id = uid and play_date = d and mode = p_mode;
   if used >= allowed then raise exception 'no_tries_left'; end if;
 
   insert into attempts (user_id, play_date, mode, score, detail)

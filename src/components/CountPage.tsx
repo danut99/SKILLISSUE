@@ -1,3 +1,5 @@
+import { ResponsiveSection } from './ResponsiveSection';
+import { recordPlayStarted, recordBonusCompleted } from '../lib/engagementTracking';
 import { BonusGameReaction } from './BonusGameReaction';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from '../lib/auth';
@@ -48,6 +50,7 @@ function CountSession({ date }: { date: string }) {
       if (!alive.current) return;
       const reserved = d.attempts.find(a => a.id === id.current);
       if (!reserved || reserved.answers) throw new Error('This attempt is already used. Reload your tries.');
+      recordPlayStarted('count');
       setDay(d); setRound(0); setAnswers([]); setGuess(''); setPhase('get-ready');
     } catch (e) { if (alive.current) setError(e instanceof Error ? e.message : 'Could not start.'); }
     finally { starting.current = false; if (alive.current) setBusy(false); }
@@ -92,7 +95,7 @@ function CountSession({ date }: { date: string }) {
   const finish = useCallback(async () => {
     if (starting.current || !id.current || answers.length !== COUNT_ROUNDS) return;
     starting.current = true; setBusy(true); setError('');
-    try { const d = await saveCount(date, id.current, answers); if (alive.current) { setDay(d); setPhase('result'); useUi.getState().refreshBoards(); } }
+    try { const d = await saveCount(date, id.current, answers); if (alive.current) { recordBonusCompleted('count'); setDay(d); setPhase('result'); useUi.getState().refreshBoards(); } }
     catch (e) { if (alive.current) setError(e instanceof Error ? e.message : 'Could not save.'); }
     finally { starting.current = false; if (alive.current) setBusy(false); }
   }, [answers, date]);
@@ -108,11 +111,11 @@ function CountSession({ date }: { date: string }) {
   const result = day?.attempts.at(-1);
   const correct = dotCount(date, round), previous = answers[round];
   const dots = countDots(date, round);
-  return <section className="screen count-page balance-page">
+  return <section className="screen game-screen count-page balance-page" data-mobile-playing={active}>
     <header className="balance-heading"><div><p className="balance-day">Daily perception #{dayNumber(date)}</p><h1>COUNT FAST</h1><p>Start small. Count more each round.</p></div>
       {day && <div className="balance-daily-progress"><p>{left} tries left</p><small>Best today {best} / 100</small></div>}
     </header>
-    <div className="count-layout">
+    <div className={`count-layout count-phase-${phase}`}>
       <div className="card px-box count-play">
         <p className="count-round">{active ? `Round ${round + 1} / ${COUNT_ROUNDS}` : 'Five rounds. Trust your eyes.'}</p>
         <div className="count-field">
@@ -120,7 +123,7 @@ function CountSession({ date }: { date: string }) {
             {dots.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r="11" fill="currentColor" />)}
           </svg> : <div className="count-message">
             <strong>{phase === 'get-ready' ? 'Ready?' : phase === 'answer' ? '?' : phase === 'result' ? `${result?.score ?? 0}/100` : '● ● ●'}</strong>
-            {phase === 'result' ? <BonusGameReaction mode="count" score={result?.score ?? 0} seed={`${date}:${result?.id ?? ''}`} /> : <span>{phase === 'get-ready' ? 'Watch the middle.' : phase === 'answer' ? 'How many did you see?' : `Dots appear for ${COUNT_FLASH_MS / 1000} seconds.`}</span>}
+            {phase === 'result' ? <span>Daily attempt complete.</span> : <span>{phase === 'get-ready' ? 'Watch the middle.' : phase === 'answer' ? 'How many did you see?' : `Dots appear for ${COUNT_FLASH_MS / 1000} seconds.`}</span>}
           </div>}
         </div>
         <div className="count-controls" aria-live="polite">
@@ -134,14 +137,14 @@ function CountSession({ date }: { date: string }) {
               ? <button className="btn btn-primary" disabled={busy} onClick={() => void finish()}>{busy ? 'Saving...' : 'Retry saving'}</button>
               : <p role="status">{busy ? 'Saving your result...' : 'Finishing your last round...'}</p>)}</>}
           {phase === 'result' && <><p>Best today: {best}/100</p><button className="btn btn-primary" disabled={!left} onClick={() => { id.current = null; setPhase('ready'); }}>Play again ({left} left)</button>
-            <button className="btn btn-ghost" onClick={() => void copyText(`COUNT FAST: ${result?.score ?? 0}/100. How sharp are your eyes? ${siteUrl()}#count`).then(ok => toast(ok ? 'Result copied!' : 'Could not copy.'))}>Copy result</button></>}
+            <div className="result-secondary count-result-secondary"><ResponsiveSection title="Details & sharing"><BonusGameReaction mode="count" score={result?.score ?? 0} seed={`${date}:${result?.id ?? ''}`} /><button className="btn btn-ghost" onClick={() => void copyText(`COUNT FAST: ${result?.score ?? 0}/100. How sharp are your eyes? ${siteUrl()}play/count`).then(ok => toast(ok ? 'Result copied!' : 'Could not copy.'))}>Copy result</button></ResponsiveSection></div></>}
           {day && !left && !active && <p>New daily challenge in <Countdown />.</p>}
           {error && <p role="alert" className="party-error">{error}</p>}
           {!day && !error && <p role="status">Loading your daily tries...</p>}
           {error && phase === 'ready' && <button className="btn btn-ghost" onClick={() => setReload(r => r + 1)}>Reload tries</button>}
         </div>
       </div>
-      <aside><div className="card px-box count-help"><h2>Quick eyes. Honest guesses.</h2><p>Count the dots before they disappear, then enter your answer. Each round gives you 10 seconds to answer.</p><p>Exact count: 20 points. Each dot off: −5 points, down to zero. Five rounds, up to 100 points.</p><p>Five tries per UTC day. Starting, leaving, or refreshing uses a try. Switching tabs during a flash or answer skips that round.</p><p>Same dots for everyone today. Separate from Draw/Cut/Brake totals and Party.</p>{day?.source === 'local' && <p className="balance-note">Progress saved on this device.</p>}</div><CountLeaderboard date={date} /></aside>
+      <aside><ResponsiveSection title="How to play"><div className="card px-box count-help"><h2>Quick eyes. Honest guesses.</h2><p>Count the dots before they disappear, then enter your answer. Each round gives you 10 seconds to answer.</p><p>Exact count: 20 points. Each dot off: −5 points, down to zero. Five rounds, up to 100 points.</p><p>Five tries per UTC day. Starting, leaving, or refreshing uses a try. Switching tabs during a flash or answer skips that round.</p><p>Same dots for everyone today. Separate from Draw/Cut/Brake totals and Party.</p>{day?.source === 'local' && <p className="balance-note">Progress saved on this device.</p>}</div></ResponsiveSection><details className="game-rank-disclosure"><summary>View Count Fast rankings</summary><CountLeaderboard date={date} /></details></aside>
     </div>
   </section>;
 }

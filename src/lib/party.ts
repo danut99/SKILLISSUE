@@ -1,3 +1,4 @@
+import { tokenFromUrl } from './navigation';
 import { isOnline, whenAuthReady } from './auth';
 import { ensureNickname } from './leaderboard';
 import { getSupabase } from './supabase';
@@ -5,7 +6,8 @@ import { MODES, type Mode } from '../config';
 import type { Detail } from './store';
 import type { AttemptResult } from '../games/types';
 
-export const PARTY_REVEAL_SECONDS = 6;
+import { PARTY_REVEAL_SECONDS, PARTY_SECONDS } from './gameRules';
+export { PARTY_REVEAL_SECONDS } from './gameRules';
 export const PARTY_ROUND_COUNTS = Array.from({ length: 11 }, (_, index) => index + 2);
 export const partyModes = (selected?: readonly Mode[]) => {
   const modes = MODES.filter(mode => selected?.includes(mode));
@@ -23,7 +25,7 @@ export const partyRound = (round: number, version = 2, selected?: readonly Mode[
       : ['circle', 'square', 'triangle', 'diamond', 'hexagon', 'triangle'] as const;
     const tier = Math.min(shapes.length - 1, Math.floor(round / (version >= 2 ? modes.length : 2)));
   const mode = version >= 2 ? modes[round % modes.length] : round % 2 === 0 ? 'draw' as const : 'cut' as const;
-    return { mode, shape: shapes[tier], seconds: 16, level: ['Warm-up', 'Corners count', 'Tricky angles', 'Sharp turns', 'Many sides', 'New angles', 'Smooth curves', 'Long sides', 'Seven sides', 'Eight sides', 'Star power', 'Flower power'][tier], complexity: mode === 'cut' ? [0, 3, 6, 7, 8, 9][Math.min(5, tier)] : tier,
+    return { mode, shape: shapes[tier], seconds: PARTY_SECONDS, level: ['Warm-up', 'Corners count', 'Tricky angles', 'Sharp turns', 'Many sides', 'New angles', 'Smooth curves', 'Long sides', 'Seven sides', 'Eight sides', 'Star power', 'Flower power'][tier], complexity: mode === 'cut' ? [0, 3, 6, 7, 8, 9][Math.min(5, tier)] : tier,
       cutShape: version >= 2 ? shapes[tier] : undefined,
     objective: (['wall', 'parking', 'stop-line'] as const)[tier % 3] };
 };
@@ -76,10 +78,11 @@ export function partyStandings(players: PartyPlayer[], revealedThrough: number) 
   return rows.map((row, index) => ({ ...row, rank: rows.findIndex(r => r.total === row.total) + 1, order: index }));
 }
 export function readPartyToken(hash: string): string | null {
+  hash = tokenFromUrl(hash);
   return /^#party\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(hash)?.[1] ?? null;
 }
 export function partyUrl(token: string, base = location.href) {
-  const url = new URL(base); url.search = ''; url.hash = `party/${token}`; return url.href;
+  const url = new URL(base); url.search = ''; url.hash = ''; url.pathname = `/party/${token}`; return url.href;
 }
 const ERRORS: Record<string, string> = {
   invalid_room_code: 'Room code not found or expired. Check the 8-character code.',

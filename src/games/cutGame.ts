@@ -1,5 +1,5 @@
 import { CUT_CHARACTERS, cutCharacterIndex, halfMood, paintCutFace, paintHalfFace, type CutMood } from '../lib/cutCharacters';
-import { drawResultCompanion } from './resultCompanion';
+import { paintCutBlob, paintCutSplit } from './cutPresentation';
 import { sfx } from '../lib/audio';
 import { rngFor } from '../lib/daily';
 import { shapeRadius, type DrawShape } from '../lib/drawShapes';
@@ -96,14 +96,15 @@ interface Piece {
 }
 /** Halves look shocked for a beat, then react to how fair the split was. */
 const SHOCK_MS = 380;
+const CUT_PAUSE_MS = 110;
 
 export function createCutGame(api: GameApi, options?: { complexity?: number; partyShape?: DrawShape }): Game {
   const design = dailyShape(api.date, options?.complexity, options?.partyShape);
   const {poly}=design;
   const face = innerPoint(poly, 6);
   const fs = clamp(face.d / 38, 0.55, 1.2);
-  const fill = design.color;
-  const dark = design.dark;
+
+
 
   let state: 'ready' | 'dragging' | 'done' = 'ready';
   let A: Pt | null = null;
@@ -116,6 +117,7 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
   let display = '';
   let ghost: number[] | null = null;
   let resultSound: ReturnType<typeof setTimeout> | undefined;
+  const reducedMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function drawFace(c: CanvasRenderingContext2D, scared: boolean, sliced: boolean) {
     paintCutFace(c, face.p, fs, design.mood, pointer, scared, sliced);
@@ -128,28 +130,8 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
   }
 
   function drawBlob(c: CanvasRenderingContext2D, p: Pt[]) {
-    pathPoly(c, p);
-    c.fillStyle = fill;
-    c.fill();
-    c.lineJoin = 'round';
-    c.lineWidth = 4;
-    c.strokeStyle = dark;
-    c.stroke();
-    c.save();pathPoly(c,p);c.clip();
-    if(design.pattern==='spots'){
-      c.fillStyle=dark+'44';
-      for(const [dx,dy,r] of [[-48,-40,13],[48,-30,10],[-20,50,9],[70,35,15]]){
-        c.beginPath();c.arc(face.p.x+dx*fs,face.p.y+dy*fs,r*fs,0,Math.PI*2);c.fill();
-      }
-    }else if(design.pattern==='veins'){
-      c.strokeStyle=dark+'66';c.lineWidth=3;c.beginPath();c.moveTo(70,440);c.lineTo(280,230);
-      for(let i=0;i<4;i++){const x=95+i*40,y=415-i*40;c.moveTo(x,y);c.lineTo(x-8,y-35);c.moveTo(x,y);c.lineTo(x+35,y+8);}c.stroke();
-    }else if(design.pattern==='shine'){
-      c.strokeStyle='#ffffff77';c.lineWidth=5;c.beginPath();c.moveTo(face.p.x-45*fs,face.p.y-42*fs);c.lineTo(face.p.x-20*fs,face.p.y-58*fs);c.stroke();
-    }
-    c.restore();
+    paintCutBlob(c, p, design, face.p, fs);
   }
-
   function cut(a: Pt, b: Pt) {
     const sp = splitPolygon(poly, a, b);
     const minShare = Math.min(sp.posArea, sp.negArea) / sp.total;
@@ -194,12 +176,12 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
       drawFace(c, state === 'dragging', false);
       c.restore();
     } else {
-      const t = easeOut(clamp((now - cutAt) / 600, 0, 1));
+      const t = reducedMotion ? 1 : easeOut(clamp((now - cutAt - CUT_PAUSE_MS) / 520, 0, 1));
       for (const pc of pieces) {
-        const off = 16 * t * pc.dir;
+        const off = 18 * t * pc.dir;
         c.save();
         c.translate(pc.centroid.x + normal.x * off, pc.centroid.y + normal.y * off);
-        c.rotate(0.05 * t * pc.dir);
+        c.rotate(reducedMotion ? 0 : 0.035 * t * pc.dir);
         c.translate(-pc.centroid.x, -pc.centroid.y);
         drawBlob(c, pc.poly);
         const other = pieces.find((q) => q !== pc) ?? pc;
@@ -208,20 +190,9 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
         paintHalfFace(c, pc.face.p, clamp(pc.face.d / 32, 0.5, 1.3), since < SHOCK_MS ? 'shocked' : halfMood(score, smaller), other.face.p, since - SHOCK_MS);
         c.restore();
       }
-      for (const pc of pieces) {
-        const off = 16 * t * pc.dir;
-        const label = `${pc.pct.toFixed(1)}%`;
-        // Under each half's face, so the reaction and the number read together.
-        const below = 34 * clamp(pc.face.d / 32, 0.5, 1.3) + 22;
-        text(c, label, pc.face.p.x + normal.x * off, pc.face.p.y + below + normal.y * off, {
-          size: 34,
-          color: '#fff',
-          outline: 6,
-          alpha: clamp((now - cutAt - 200) / 300, 0, 1),
-        });
-      }
+      paintCutSplit(c, pieces[0].pct, pieces[1].pct, reducedMotion ? 1 : clamp((now - cutAt - 260) / 260, 0, 1));
       // slash flash
-      const flash = 1 - clamp((now - cutAt) / 350, 0, 1);
+      const flash = reducedMotion ? 0 : 1 - clamp((now - cutAt) / 220, 0, 1);
       if (flash > 0 && A && B) {
         const [e1, e2] = extend(A, B);
         c.strokeStyle = `rgba(255,255,255,${flash})`;
@@ -245,33 +216,53 @@ export function createCutGame(api: GameApi, options?: { complexity?: number; par
         text(c, "👑 #1's cut", W / 2, 520, { size: 24, color: C.yellow, outline: 4 });
       }
       if (!clean) {
-        text(c, roastFor('cut', { score, detail: {}, at: 0 }), W / 2, 104, { size: 25, maxWidth: W - 32 });
-        drawResultCompanion(c, score, 'cut', display);
+        text(c, score >= 99 ? 'A CUT ABOVE.' : score >= 90 ? 'SO CLOSE.' : 'A LITTLE UNEVEN.', W / 2, 86, { size: 32, color: score >= 90 ? C.green : C.yellow });
+        text(c, roastFor('cut', { score, detail: {}, at: 0 }), W / 2, 120, { size: 18, color: C.muted, maxWidth: W - 32 });
       }
     }
 
     if (state === 'dragging' && A && B) {
       const [e1, e2] = extend(A, B);
       c.save();
-      c.setLineDash([10, 8]);
-      c.strokeStyle = 'rgba(232,241,255,0.35)';
+      c.setLineDash([7, 7]);
+      c.strokeStyle = 'rgba(246,245,237,0.65)';
       c.lineWidth = 2;
       c.beginPath();
       c.moveTo(e1.x, e1.y);
       c.lineTo(e2.x, e2.y);
       c.stroke();
+      // A high-contrast line on the shape, without revealing either area.
+      pathPoly(c, poly);
+      c.clip();
+      c.setLineDash([]);
+      c.strokeStyle = '#142039';
+      c.lineWidth = 7;
+      c.beginPath();c.moveTo(e1.x,e1.y);c.lineTo(e2.x,e2.y);c.stroke();
+      c.strokeStyle = '#fffdf5';
+      c.lineWidth = 3;
+      c.stroke();
       c.restore();
-      c.strokeStyle = C.cyan;
-      c.lineWidth = 4;
+      c.save();
+      c.strokeStyle = '#fffdf5';
+      c.lineWidth = 2;
       c.lineCap = 'round';
       c.beginPath();
       c.moveTo(A.x, A.y);
       c.lineTo(B.x, B.y);
       c.stroke();
+      for (const point of [A, B]) {
+        c.beginPath();c.arc(point.x,point.y,5,0,Math.PI*2);
+        c.fillStyle=C.pink;c.fill();c.strokeStyle='#142039';c.lineWidth=2;c.stroke();
+      }
+      c.restore();
+      if (!clean) {
+        text(c, 'RELEASE TO CUT', W / 2, 92, { size: 29, color: C.text });
+        text(c, 'One line. Make it count.', W / 2, 124, { size: 19, color: C.muted });
+      }
     }
 
     if (state === 'ready' && !clean) {
-      text(c, 'CUT IT 50 / 50', W / 2, 92, { size: 40, color: C.pink, outline: 5 });
+      text(c, 'CUT IT 50 / 50', W / 2, 92, { size: 34, color: C.pink });
       text(c, design.character === undefined ? 'drag one straight line' : design.name, W / 2, 124, { size: 22, color: C.muted });
     }
   }

@@ -1,4 +1,5 @@
 import { MODES, type Mode } from '../config';
+import { tokenFromUrl } from './navigation';
 import type { Attempt, Detail } from './store';
 
 type ChallengeMode = Mode | 'balance';
@@ -13,11 +14,14 @@ export function challengeUrl(base: string, mode: ChallengeMode, date: string, na
     if (typeof value === 'number' && Number.isFinite(value)) params.set(key, String(value));
   }
   if (attempt.detail.fail || attempt.detail.crashed) params.set('fail', '1');
-  url.hash = `${mode}/beat?${params}`;
+  url.hash = '';
+  url.pathname = `/play/${mode}/beat`;
+  url.search = params.toString();
   return url.href;
 }
 
 export function readScoreChallenge(hash: string): ScoreChallenge | null {
+  hash = tokenFromUrl(hash);
   if (hash.length > 1500) return null;
   const match = /^#(draw|cut|brake|balance)\/beat\?(.+)$/.exec(hash);
   if (!match) return null;

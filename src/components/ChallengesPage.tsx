@@ -72,6 +72,6 @@ export function ChallengesPage({ today }: { today: string }) {
         return <button key={target} className={`btn ${target === shape ? 'btn-primary' : 'btn-ghost'}`} aria-pressed={target === shape} onClick={() => setDate(addDays(date, offset))}>{target}</button>;
       })}</div>
     </div>
-    <a className="btn btn-primary" href="#">play today's challenges</a>
+    <a className="btn btn-primary" href="/">play today's challenges</a>
   </section>;
 }

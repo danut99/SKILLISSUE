@@ -1,3 +1,4 @@
+import { routeToken, navigateTo } from '../lib/navigation';
 import { ResponsiveSection } from './ResponsiveSection';
 import { DailyGamesPrompt } from './DailyGamesPrompt';
 import { NICKNAME_RULES, validNickname } from '../lib/nickname';
@@ -28,7 +29,7 @@ function PartyGamePicker({ games, disabled, onChange }: { games: readonly Mode[]
 }
 export function PartyPage() {
   const { status, userId } = useAuth();
-  const [token, setToken] = useState(() => readPartyToken(location.hash));
+  const [token, setToken] = useState(() => readPartyToken(routeToken()));
   const [state, setState] = useState<{ token: string; userId: string | null; room: PartyRoom; offset: number } | null>(null);
   const [nickname, setNickname] = useState(usePlayer.getState().nickname);
   const [error, setError] = useState('');
@@ -36,9 +37,9 @@ export function PartyPage() {
   const [clock, setClock] = useState(Date.now);
   const online = status === 'anon' || status === 'linked';
   useEffect(() => {
-    const update = () => { setToken(readPartyToken(location.hash)); setError(''); };
-    window.addEventListener('hashchange', update);
-    return () => window.removeEventListener('hashchange', update);
+    const update = () => { setToken(readPartyToken(routeToken())); setError(''); };
+    window.addEventListener('skilly:navigate', update);
+    return () => window.removeEventListener('skilly:navigate', update);
   }, []);
   const updateRoom = useCallback((room: PartyRoom, requestStart = Date.now()) => {
     const offset = Date.parse(room.server_now) - (requestStart + Date.now()) / 2;
@@ -74,7 +75,7 @@ export function PartyPage() {
     if (busy) return;
     setBusy(true);
     const before = Date.now();
-    try { const room = await action(); updateRoom(room, before); if(room.reused_room) toast('Reopened your empty lobby. Rooms with other players or match history stay separate.'); if (room.token !== token) { location.hash = `party/${room.token}`; setToken(room.token); } }
+    try { const room = await action(); updateRoom(room, before); if(room.reused_room) toast('Reopened your empty lobby. Rooms with other players or match history stay separate.'); if (room.token !== token) { navigateTo(`/party/${room.token}`); setToken(room.token); } }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not update party.'); }
     finally { setBusy(false); }
   }
@@ -89,7 +90,7 @@ export function PartyPage() {
   }
   async function removePlayer(room: PartyRoom, player?: string) {
     setBusy(true);
-    try { await leavePartyRoom(room.token, player); if (!player) { location.hash = 'party'; setToken(null); } else refresh(); }
+    try { await leavePartyRoom(room.token, player); if (!player) { navigateTo('/party'); setToken(null); } else refresh(); }
     catch(cause) { setError(cause instanceof Error ? cause.message : 'Could not leave room.'); }
     finally { setBusy(false); }
   }
@@ -107,7 +108,7 @@ export function PartyPage() {
   const rule = partyRound(phase.round, gameVersion, selectedGames);
   const standings = partyStandings(room?.players ?? [], phase.kind === 'playing' ? phase.round - 1 : phase.kind === 'finished' ? roundCount - 1 : phase.kind === 'reveal' ? phase.round : -1);
   const winners = standings.filter(p => p.rank === 1);
-  return <section className="screen party-page">
+  return <section className="screen party-page" data-mobile-playing={phase.kind === 'playing' || phase.kind === 'countdown'}>
     <header className="me-hero"><h1>Party Mode</h1><p className="me-sub">Pick your games and match length. 16 seconds each round.</p></header>
     {error && <div className="party-error" role="alert">{error}</div>}
     {!online ? <div className="me-box">{status === 'connecting' ? 'Connecting...' : 'Connect online to play with friends.'}</div> : !token ? <>
@@ -119,7 +120,7 @@ export function PartyPage() {
         <button className="btn btn-primary party-create-button" disabled={busy} onClick={() => void run(() => createPartyRoom())}>{busy ? 'Creating...' : 'Create party'} <span aria-hidden="true">&#8594;</span></button>
         <p className="me-fine">Public by default. Make it private in the lobby.<br />An unused solo lobby is reused. Played rooms stay separate.</p>
       </div>} />
-    </> : !room ? <div className="me-box"><p>{error ? 'Check your connection or create a new party.' : 'Loading party...'}</p><a href="#party">New party</a></div> : <>
+    </> : !room ? <div className="me-box"><p>{error ? 'Check your connection or create a new party.' : 'Loading party...'}</p><a href="/party">New party</a></div> : <>
       <div className="party-room-bar"><span>Room {room.code ?? room.token.slice(0, 6).toUpperCase()} <small>Match {room.match_no}</small></span><button className="btn btn-ghost btn-sm" onClick={() => void copyText(partyUrl(room.token)).then(ok => toast(ok ? 'Room link copied. Send it to your friends!' : 'Could not copy link.'))}>Copy invite</button><button className="btn btn-primary btn-sm" onClick={() => void sharePartyInvite(room).catch(() => toast('Could not share invite.'))}>Share invite</button></div>
       {room.code && <div className="party-code-display"><span>Room code <b>{room.code}</b></span><button className="btn btn-ghost btn-sm" onClick={()=>void copyText(room.code!).then(ok=>toast(ok?'Room code copied.':'Could not copy code.'))}>Copy code</button></div>}
       {room.is_host && phase.kind==='lobby' && <label className="party-public-switch"><input type="checkbox" checked={!(room.is_public??true)} disabled={busy} onChange={e=>void run(()=>setPartyPublic(room.token,!e.target.checked))} /> Private room <small>{room.is_public?'Anyone can find this lobby and join.':'Private: only people with your code or invite link can find this room.'}</small></label>}
@@ -152,7 +153,7 @@ export function PartyPage() {
       </div>}
       {phase.kind === 'finished' && <PartyGallery key={`${room.token}:${room.match_no}`} room={room} round={0} final />}
       {room.joined && room.match_no > 1 && <PartyMatchHistory key={`${room.token}:${userId}:${room.match_no}`} token={room.token} currentMatch={room.match_no} />}
-      <p className="me-fine">{room.joined && (phase.kind === 'lobby' || phase.kind === 'finished') ? <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void removePlayer(room)}>Leave party</button> : <a href="#party">Back to Party</a>} - Your invite link works for 24 hours.</p>
+      <p className="me-fine">{room.joined && (phase.kind === 'lobby' || phase.kind === 'finished') ? <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => void removePlayer(room)}>Leave party</button> : <a href="/party">Back to Party</a>} - Your invite link works for 24 hours.</p>
     </>}
   </section>;
 }

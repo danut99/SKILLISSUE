@@ -1,5 +1,6 @@
 import { LeagueCareer } from './LeaguePage';
 import { RankCalendar } from './RankCalendar';
+import { ProgressChartsBoundary } from './ProgressChartsBoundary';
 import { lazy, Suspense, type ReactNode } from 'react';
 const ProgressCharts = lazy(() => import('./ProgressCharts'));
 import { CAR_SKINS, MODE_INFO, MODES, type Mode } from '../config';
@@ -27,8 +28,8 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
     <section className="screen me-page profile-page">
 
       <header className="me-hero">
-        <p className="me-eyebrow">your logbook</p>
-        <h1>My Skilly</h1>
+        <p className="me-eyebrow">A LITTLE BETTER. EVERY DAY.</p>
+        <h1>Your next best starts here.</h1>
         <p className="me-sub">{nickname ? `Playing as ${nickname}` : 'Your scores, progress and daily places.'}</p>
       </header>
 
@@ -44,7 +45,7 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
       <LeagueCareer date={date} />
       <div className="profile-overview">
         <div className="profile-progress-column">
-      <Suspense fallback={<p role="status">Loading progress charts...</p>}><ProgressCharts date={date}><div className="progress-lifetime"><h3 className="progress-chart-title">Overall stats</h3>        <dl className="me-stats">
+      <section className="me-section"><h2 className="me-label"><span>Overall stats</span></h2><div className="me-box progress-lifetime"><dl className="me-stats">
           <div>
             <dt>Current streak</dt>
             <dd>{streak}</dd>
@@ -63,7 +64,8 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
           </div>
         </dl>
         <p className="me-note">Streaks grow when you play on consecutive days.</p>
-</div></ProgressCharts></Suspense>
+</div></section>
+      <ProgressChartsBoundary><Suspense fallback={<p role="status">Loading progress charts...</p>}><ProgressCharts date={date} /></Suspense></ProgressChartsBoundary>
         </div>
         <div className="profile-summary-column">
       <RankCalendar date={date} />
@@ -89,7 +91,7 @@ export function MePage({ date, onPlay }: { date: string; onPlay: (m: Mode) => vo
       <Section label="friends">
         <div className="me-box">
           <p>Compare daily scores with your friends.</p>
-          <a className="btn btn-primary" href="#friends">Invite friends</a>
+          <a className="btn btn-primary" href="/friends">Invite friends</a>
         </div>
       </Section>
 

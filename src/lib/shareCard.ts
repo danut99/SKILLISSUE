@@ -2,7 +2,6 @@ import { savedResultCanvas } from './savedResult';
 import { preloadResultCompanions } from '../games/resultCompanion';
 import { carSprite } from './pixelAssets';
 import { GAME_NAME, MODE_INFO, MODES, type Mode } from '../config';
-import { clipWebsite } from './clipScenes';
 import { C, FONT } from '../games/types';
 import { dayNumber } from './daily';
 import { badgeFor, fmtResult, overallBadge, roastFor, toneFor } from './scoring';
@@ -50,69 +49,42 @@ function txt(
 }
 
 function box(c: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, border: string, fill = C.panel) {
-  c.fillStyle = '#000';
-  c.fillRect(x + 12, y + 12, w, h);
-  c.fillStyle = fill;
-  c.fillRect(x, y, w, h);
-  c.strokeStyle = border;
-  c.lineWidth = 6;
-  c.strokeRect(x + 3, y + 3, w - 6, h - 6);
+  c.beginPath(); c.roundRect(x, y, w, h, 22);
+  c.fillStyle = fill; c.fill(); c.strokeStyle = border; c.lineWidth = 3; c.stroke();
+}
+
+/** Keep the full cut play area, including the separated halves, inside its frame. */
+function drawCutPreview(c: CanvasRenderingContext2D, image: HTMLCanvasElement, x: number, y: number, width: number, height: number) {
+  // Shapes occupy y=174..504; separation, rotation and labels need extra room.
+  const sourceY = 130;
+  const sourceHeight = 430;
+  const padding = 12;
+  const scale = Math.min((width - padding * 2) / 360, (height - padding * 2) / sourceHeight);
+  const w = 360 * scale;
+  const h = sourceHeight * scale;
+  c.drawImage(image, 0, sourceY * image.height / 640, image.width, sourceHeight * image.height / 640,
+    x + (width - w) / 2, y + (height - h) / 2, w, h);
 }
 
 function background(c: CanvasRenderingContext2D) {
-  const glow = c.createLinearGradient(0, 0, CW, CH);
-  glow.addColorStop(0, '#172347');
-  glow.addColorStop(.5, '#080d20');
-  glow.addColorStop(1, '#2a1039');
-  c.fillStyle = glow;
-  c.fillRect(0, 0, CW, CH);
-  c.strokeStyle = C.grid;
-  c.lineWidth = 2;
-  c.beginPath();
-  for (let x = 0; x <= CW; x += 60) {
-    c.moveTo(x, 0);
-    c.lineTo(x, CH);
-  }
-  for (let y = 0; y <= CH; y += 60) {
-    c.moveTo(0, y);
-    c.lineTo(CW, y);
-  }
-  c.stroke();
-  c.fillStyle = C.pink;
-  c.fillRect(120, 175, 9, 1250);
-  c.fillStyle = C.cyan;
-  c.fillRect(120, 175, 840, 9);
-  c.fillStyle = C.pink;
-  c.fillRect(951, 175, 9, 1250);
-  // Decorative pixels can sit outside the content safe area.
-  for (let i = 0; i < 8; i++) {
-    c.fillStyle = i % 2 ? C.cyan : C.pink;
-    c.fillRect(110 + i * 115, 1640 + (i % 3) * 55, 18, 18);
+  c.fillStyle = C.bg; c.fillRect(0, 0, CW, CH);
+  c.fillStyle = C.grid;
+  for (let x = 30; x < CW; x += 60) for (let y = 30; y < CH; y += 60) {
+    c.beginPath(); c.arc(x, y, 2, 0, Math.PI * 2); c.fill();
   }
 }
 
 function header(c: CanvasRenderingContext2D, date: string) {
-  // chromatic logo like the site
-  c.font = `100px ${FONT}`;
-  c.textAlign = 'center';
-  c.textBaseline = 'middle';
-  const y = 248;
-  c.fillStyle = '#000';
-  c.fillText(GAME_NAME, CENTER + 9, y + 9);
-  c.fillStyle = C.pink;
-  c.fillText(GAME_NAME, CENTER + 5, y);
-  c.fillStyle = C.cyan;
-  c.fillText(GAME_NAME, CENTER - 5, y);
-  c.fillStyle = C.text;
-  c.fillText(GAME_NAME, CENTER, y);
-  box(c, CENTER - 378, 315, 756, 100, C.cyan, '#081724');
-  txt(c, clipWebsite(), CENTER, 365, 59, C.cyan, { maxWidth: 700 });
+  c.font = `900 110px ${FONT}`; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.fillStyle = C.text; c.fillText('skilly.', CENTER, 248);
+  box(c, CENTER - 378, 315, 756, 100, '#d7ff5f', '#d7ff5f');
+  txt(c, "THINK YOU'VE GOT SKILL?", CENTER, 365, 48, C.bg, { maxWidth: 700 });
   txt(c, `DAILY #${dayNumber(date)}  /  ${date}`, CENTER - 376, 460, 32, C.muted, { align: 'left', maxWidth: 500 });
 }
 
 function footer(c: CanvasRenderingContext2D, nickname: string) {
-  box(c, CENTER - 378, 1305, 756, 105, C.pink, '#29152f');
-  txt(c, 'YOUR TURN. BEAT THIS.', CENTER, 1358, 65, C.text, { maxWidth: 700 });
+  box(c, CENTER - 378, 1305, 756, 105, '#d7ff5f', '#d7ff5f');
+  txt(c, 'YOUR TURN. BEAT THIS.', CENTER, 1358, 65, C.bg, { maxWidth: 700 });
   txt(c, nickname ? `@${nickname}` : '3 GAMES. ONE EGO.', CENTER, 1450, 36, C.muted, { maxWidth: 700 });
 }
 
@@ -153,7 +125,9 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
     const sx = CENTER - sw / 2;
     box(c, sx - 10, top - 10, sw + 20, sh + 20, info.color, C.bg);
     const image = input.snapshot ?? (a ? savedResultCanvas(m, input.date, a) : null);
-    if (image) {
+    if (image && m === 'cut') {
+      drawCutPreview(c, image, sx, top, sw, sh);
+    } else if (image) {
       // Enlarge the actual play area instead of nesting a tiny full game screen.
       const cropY = m === 'brake' ? 220 : 155;
       const cropH = m === 'brake' ? 380 : 310;
@@ -183,7 +157,8 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
       txt(c, info.name.toUpperCase(), center, 820, 37, info.color, { maxWidth: width - 24 });
       if (best) {
         const image = savedResultCanvas(m, input.date, best);
-        c.drawImage(image, 0, image.height * .28, image.width, image.height * .36, x + 12, 865, width - 24, 180);
+        if (m === 'cut') drawCutPreview(c, image, x + 12, 865, width - 24, 180);
+        else c.drawImage(image, 0, image.height * .28, image.width, image.height * .36, x + 12, 865, width - 24, 180);
       } else {
         txt(c, 'NOT PLAYED', center, 950, 38, C.muted, { maxWidth: width - 24 });
       }
@@ -195,9 +170,6 @@ export async function renderShareCard(input: CardInput): Promise<Blob> {
   }
 
   footer(c, nickname);
-  // CRT scanlines, same vibe as the game
-  c.fillStyle = 'rgba(0,0,0,0.12)';
-  for (let y = 0; y < CH; y += 6) c.fillRect(0, y, CW, 2);
 
   return new Promise((res, rej) => cv.toBlob((b) => (b ? res(b) : rej(new Error('toBlob failed'))), 'image/png'));
 }
