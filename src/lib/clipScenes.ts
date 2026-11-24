@@ -12,7 +12,7 @@ export const CLIP_HOLD_MS = 1200;
 export type ClipMode = Mode | 'balance';
 export interface ClipResult { mode: ClipMode; attempt: Attempt }
 /** `hook` replaces the default challenge line (creator series / custom hook). */
-export interface ClipOptions { hook?: string }
+export interface ClipOptions { hook?: string; format?: 'classic' | 'guess-cut' | 'beat-score' }
 
 const W = 720, H = 1280;
 const SANS = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
@@ -121,6 +121,18 @@ export function createClipPainter(source: HTMLCanvasElement, mode: ClipMode = 'd
  let result: ClipResult | null = null;
  let revealedAt = 0;
  const paint = () => {
+  if (options.format === 'beat-score' && (mode === 'draw' || mode === 'brake')) {
+   const since = result ? performance.now() - revealedAt : 0;
+   paintGameChallenge(c, source, mode, options.hook, result, since);
+   if (result && since >= 1500) paintScoreChallenge(c, result.attempt, Math.min(1, (since - 1500) / 200), mode);
+   return;
+  }
+  if ((options.format === 'guess-cut' || options.format === 'beat-score') && mode === 'cut') {
+   const since = result ? performance.now() - revealedAt : 0;
+   paintGuessCut(c, source, options.hook, result, since);
+   if (options.format === 'beat-score' && result && since >= 1500) paintScoreChallenge(c, result.attempt, Math.min(1, (since - 1500) / 200));
+   return;
+  }
   c.imageSmoothingEnabled = true;
   c.fillStyle = '#101310'; c.fillRect(0, 0, W, H);
   c.drawImage(source, 0, 0, W, H);
@@ -141,4 +153,57 @@ export function createClipPainter(source: HTMLCanvasElement, mode: ClipMode = 'd
  };
  const reveal = (value: ClipResult) => { if (!result) { result = value; revealedAt = performance.now(); } };
  return { canvas, paint, reveal };
+}
+
+function paintScoreChallenge(c: CanvasRenderingContext2D, attempt: Attempt, alpha: number, mode: Mode = 'cut') {
+ c.save();c.globalAlpha=alpha;
+ c.fillStyle='rgba(16,19,16,.96)';c.fillRect(0,132,W,H-132);
+ drawOutlined(c,'THINK YOU CAN DO BETTER?',350,34,'#c1cbb8');
+ drawOutlined(c,mode==='draw'?'DRAW IT BETTER':mode==='brake'?'CAN YOU STOP CLOSER?':'BEAT THIS SCORE',440,58,'#d7ff5f');
+ drawOutlined(c,mode==='brake'?fmtResult(mode,attempt):mode==='draw'?`${attempt.score.toFixed(1)}%`:clipScoreText(attempt),570,86,'#f6f5ed');
+ drawOutlined(c,mode==='cut'?`My split: ${fmtResult('cut',attempt)}`:mode==='draw'?'My drawing accuracy':`Driving score: ${clipScoreText(attempt)}`,662,30,'#c1cbb8');
+ c.fillStyle='#d7ff5f';c.beginPath();c.roundRect(60,796,W-120,102,22);c.fill();
+ c.font=`800 42px ${SANS}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#202120';
+ const website=clipWebsite();const width=c.measureText(website).width;
+ if(width>W-168)c.font=`800 ${42*(W-168)/width}px ${SANS}`;
+ c.fillText(website,W/2,847);
+ c.font=`500 27px ${SANS}`;c.fillStyle='#c1cbb8';c.fillText('Your turn. Free to play.',W/2,956);
+ c.restore();
+}
+
+/** Draw keeps the whole outline; Brake keeps the full road and stopping measurement. */
+function paintGameChallenge(c: CanvasRenderingContext2D, source: HTMLCanvasElement, mode: 'draw' | 'brake', hook: string | undefined, result: ClipResult | null, since: number) {
+ c.fillStyle='#101310';c.fillRect(0,0,W,H);
+ drawWatermark(c);
+ const revealed=!!result&&since>=450;
+ drawOutlined(c,hook||(mode==='draw'?'How steady is YOUR hand?':'When would YOU brake?'),185,40,'#f6f5ed');
+ drawOutlined(c,revealed&&result?(mode==='draw'?`${result.attempt.score.toFixed(1)}% accuracy`:fmtResult('brake',result.attempt)):(mode==='draw'?'One stroke. No undo.':'One tap. Make it count.'),255,38,revealed?'#d7ff5f':'#c1cbb8');
+ if(mode==='draw') c.drawImage(source,0,source.height*145/640,source.width,source.height*360/640,40,310,640,640);
+ else c.drawImage(source,0,0,source.width,source.height,174,310,372,661);
+ c.fillStyle='#d7ff5f';c.beginPath();c.roundRect(60,1048,W-120,76,20);c.fill();
+ c.font=`800 32px ${SANS}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#202120';
+ c.fillText(mode==='draw'?'Your turn. Draw today’s shape.':'Your turn. Try today’s drive.',W/2,1086);
+ c.font=`700 27px ${SANS}`;c.fillStyle='#f6f5ed';c.fillText(clipWebsite(),W/2,1160);
+ c.font=`500 22px ${SANS}`;c.fillStyle='#c1cbb8';c.fillText('Free to play. No signup needed.',W/2,1202);
+}
+
+/** An alternate Cut edit: invite a prediction, then reveal the actual split. */
+function paintGuessCut(c: CanvasRenderingContext2D, source: HTMLCanvasElement, hook: string | undefined, result: ClipResult | null, since: number) {
+ c.fillStyle='#101310';c.fillRect(0,0,W,H);
+ drawWatermark(c);
+ const revealed = !!result && since >= 450;
+ drawOutlined(c, revealed ? 'HOW CLOSE WAS YOUR GUESS?' : hook || 'Where would YOU cut?', 185, 40, '#f6f5ed');
+ if (revealed && result) {
+  drawOutlined(c, fmtResult('cut',result.attempt), 265, 68, '#d7ff5f');
+ } else {
+  drawOutlined(c, result ? 'Your answer is locked in.' : 'One straight cut. Two equal halves.', 255, 28, '#c1cbb8');
+ }
+ // Crop only the shape region; the game headings and result strip aren't duplicated.
+ const sw=source.width, sh=source.height;
+ c.drawImage(source,0,sh*145/640,sw,sh*390/640,40,310,640,693);
+ c.fillStyle='#d7ff5f';c.beginPath();c.roundRect(60,1048,W-120,76,20);c.fill();
+ c.font=`800 32px ${SANS}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#202120';
+ c.fillText(revealed?'Your turn. Cut today’s shape.':'Pick your line before the reveal.',W/2,1086);
+ c.font=`700 27px ${SANS}`;c.fillStyle='#f6f5ed';c.fillText(clipWebsite(),W/2,1160);
+ c.font=`500 22px ${SANS}`;c.fillStyle='#c1cbb8';c.fillText('Free to play. No signup needed.',W/2,1202);
 }

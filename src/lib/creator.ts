@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { MODE_INFO, type Mode } from '../config';
+import { type Mode } from '../config';
 import { addDays, dayNumber } from './daily';
 import { dailyDrawShape } from './drawShapes';
 import type { ClipOptions } from './clipScenes';
@@ -12,18 +12,22 @@ import type { ClipTiming } from './clip';
  */
 interface CreatorState {
   enabled: boolean;
+  postingGame: Mode | null;
+  setPostingGame: (mode: Mode) => void;
   /** Hide companions, ads and extra UI while playing, for clean screen recordings. */
   clean: boolean;
   /** "Day N of trying…" series text on clips; counts from this UTC date. */
   seriesStart: string | null;
   /** Custom hook replacing the default opening title (blank = default). */
   hook: string;
+  format: 'classic' | 'guess-cut' | 'beat-score';
   /** Calendar days already posted. */
   posted: Record<string, boolean>;
   setEnabled: (enabled: boolean) => void;
   setClean: (clean: boolean) => void;
   setSeriesStart: (date: string | null) => void;
   setHook: (hook: string) => void;
+  setFormat: (format: 'classic' | 'guess-cut' | 'beat-score') => void;
   togglePosted: (date: string) => void;
 }
 
@@ -31,14 +35,18 @@ export const useCreator = create<CreatorState>()(
   persist(
     (set) => ({
       enabled: false,
+      postingGame: null,
+      setPostingGame: (postingGame) => set({ postingGame }),
       clean: false,
       seriesStart: null,
       hook: '',
+      format: 'classic',
       posted: {},
       setEnabled: (enabled) => set({ enabled }),
       setClean: (clean) => set({ clean }),
       setSeriesStart: (seriesStart) => set({ seriesStart }),
       setHook: (hook) => set({ hook: hook.slice(0, 40) }),
+      setFormat: (format) => set({ format }),
       togglePosted: (date) => set((s) => ({ posted: { ...s.posted, [date]: !s.posted[date] } })),
     }),
     { name: 'skillissue:creator' },
@@ -57,9 +65,11 @@ export function seriesDay(seriesStart: string, date: string): number {
 
 /** Clip challenge line for the creator's recordings: custom hook > series > default. */
 export function creatorClipOptions(mode: Mode, date: string): ClipOptions {
-  const { enabled, seriesStart, hook } = useCreator.getState();
+  const { enabled, seriesStart, hook, format } = useCreator.getState();
   if (!enabled) return {};
-  if (hook.trim()) return { hook: hook.trim() };
+  const selected = format === 'beat-score' ? format : mode === 'cut' && format === 'guess-cut' ? format : 'classic' as const;
+  if (hook.trim()) return { hook: hook.trim(), format: selected };
+  if (selected !== 'classic') return { format: selected };
   if (seriesStart) return { hook: `Day ${seriesDay(seriesStart, date)} of trying to ${SERIES_GOAL[mode].toLowerCase()}` };
   return {};
 }
@@ -100,20 +110,37 @@ export function calendar(today: string, before = 3, after = 10): CalendarDay[] {
 /** Three caption styles to rotate, so posts don't all read the same. */
 export function captionVariants(mode: Mode, date: string, result: string | null, site: string): string[] {
   const { seriesStart } = useCreator.getState();
-  const game = mode === 'draw' ? `draw today's ${dailyDrawShape(date)}` : mode === 'cut' ? 'cut this blob 50/50' : 'stop at the perfect spot';
-  const score = result ? ` I got ${result}.` : '';
-  const tags = `#skilly #skillissue #${MODE_INFO[mode].name.toLowerCase()} #challenge #game #fyp`;
-  const series = seriesStart ? `Day ${seriesDay(seriesStart, date)} of trying to ${game} 😤` : `Trying to ${game} 😤`;
-  const opener = mode === 'cut'
-    ? `Pause & guess: where would YOU cut this blob 50/50? 👀 Everyone on Earth got it today.${score} Comment your split 👇`
-    : `Everyone on Earth got this exact challenge today.${score} Can you beat it? Comment your score 👇`;
-  return [
-    `${opener}\n🎮 ${site}\n${tags}`,
-    `5 tries to ${game}. Try 5 broke me 💀${score}\nComment your score 👇\n🎮 ${site}\n${tags}`,
-    `${series}${score}\nSame challenge for everyone, new one every day.\n🎮 ${site}\n${tags}`,
-  ];
+  const shape = dailyDrawShape(date);
+  const subject = mode === 'cut' ? 'cut this shape 50/50' : mode === 'draw' ? `draw a perfect ${shape}` : 'nail the perfect stop';
+  const score = result ? mode === 'cut' ? `My split: ${result}.` : mode === 'draw' ? `My accuracy: ${result}.` : `My stop: ${result}.` : '';
+  const hooks: Record<Mode, [string, string, string]> = {
+    cut: [
+      'Where would YOU cut this 50/50? Pick your line before the reveal.',
+      'One straight cut. Two equal halves. Harder than it looks.',
+      'A new shape. Another chance to get that perfect 50/50.',
+    ],
+    draw: [
+      `Could you draw this ${shape} in one stroke? No ruler. No undo.`,
+      `Drawing a ${shape} sounds easy. Keeping it perfect is the hard part.`,
+      `Today’s test: one ${shape}, one steady hand. Tomorrow, a fresh challenge.`,
+    ],
+    brake: [
+      'When would YOU hit the brakes? Pick your moment before the stop.',
+      'One tap to brake. Too early or too late? Watch the final distance.',
+      'Same car. Same road. A fresh chance to get the timing right.',
+    ],
+  };
+  const invitations: Record<Mode, [string, string, string]> = {
+    cut: ['Where would your line go?', 'Can you get closer to 50/50?', 'Try today’s shape and share your split.'],
+    draw: ['How steady is your hand?', 'Can you draw it more accurately?', 'Try today’s shape and share your accuracy.'],
+    brake: ['Would you brake earlier or later?', 'Can you stop closer to the target?', 'Try today’s drive and share your distance.'],
+  };
+  const tags = `#skilly #skillissue #${mode === 'draw' ? 'drawingchallenge' : mode === 'cut' ? '5050challenge' : 'timingchallenge'} #dailychallenge`;
+  return hooks[mode].map((hook, index) => {
+    const opening = index === 2 && seriesStart ? `Day ${seriesDay(seriesStart, date)} of trying to ${subject}.` : hook;
+    return [opening, score, invitations[mode][index], `Play free: ${site}`, tags].filter(Boolean).join('\n');
+  });
 }
-
 // ---------------------------------------------------------------------------
 // Every try's clip, kept on this device (IndexedDB) for the creator studio.
 // ---------------------------------------------------------------------------

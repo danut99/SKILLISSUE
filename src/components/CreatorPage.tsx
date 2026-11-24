@@ -33,10 +33,10 @@ export function CreatorPage({ date, onPlay }: { date: string; onPlay: (mode: Mod
 
 function Studio({ date, onPlay }: { date: string; onPlay: (mode: Mode) => void }) {
   const creator = useCreator();
-  const focusMode = () => planFor(date).mode;
   const days = usePlayer((s) => s.days);
   const plan = planFor(date);
-  const [focus, setFocus] = useState<Mode>(plan.mode);
+  const focus = creator.postingGame ?? plan.mode;
+  const focusMode = () => focus;
   const [clips, setClips] = useState<StoredClip[]>([]);
   const [version, setVersion] = useState(0);
   useEffect(() => { void loadCreatorClips(date).then(setClips); }, [date, version]);
@@ -50,11 +50,15 @@ function Studio({ date, onPlay }: { date: string; onPlay: (mode: Mode) => void }
       <header className="page-intro"><span className="eyebrow">MAKE SOMETHING WORTH SHARING</span><h1>Creator studio<span>.</span></h1><p>Record a try, pick your best moment, and give people a score to beat.</p></header>
 
       <div className="card px-box creator-today">
+        <fieldset className="creator-game-picker">
+          <legend>Which game do you want to post?</legend>
+          <div>{MODES.map(mode => <label key={mode} className={focus === mode ? 'selected' : ''}><input type="radio" name="posting-game" value={mode} checked={focus === mode} onChange={() => creator.setPostingGame(mode)} /><PixelIcon name={mode} size={28} /><span>{MODE_INFO[mode].name}</span></label>)}</div>
+        </fieldset>
         <div className="eyebrow">today · #{dayNumber(date)} · {dayLabel(date)}</div>
-        <h3><PixelIcon name={plan.mode} size={32} /> {MODE_INFO[plan.mode].name}: {plan.idea.title}</h3>
-        <p>{plan.idea.how}</p>
+        <h3><PixelIcon name={focus} size={32} /> {MODE_INFO[focus].name}{focus === plan.mode ? `: ${plan.idea.title}` : ': give them a score to beat'}</h3>
+        <p>{focus === plan.mode ? plan.idea.how : focus === 'draw' ? 'Record your drawing, reveal the accuracy, and challenge viewers to draw it better.' : focus === 'brake' ? 'Record your stop, show the distance, and challenge viewers to get closer.' : 'Record a cut, reveal the split, and challenge viewers to get closer to 50/50.'}</p>
         <div className="creator-row">
-          <button className="btn btn-primary" onClick={() => onPlay(plan.mode)}>Play {MODE_INFO[plan.mode].name} & record</button>
+          <button className="btn btn-primary" onClick={() => onPlay(focus)}>Play {MODE_INFO[focus].name} & record</button>
           <label className="creator-check"><input type="checkbox" checked={!!creator.posted[date]} onChange={() => creator.togglePosted(date)} /> posted today</label>
         </div>
       </div>
@@ -62,9 +66,7 @@ function Studio({ date, onPlay }: { date: string; onPlay: (mode: Mode) => void }
       <div className="card px-box">
         <div className="creator-head">
           <h3>Captions</h3>
-          <div className="creator-tabs" role="group" aria-label="Caption game">
-            {MODES.map((m) => <button key={m} aria-pressed={focus === m} onClick={() => setFocus(m)}>{MODE_INFO[m].name}</button>)}
-          </div>
+          <span className="muted">{MODE_INFO[focus].name}</span>
         </div>
         {captions.map((caption, i) => (
           <div className="creator-caption" key={i}>
@@ -74,10 +76,18 @@ function Studio({ date, onPlay }: { date: string; onPlay: (mode: Mode) => void }
         ))}
       </div>
 
-      <TodayClips date={date} clips={clips} onChange={() => setVersion((v) => v + 1)} />
+      <TodayClips key={focus} date={date} clips={clips.filter(clip => clip.mode === focus)} onChange={() => setVersion((v) => v + 1)} />
 
       <div className="card px-box creator-settings">
         <h3>Recording</h3>
+        <label className="creator-field">Video format
+          <select value={creator.format ?? 'classic'} onChange={e => creator.setFormat(e.target.value as 'classic' | 'guess-cut' | 'beat-score')}>
+            <option value="classic">Classic — current format</option>
+            <option value="guess-cut" disabled={focus !== 'cut'}>Guess the cut — Cut only</option>
+            <option value="beat-score">Beat this score — challenge ending</option>
+          </select>
+        </label>
+        <p className="muted">Beat this score adapts to each game: split, drawing accuracy, or stopping distance, followed by a challenge ending. Guess the cut is exclusive to Cut. These apply to new recordings; saved videos stay unchanged.</p>
         <label className="creator-check"><input type="checkbox" checked={creator.clean} onChange={(e) => creator.setClean(e.target.checked)} /> Clean screen: hide ads, companions and leaderboards while playing</label>
         <label className="creator-check">
           <input type="checkbox" checked={!!creator.seriesStart} onChange={(e) => creator.setSeriesStart(e.target.checked ? date : null)} />
@@ -88,7 +98,7 @@ function Studio({ date, onPlay }: { date: string; onPlay: (mode: Mode) => void }
           Custom top line (replaces the series line and the default challenge; leave empty to use them)
           <input value={creator.hook} maxLength={40} placeholder="e.g. my mom vs me 😤" onChange={(e) => creator.setHook(e.target.value)} />
         </label>
-        <p className="creator-video-note">New recordings use the Skilly wordmark, readable scores and a clear challenge. Existing saved clips keep their original design.</p><p className="muted">Your clips will open with: <b>"{creatorClipOptions(focusMode(), date).hook ?? clipHook(focusMode(), dayNumber(date))}"</b></p>
+        <p className="creator-video-note">New recordings use the Skilly wordmark, readable scores and a clear challenge. Existing saved clips keep their original design.</p><p className="muted">Your clips will open with: <b>"{creatorClipOptions(focusMode(), date).hook ?? (['guess-cut', 'beat-score'].includes(creatorClipOptions(focusMode(), date).format ?? '') ? (focus === 'draw' ? 'How steady is YOUR hand?' : focus === 'brake' ? 'When would YOU brake?' : 'Where would YOU cut?') : clipHook(focusMode(), dayNumber(date)))}"</b></p>
       </div>
 
       <CalendarList date={date} />

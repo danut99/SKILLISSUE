@@ -1,7 +1,21 @@
 import { beforeEach, expect, it } from 'vitest';
 import { calendar, captionVariants, creatorClipOptions, planFor, useCreator } from './creator';
 
-beforeEach(() => useCreator.setState({ enabled: true, clean: false, seriesStart: null, hook: '', posted: {} }));
+beforeEach(() => useCreator.setState({ enabled: true, clean: false, seriesStart: null, hook: '', posted: {}, format: 'classic' }));
+
+it('keeps Classic as default, guessing exclusive to Cut, and challenge endings for all games', () => {
+  expect(creatorClipOptions('cut', '2026-11-24')).toEqual({});
+  useCreator.getState().setFormat('guess-cut');
+  expect(creatorClipOptions('cut', '2026-11-24')).toEqual({ format: 'guess-cut' });
+  expect(creatorClipOptions('draw', '2026-11-24')).toEqual({});
+  expect(creatorClipOptions('brake', '2026-11-24')).toEqual({});
+  useCreator.getState().setFormat('beat-score');
+  expect(creatorClipOptions('cut', '2026-11-24')).toEqual({ format: 'beat-score' });
+  expect(creatorClipOptions('draw', '2026-11-24')).toEqual({ format: 'beat-score' });
+  expect(creatorClipOptions('brake', '2026-11-24')).toEqual({ format: 'beat-score' });
+  useCreator.getState().setFormat('classic');
+  expect(creatorClipOptions('cut', '2026-11-24')).toEqual({});
+});
 
 it('plans one post a day, favouring Cut, with varied ideas', () => {
   const days = calendar('2026-11-19', 0, 13);
