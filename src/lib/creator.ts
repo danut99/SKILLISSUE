@@ -138,7 +138,7 @@ export function captionVariants(mode: Mode, date: string, result: string | null,
   const tags = `#skilly #skillissue #${mode === 'draw' ? 'drawingchallenge' : mode === 'cut' ? '5050challenge' : 'timingchallenge'} #dailychallenge`;
   return hooks[mode].map((hook, index) => {
     const opening = index === 2 && seriesStart ? `Day ${seriesDay(seriesStart, date)} of trying to ${subject}.` : hook;
-    return [opening, score, invitations[mode][index], `Play free: ${site}`, tags].filter(Boolean).join('\n');
+    return [opening, score, invitations[mode][index], `Play free in your browser (no app, no download): ${site}`, tags].filter(Boolean).join('\n');
   });
 }
 // ---------------------------------------------------------------------------

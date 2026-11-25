@@ -30,6 +30,7 @@ it('writes a paste-ready caption with the daily hook, result, comment prompt and
  expect(caption).toContain('49.2 / 50.8');
  expect(caption).toContain('Comment your score');
  expect(caption).toContain('skilly.pages.dev');
+ expect(caption).toContain('in your browser');
  expect(clipCaption('brake','2 cm','x.dev',false)).not.toContain('today');
 });
 

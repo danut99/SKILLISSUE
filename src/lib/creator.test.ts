@@ -42,5 +42,6 @@ it('offers three different captions with the score, comment prompt and site', ()
   for (const caption of captions) {
     expect(caption).toContain('49.2 / 50.8');
     expect(caption).toContain('skillissue.lol');
+    expect(caption).toContain('in your browser');
   }
 });

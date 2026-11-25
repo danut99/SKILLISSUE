@@ -47,6 +47,9 @@ export function clipReaction(mode: ClipMode, attempt: Attempt): { text: string; 
  return { text: 'SKILL ISSUE 💀', color: '#ffb2d0' };
 }
 
+/** Viewers otherwise search the App Store / Play Store for the game. */
+export const CLIP_BROWSER_LINE = 'Plays in your browser. No download.';
+
 export function clipWebsite(url=siteUrl()) { try { const u=new URL(url);return u.host+(u.pathname==='/'?'':u.pathname.replace(/\/$/,'')); }catch{return url.replace(/^https?:\/\//,'').replace(/\/$/,'');} }
 
 /** Ready-to-paste TikTok/Instagram caption: the call to action lives here, not in the video. */
@@ -57,7 +60,7 @@ export function clipCaption(mode: Mode, result: string, site: string, today = tr
   draw: `Everyone on Earth got the same shape${when}. I scored ${result} 🎯 Can you draw it better?`,
   brake: `Same car, same road for everyone${when}. My result: ${result} 🚗 Can you stop closer?`,
  }[mode];
- return `${hook}\nComment your score 👇\n🎮 ${site}\n#skilly #skillissue #challenge #game #fyp`;
+ return `${hook}\nComment your score 👇\n🎮 Play free in your browser (no app, no download): ${site}\n#skilly #skillissue #challenge #game #fyp`;
 }
 
 /** TikTok's native caption look: bold white text on a dark rounded pill. */
@@ -104,7 +107,7 @@ export function drawClipFooter(c: CanvasRenderingContext2D) {
  c.fillStyle = '#d7ff5f'; c.beginPath(); c.roundRect(70, 1152, W - 140, 70, 20); c.fill();
  c.font = `800 29px ${SANS}`; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = '#202120';
  c.fillText('Your turn. Beat this.', W / 2, 1187);
- c.font = `500 18px ${SANS}`; c.fillStyle = '#c1cbb8'; c.fillText('Free to play. No signup needed.', W / 2, 1250);
+ c.font = `500 18px ${SANS}`; c.fillStyle = '#c1cbb8'; c.fillText(CLIP_BROWSER_LINE, W / 2, 1250);
  c.restore();
 }
 
@@ -167,7 +170,7 @@ function paintScoreChallenge(c: CanvasRenderingContext2D, attempt: Attempt, alph
  const website=clipWebsite();const width=c.measureText(website).width;
  if(width>W-168)c.font=`800 ${42*(W-168)/width}px ${SANS}`;
  c.fillText(website,W/2,847);
- c.font=`500 27px ${SANS}`;c.fillStyle='#c1cbb8';c.fillText('Your turn. Free to play.',W/2,956);
+ c.font=`500 27px ${SANS}`;c.fillStyle='#c1cbb8';c.fillText('Your turn. Free in your browser, no download.',W/2,956);
  c.restore();
 }
 
@@ -184,7 +187,7 @@ function paintGameChallenge(c: CanvasRenderingContext2D, source: HTMLCanvasEleme
  c.font=`800 32px ${SANS}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#202120';
  c.fillText(mode==='draw'?'Your turn. Draw today’s shape.':'Your turn. Try today’s drive.',W/2,1086);
  c.font=`700 27px ${SANS}`;c.fillStyle='#f6f5ed';c.fillText(clipWebsite(),W/2,1160);
- c.font=`500 22px ${SANS}`;c.fillStyle='#c1cbb8';c.fillText('Free to play. No signup needed.',W/2,1202);
+ c.font=`500 22px ${SANS}`;c.fillStyle='#c1cbb8';c.fillText(CLIP_BROWSER_LINE,W/2,1202);
 }
 
 /** An alternate Cut edit: invite a prediction, then reveal the actual split. */
@@ -205,5 +208,5 @@ function paintGuessCut(c: CanvasRenderingContext2D, source: HTMLCanvasElement, h
  c.font=`800 32px ${SANS}`;c.textAlign='center';c.textBaseline='middle';c.fillStyle='#202120';
  c.fillText(revealed?'Your turn. Cut today’s shape.':'Pick your line before the reveal.',W/2,1086);
  c.font=`700 27px ${SANS}`;c.fillStyle='#f6f5ed';c.fillText(clipWebsite(),W/2,1160);
- c.font=`500 22px ${SANS}`;c.fillStyle='#c1cbb8';c.fillText('Free to play. No signup needed.',W/2,1202);
+ c.font=`500 22px ${SANS}`;c.fillStyle='#c1cbb8';c.fillText(CLIP_BROWSER_LINE,W/2,1202);
 }
